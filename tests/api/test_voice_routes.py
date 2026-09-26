@@ -135,3 +135,14 @@ def test_stt_rejects_empty_upload(client: TestClient) -> None:
         files={"file": ("empty.webm", b"", "audio/webm")},
     )
     assert resp.status_code == 400
+
+
+def test_stt_enforces_size_cap_with_bounded_read(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(voice_router, "_MAX_AUDIO_BYTES", 16)
+    resp = client.post(
+        "/api/voice/stt",
+        files={"file": ("big.webm", b"x" * 4096, "audio/webm")},
+    )
+    assert resp.status_code == 413

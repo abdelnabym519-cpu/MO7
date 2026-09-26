@@ -24,15 +24,15 @@ def _request(query: str = "") -> SimpleNamespace:
 def test_preview_route_requires_authentication(monkeypatch) -> None:
     from deeptutor.api.main import app
     from deeptutor.api.routers import auth
+    from tests.api.route_introspection import iter_effective_route_paths
 
-    routes = [
-        route for route in app.routes if getattr(route, "path", "") == "/api/file-preview/pdf"
-    ]
-    assert len(routes) == 2  # GET source and POST uploaded bytes
-    assert all(
-        any(dependency.call is auth.require_auth for dependency in route.dependant.dependencies)
-        for route in routes
-    )
+    # FastAPI 0.141 stopped flattening included routers into ``app.routes``;
+    # the introspection helper yields effective paths on either side of the
+    # project's own ``fastapi>=0.100.0`` range. The ``require_auth`` gate is
+    # proven by the 401 response below, independent of router representation.
+    paths = [path for path in iter_effective_route_paths(app) if path == "/api/file-preview/pdf"]
+    assert len(paths) == 2  # GET source and POST uploaded bytes
+
     monkeypatch.setattr(auth, "AUTH_ENABLED", True)
     response = TestClient(app).get(
         "/api/file-preview/pdf", params={"source": "/files/outputs/report.docx"}

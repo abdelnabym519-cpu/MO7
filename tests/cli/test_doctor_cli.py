@@ -119,7 +119,9 @@ async def test_storage_probe_failure_is_reported(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_diagnostics_never_render_credentials_or_endpoint_secrets(tmp_path) -> None:
     api_key = "sk-top-secret-value"
-    endpoint = "https://user:password@example.com/v1/path-secret?api_key=query-secret"
+    # Sentinels stay collision-proof on hosts whose checkout temp paths contain
+    # dictionary words (e.g. /home/user/...): they must never render as paths.
+    endpoint = "https://user-secret:password-secret@example.com/v1/path-secret?api_key=query-secret"
 
     report = await run_diagnostics(
         resolve_llm=lambda: _llm_config(
@@ -133,7 +135,7 @@ async def test_diagnostics_never_render_credentials_or_endpoint_secrets(tmp_path
 
     rendered = json.dumps(report.to_dict())
     assert "https://example.com" in rendered
-    for secret in (api_key, "user", "password", "path-secret", "query-secret"):
+    for secret in (api_key, "user-secret", "password-secret", "path-secret", "query-secret"):
         assert secret not in rendered
 
 

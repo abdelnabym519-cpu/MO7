@@ -68,7 +68,9 @@ async def speech_to_text(
     language: str | None = Form(default=None),
 ) -> dict[str, str]:
     """Transcribe an uploaded audio clip using the active STT provider."""
-    audio = await file.read()
+    # Bounded read: cap the in-memory buffer at the limit before enforcing it,
+    # so oversized uploads cannot grow memory beyond _MAX_AUDIO_BYTES + 1.
+    audio = await file.read(_MAX_AUDIO_BYTES + 1)
     if not audio:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty audio upload.")
     if len(audio) > _MAX_AUDIO_BYTES:
