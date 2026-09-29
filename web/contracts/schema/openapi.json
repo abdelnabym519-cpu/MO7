@@ -12453,8 +12453,8 @@
     }
   },
   "info": {
-    "title": "DeepTutor API",
-    "version": "1.0.0"
+    "title": "MO7 API",
+    "version": "1.6.11"
   },
   "openapi": "3.1.0",
   "paths": {

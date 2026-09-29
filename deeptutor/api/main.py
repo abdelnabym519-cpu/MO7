@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from deeptutor.__version__ import __version__ as APP_VERSION
 from deeptutor.logging import configure_logging
 from deeptutor.services.config import (
     ensure_runtime_settings_files,
@@ -402,8 +403,11 @@ async def lifespan(app: FastAPI):
 from deeptutor.services.workspace.activity import WorkspaceActivityMiddleware
 
 app = FastAPI(
-    title="DeepTutor API",
-    version="1.0.0",
+    # Product runtime identity: MO7 is the product; the backend version is the
+    # frozen foundation version, single-sourced from deeptutor/__version__.py
+    # (the old hardcoded "1.0.0" duplicated and contradicted that source).
+    title="MO7 API",
+    version=APP_VERSION,
     lifespan=lifespan,
     # Disable automatic trailing slash redirects to prevent protocol downgrade issues
     # when deployed behind HTTPS reverse proxies (e.g., nginx).
@@ -786,7 +790,7 @@ app.include_router(quiz_judge.router, prefix="/ws", tags=["quiz-judge"])
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to DeepTutor API"}
+    return {"message": "Welcome to MO7 API"}
 
 
 @app.get("/health/live")

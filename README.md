@@ -1,3 +1,15 @@
+# MO7
+
+**MO7** is the product built on the frozen [DeepTutor](https://github.com/HKUDS/DeepTutor) foundation (`v1.6.11`, freeze tag `mo7-foundation-v1.0`).
+
+- Product repository: [abdelnabym519-cpu/MO7](https://github.com/abdelnabym519-cpu/MO7)
+- Product boundary, identity, versioning, configuration, and change rules: [MO7_PRODUCT.md](MO7_PRODUCT.md)
+- Frozen foundation record (what exactly was frozen and how it was validated): [MO7_FOUNDATION_BASELINE.md](MO7_FOUNDATION_BASELINE.md)
+
+The complete upstream DeepTutor documentation follows unchanged below.
+
+---
+
 <div align="center">
 
 <p align="center"><img src="assets/figs/logo/logo.png" alt="DeepTutor logo" height="56" style="vertical-align: middle;">&nbsp;<img src="assets/figs/logo/banner.png" alt="DeepTutor" height="48" style="vertical-align: middle;"></p>
