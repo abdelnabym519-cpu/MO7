@@ -393,7 +393,7 @@ def run_update(repo_root: Path, *, assume_yes: bool) -> int:
         print(f"Changed files: {len(changed_files)}")
     for hint in dependency_hints(changed_files):
         print(f"Next step: {hint}")
-    print("Restart DeepTutor if it is currently running.")
+    print("Restart MO7 if it is currently running.")
     return 0
 
 

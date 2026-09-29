@@ -79,7 +79,7 @@ def can_write(scope: Scope) -> AccessDecision:
             allowed=False,
             reason=(
                 "Configuration cannot be changed from a partner conversation. "
-                "The owner can make this change in DeepTutor directly."
+                "The owner can make this change in MO7 directly."
             ),
         )
     if scope == "personal":

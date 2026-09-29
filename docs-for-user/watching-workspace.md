@@ -8,13 +8,13 @@ The workspace reuses the chat runtime and the existing timed-media APIs. Session
 
 In administrator settings, open the video-learning section, enter the existing instance's backend API origin and public origin, test the connection, and select Invidious as the default provider. Settings are persisted by the application's administrator path service as `video_learning.json`; do not put them in the project `.env` or hard-code them in frontend code.
 
-- `invidious.api_base_url`: an origin reachable by the DeepTutor backend. Loopback is suitable only when the backend and instance share a host network. Containers must use an appropriate service or host address.
+- `invidious.api_base_url`: an origin reachable by the MO7 backend. Loopback is suitable only when the backend and instance share a host network. Containers must use an appropriate service or host address.
 - `invidious.public_base_url`: the same instance's origin reachable by the user's browser/device.
 Private HTTP origins include loopback, LAN and RFC 6598 shared addresses used by overlays such as Tailscale. Public instances must use HTTPS.
 
 - `default_provider`: `invidious` or `youtube`.
 
-DeepTutor continues to proxy media through its authenticated video-learning endpoints. Do not replace the player with an Invidious iframe or relax the stream proxy's allowed-origin checks. Invidious failure remains visible; switching to native YouTube requires the user's explicit action.
+MO7 continues to proxy media through its authenticated video-learning endpoints. Do not replace the player with an Invidious iframe or relax the stream proxy's allowed-origin checks. Invidious failure remains visible; switching to native YouTube requires the user's explicit action.
 
 ## Verify and troubleshoot
 
@@ -41,12 +41,12 @@ conversation; older conversations retain their original material.
 The account workflow reuses the owner-private account store and transport adapter.
 The additional scopes are `GET:feed`, `GET:playlists`, and `GET:playlists/*`.
 Older tokens require reconnection; subscription and playlist mutations are not requested.
-DeepTutor never asks for the Invidious password. Sign in and consent on the configured
+MO7 never asks for the Invidious password. Sign in and consent on the configured
 Invidious site. Revocation failures retain the saved token so disconnect can be retried.
 
 Set the administrator's `api_base_url` to an address reachable by the backend and
 `public_base_url` to the same instance's browser-reachable origin. Set
-`DEEPTUTOR_PUBLIC_URL` in the backend service environment to DeepTutor's canonical
+`DEEPTUTOR_PUBLIC_URL` in the backend service environment to MO7's canonical
 external origin. Restart the backend after changing that environment variable.
 Authorization uses the public instance origin; API requests use the internal origin.
 The callback returns to Watching with a non-sensitive outcome and no token in the

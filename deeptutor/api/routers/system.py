@@ -272,7 +272,7 @@ async def request_managed_update(_request: ManagedUpdateRequest) -> dict[str, An
     if not launcher_available():
         raise HTTPException(
             status_code=409,
-            detail="Web updates require DeepTutor to be running under `deeptutor start`.",
+            detail="Web updates require MO7 to be running under `deeptutor start`.",
         )
     installation = get_update_installation()
     if installation.mode != "pypi" or not installation.automatic_update:
@@ -285,7 +285,7 @@ async def request_managed_update(_request: ManagedUpdateRequest) -> dict[str, An
     except VersionCheckError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
     if not result.update_available:
-        raise HTTPException(status_code=409, detail="No newer DeepTutor release is available")
+        raise HTTPException(status_code=409, detail="No newer MO7 release is available")
     # Re-check installation evidence immediately before reserving the job. A
     # deployment changing underneath this request fails closed.
     confirmed = get_update_installation()
@@ -306,7 +306,7 @@ async def request_managed_update(_request: ManagedUpdateRequest) -> dict[str, An
     if job is None:
         raise HTTPException(
             status_code=409,
-            detail="Finish the active conversation before updating DeepTutor.",
+            detail="Finish the active conversation before updating MO7.",
         )
     return _job_payload(job) or {}
 

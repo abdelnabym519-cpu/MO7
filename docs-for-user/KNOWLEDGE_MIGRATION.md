@@ -1,18 +1,18 @@
 # Knowledge migration guide
 
 This guide covers moving existing notes from Obsidian, Hermes, or another
-Markdown-based tool into DeepTutor. It matches the v1.6.0 Knowledge Center.
+Markdown-based tool into MO7. It matches the v1.6.0 Knowledge Center.
 
 ## Choose a migration path
 
-| Path | What DeepTutor keeps | Best fit | Trade-off |
+| Path | What MO7 keeps | Best fit | Trade-off |
 | --- | --- | --- | --- |
 | Connect an Obsidian vault | A live pointer to the vault | Continue using Obsidian as the source of truth | The vault is not copied into a vector index, so it is not a RAG corpus |
 | Import an indexed knowledge base | Markdown and other supported files copied into `raw/`, then indexed | Search a copied corpus with the selected retrieval engine | Later changes in the original notes are not automatically imported |
 
-DeepTutor has no dedicated one-click Hermes importer. Export Hermes notes as
+MO7 has no dedicated one-click Hermes importer. Export Hermes notes as
 Markdown and follow the imported knowledge base path. Check the export in your
-note tool first; DeepTutor does not convert proprietary formats.
+note tool first; MO7 does not convert proprietary formats.
 
 ## Prepare the source
 
@@ -21,7 +21,7 @@ note tool first; DeepTutor does not convert proprietary formats.
 2. Export notes as `.md` or `.markdown`. Include linked image and document
    assets when your note tool offers that option.
 3. If the app exports HTML or another format, convert it to Markdown outside
-   DeepTutor, inspect a sample, and verify that links and attachments still
+   MO7, inspect a sample, and verify that links and attachments still
    resolve.
 4. Choose one of the two routes in the table above. You can use both: connect
    the live Obsidian vault for note work, and import a copy when you want a
@@ -29,23 +29,23 @@ note tool first; DeepTutor does not convert proprietary formats.
 
 ## Connect Obsidian
 
-Use this path when Obsidian remains your primary editor and you want DeepTutor
+Use this path when Obsidian remains your primary editor and you want MO7
 to browse and add to the same notes.
 
-1. In DeepTutor, open **Knowledge Center**, choose **Create KB**, then select
+1. In MO7, open **Knowledge Center**, choose **Create KB**, then select
    **Link existing** and **Obsidian**.
-2. Enter the absolute path to the vault folder that the DeepTutor server can
+2. Enter the absolute path to the vault folder that the MO7 server can
    reach, for example `/Users/example/Documents/MyVault`. Do not enter a path
    from another machine.
 3. Give the knowledge base a distinct name and connect it.
 4. Select that KB in Chat. Obsidian tools then operate on the selected vault.
 
-DeepTutor creates a pointer rather than an upload or index. It recognizes
+MO7 creates a pointer rather than an upload or index. It recognizes
 Markdown notes, follows vault links and tags, and ignores `.obsidian`,
 `.trash`, and `.git` internals. Writes are additive: notes can be created,
 appended, or given frontmatter properties, but the assistant does not delete or
 rewrite existing note bodies. Deleting the knowledge base removes only the
-DeepTutor pointer; the vault remains untouched.
+MO7 pointer; the vault remains untouched.
 
 For a self-hosted container, mount the host vault so the same path is visible
 inside the server container, then connect the server-visible path. A path valid
@@ -63,7 +63,7 @@ their original location.
 ### Web
 
 1. Export the notes and assets to a local Markdown folder.
-2. In DeepTutor, open **Knowledge Center** and choose **Create KB**.
+2. In MO7, open **Knowledge Center** and choose **Create KB**.
 3. Select **Create new** and a retrieval engine. LlamaIndex is the default;
    choose another engine only when its trade-offs fit the corpus.
 4. Upload files, a folder, or a `.zip` archive.

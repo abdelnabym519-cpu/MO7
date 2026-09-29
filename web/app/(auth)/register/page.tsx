@@ -56,7 +56,7 @@ export default function RegisterPage() {
       {/* Logo / Title */}
       <div className="text-center mb-8">
         <h1 className="font-serif text-2xl font-semibold text-[var(--foreground)] tracking-tight">
-          DeepTutor
+          MO7
         </h1>
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           {t("Create your account")}

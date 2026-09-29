@@ -1,6 +1,6 @@
-# DeepTutor Containerization
+# MO7 Containerization
 
-This document covers deploying DeepTutor from a container image: the
+This document covers deploying MO7 from a container image: the
 recommended `docker run` path, the hardened rootless-Podman path with a
 read-only root filesystem, runtime configuration, the optional PocketBase
 sidecar, and the security notes that motivate the default posture.
@@ -216,7 +216,7 @@ on every recreate. It now mounts the whole tree, matching
 `docker-compose.yml` and `compose.yaml`.
 
 **Before your first `up -d` after upgrading**, copy that state out of the
-running container, or the empty host directories shadow it and DeepTutor
+running container, or the empty host directories shadow it and MO7
 regenerates the auth secret (logging everyone out) and starts with no
 non-admin accounts:
 
@@ -260,7 +260,7 @@ browser ever sees. `public_api_base` is accepted as a compatibility alias
 and normalized into `next_public_api_base_external` on save.
 
 CORS uses frontend **origins**, not API URLs. With auth disabled,
-DeepTutor permits normal HTTP/HTTPS browser origins by default. With
+MO7 permits normal HTTP/HTTPS browser origins by default. With
 auth enabled, add exact frontend origins:
 
 ```json

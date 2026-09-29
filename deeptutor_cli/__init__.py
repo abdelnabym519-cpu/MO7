@@ -1,7 +1,7 @@
 """
-DeepTutor CLI
+MO7 CLI
 =============
 
-Command-line interface for DeepTutor.
+Command-line interface for MO7.
 Supports: ``python -m deeptutor`` or the ``deeptutor`` entry point.
 """

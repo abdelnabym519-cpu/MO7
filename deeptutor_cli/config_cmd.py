@@ -2,7 +2,7 @@
 CLI Config Command
 ==================
 
-View and update DeepTutor configuration.
+View and update MO7 configuration.
 """
 
 from __future__ import annotations

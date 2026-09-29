@@ -1,7 +1,7 @@
 # Immersive Reading extensions
 
 Immersive Reading discovers server-side packages through the
-`deeptutor.reading_extensions` Python entry-point group. DeepTutor ships read
+`deeptutor.reading_extensions` Python entry-point group. MO7 ships read
 aloud, study guidance, vocabulary, quiz, and explicit-target translation
 extensions in this group; when no extension is installed, the Reader does not
 render an extension toolbar.
@@ -56,7 +56,7 @@ class ExampleExtension:
   handler already running in a thread cannot be killed safely, so each
   extension has one private worker and its circuit remains open after a timeout;
   later calls fail fast instead of consuming or queueing work on the process-wide
-  thread pool. Restart DeepTutor after fixing or removing the stuck extension.
+  thread pool. Restart MO7 after fixing or removing the stuck extension.
 - Result data is rendered as React text. Extensions cannot send JavaScript or
   raw HTML to the Reader.
 - Discovery and execution failures are isolated. A broken optional package

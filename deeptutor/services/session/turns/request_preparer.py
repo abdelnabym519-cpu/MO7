@@ -709,10 +709,10 @@ class TurnRequestPreparer:
                 await self.store.transition_turn(
                     turn["id"],
                     "failed",
-                    error="DeepTutor is preparing an update; try again after it reconnects",
+                    error="MO7 is preparing an update; try again after it reconnects",
                     failure_code="rejected",
                 )
-            raise RuntimeError("DeepTutor is preparing an update; try again after it reconnects")
+            raise RuntimeError("MO7 is preparing an update; try again after it reconnects")
         mastery_lease_acquired = False
         if mastery_binding is not None and mastery_lease_managed:
             try:

@@ -119,7 +119,7 @@ class LoopbackCallback:
         async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             status = "404 Not Found"
             body = (
-                "<!doctype html><title>DeepTutor Codex</title>"
+                "<!doctype html><title>MO7 Codex</title>"
                 "<p>This callback path is not available.</p>"
             )
             try:
@@ -135,7 +135,7 @@ class LoopbackCallback:
                     ):
                         status = "400 Bad Request"
                         body = (
-                            "<!doctype html><title>DeepTutor Codex</title>"
+                            "<!doctype html><title>MO7 Codex</title>"
                             "<p>The authentication callback was invalid.</p>"
                         )
                     else:
@@ -149,19 +149,19 @@ class LoopbackCallback:
                         except CodexAuthError:
                             status = "409 Conflict"
                             body = (
-                                "<!doctype html><title>DeepTutor Codex</title>"
+                                "<!doctype html><title>MO7 Codex</title>"
                                 "<p>Authentication could not be received.</p>"
                             )
                         else:
                             status = "200 OK"
                             body = (
-                                "<!doctype html><title>DeepTutor Codex</title>"
-                                "<p>Authentication received. You can return to DeepTutor.</p>"
+                                "<!doctype html><title>MO7 Codex</title>"
+                                "<p>Authentication received. You can return to MO7.</p>"
                             )
             except (ValueError, UnicodeDecodeError, asyncio.IncompleteReadError, TimeoutError):
                 status = "400 Bad Request"
                 body = (
-                    "<!doctype html><title>DeepTutor Codex</title>"
+                    "<!doctype html><title>MO7 Codex</title>"
                     "<p>The authentication callback was invalid.</p>"
                 )
 

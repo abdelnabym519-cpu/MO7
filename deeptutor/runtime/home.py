@@ -19,8 +19,8 @@ def validate_runtime_home(home: str | Path) -> None:
     }
     if resolved in invalid_homes:
         raise ValueError(
-            f"Invalid DeepTutor runtime home: {resolved}. Runtime data must live under "
-            f"{PACKAGE_ROOT / 'data'} without nesting. Start DeepTutor with "
+            f"Invalid MO7 runtime home: {resolved}. Runtime data must live under "
+            f"{PACKAGE_ROOT / 'data'} without nesting. Start MO7 with "
             f"DEEPTUTOR_HOME={PACKAGE_ROOT} from {PACKAGE_ROOT}."
         )
 

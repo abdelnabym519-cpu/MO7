@@ -147,7 +147,7 @@ def run_update_worker(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Apply a managed DeepTutor update")
+    parser = argparse.ArgumentParser(description="Apply a managed installation update")
     parser.add_argument("--store-root", type=Path, required=True)
     parser.add_argument("--parent-pid", type=int, required=True)
     args = parser.parse_args()

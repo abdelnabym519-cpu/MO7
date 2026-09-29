@@ -35,7 +35,7 @@ The full Node frontend test suite reported 1,150 passed and 34 failed. This is *
 - GraphRAG candidate probe sends catalog IDs without activating the model
 - listImaKnowledgeBases sends credentials and preserves pagination
 - IMA credential rejection stays inline instead of redirecting login
-- connectImaKnowledgeBase sends the DeepTutor name and invalidates on success
+- connectImaKnowledgeBase sends the MO7 name and invalidates on success
 - create and re-index send the exact pinned selection and preserve none
 - pending-policy update is JSON-only and creates no indexing request
 - model controls are scoped to built-in LightRAG create/rebuild surfaces

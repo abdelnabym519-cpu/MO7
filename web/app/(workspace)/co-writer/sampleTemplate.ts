@@ -1,8 +1,8 @@
 const FENCE = "```";
 
-export const CO_WRITER_SAMPLE_TEMPLATE = `# DeepTutor Co-Writer
+export const CO_WRITER_SAMPLE_TEMPLATE = `# MO7 Co-Writer
 
-> DeepTutor's built-in writing canvas for notes, reports, tutorials, and AI-assisted drafts.
+> MO7's built-in writing canvas for notes, reports, tutorials, and AI-assisted drafts.
 
 ### Features
 
@@ -10,14 +10,14 @@ export const CO_WRITER_SAMPLE_TEMPLATE = `# DeepTutor Co-Writer
 - Real-time preview for headings, tables, code, math, flowchart, and sequence diagrams
 - AI editing workflows for rewrite, shorten, and expand
 - HTML tag decoding for tags like <sub>, <sup>, <abbr>, and <mark>
-- A practical starter draft for DeepTutor product docs and learning content
+- A practical starter draft for MO7 product docs and learning content
 
 ## Headers (Underline)
 
-DeepTutor Learning Note
+MO7 Learning Note
 =============
 
-DeepTutor Study Outline
+MO7 Study Outline
 -------------
 
 ### Characters
@@ -33,25 +33,25 @@ Superscript: X<sup>2</sup>, Subscript: O<sub>2</sub>
 
 **Abbreviation(link HTML abbr tag)**
 
-The <abbr title="Large Language Model">LLM</abbr> layer powers DeepTutor while the <abbr title="Retrieval Augmented Generation">RAG</abbr> layer provides grounded knowledge support.
+The <abbr title="Large Language Model">LLM</abbr> layer powers MO7 while the <abbr title="Retrieval Augmented Generation">RAG</abbr> layer provides grounded knowledge support.
 
 ### Blockquotes
 
-> DeepTutor helps students turn questions into structured understanding.
+> MO7 helps students turn questions into structured understanding.
 >
-> "Learn deeply, write clearly.", [DeepTutor](#deeptutor-co-writer)
+> "Learn deeply, write clearly.", [MO7](#mo7-co-writer)
 
 ### Links
 
-[DeepTutor Co-Writer](#deeptutor-co-writer "co-writer section")
+[MO7 Co-Writer](#mo7-co-writer "co-writer section")
 
-[DeepTutor Learning Note](#deeptutor-learning-note)
+[MO7 Learning Note](#mo7-learning-note)
 
 [DeepTutor Website](https://deeptutor.info)
 
 [Reference link][deeptutor-doc]
 
-[deeptutor-doc]: #deeptutor-learning-note
+[deeptutor-doc]: #mo7-learning-note
 
 ### Code Blocks
 
@@ -63,7 +63,7 @@ The <abbr title="Large Language Model">LLM</abbr> layer powers DeepTutor while t
 
     from deeptutor.runtime.orchestrator import ChatOrchestrator
     orchestrator = ChatOrchestrator()
-    print("DeepTutor is ready.")
+    print("MO7 is ready.")
 
 #### Python
 
@@ -86,7 +86,7 @@ ${FENCE}
 
 ${FENCE}json
 {
-  "app_name": "DeepTutor",
+  "app_name": "MO7",
   "default_capability": "chat",
   "enabled_tools": ["rag", "web_search", "exec", "reason"],
   "ui": {
@@ -99,7 +99,7 @@ ${FENCE}
 
 ${FENCE}html
 <section class="deeptutor-card">
-  <h1>DeepTutor</h1>
+  <h1>MO7</h1>
   <p>Write, revise, and organize learning content with AI.</p>
 </section>
 ${FENCE}
@@ -108,13 +108,13 @@ ${FENCE}
 
 ![](/logo-ver2.png)
 
-> DeepTutor brand mark used inside the co-writer template.
+> MO7 brand mark used inside the co-writer template.
 
 ### Lists
 
-- DeepTutor Chat
-- DeepTutor Co-Writer
-- DeepTutor Research
+- MO7 Chat
+- MO7 Co-Writer
+- MO7 Research
 
 1. Draft a concept note
 2. Ask AI to refine it
@@ -136,7 +136,7 @@ Research      | Build structured multi-step reports
 
 ### Markdown extras
 
-- [x] Draft a DeepTutor product note
+- [x] Draft a MO7 product note
 - [x] Add references and structure
 - [ ] Polish the final explanation
   - [ ] Check headings
@@ -156,7 +156,7 @@ $$ \\sin(\\alpha)^{\\theta}=\\sum_{i=0}^{n}(x^i + \\cos(f))$$
 
 ${FENCE}flow
 st=>start: Student asks a question
-op=>operation: DeepTutor analyzes intent
+op=>operation: MO7 analyzes intent
 cond=>condition: Need deep workflow?
 chat=>operation: Answer with chat capability
 solve=>operation: Route to deep solve
@@ -172,11 +172,11 @@ ${FENCE}
 ### Sequence Diagram
 
 ${FENCE}seq
-Student->DeepTutor: Ask for help
-DeepTutor->KnowledgeBase: Load context
-Note right of DeepTutor: Collect memory\\nand relevant knowledge
-DeepTutor-->Student: Return guided response
-Student->>DeepTutor: Request rewrite in co-writer
+Student->MO7: Ask for help
+MO7->KnowledgeBase: Load context
+Note right of MO7: Collect memory\\nand relevant knowledge
+MO7-->Student: Return guided response
+Student->>MO7: Request rewrite in co-writer
 ${FENCE}
 
 ### End

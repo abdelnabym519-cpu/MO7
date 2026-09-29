@@ -81,8 +81,9 @@ tests locally (CI provides the service).
 `deeptutor` package & module names, `deeptutor_cli`, CLI name/banner, Docker
 container names + `ghcr.io/hkuds/deeptutor` image references, compose service
 names, `deeptutor/__version__.py` (= 1.6.11), backend protocol marker
-`x-deeptutor-web-protocol-version`, i18n/user-facing "DeepTutor" strings and UI
-links (→ Branding phase), upstream issue references in comments.
+`x-deeptutor-web-protocol-version`, and upstream issue references in comments.
+Product-facing UI strings and metadata are governed by the Phase 24 branding
+pass; their underlying keys and links remain contract-compatible.
 
 **ADAPT (product technical identity, Phase 22 — executed):**
 
@@ -127,6 +128,6 @@ this document `MO7_PRODUCT.md`.
 | Item | Deferred to | Reason |
 |---|---|---|
 | App-update check URL `services/app_update.py` → HKUDS releases | Release phase | MO7 has no release feed yet; repointing now would check a nonexistent feed |
-| UI branding (logos, i18n product strings, About links, CLI banner) | Branding / Customer-UX phase | visual & customer-facing scope |
+| UI branding (product labels, i18n strings, CLI banner) | Phase 24 — Branding & Product Identity | completed as a minimal product-facing pass; logos/assets, foundation package names, release URLs, and protocol links remain unchanged |
 | Docker image naming/registry for MO7 | CI/CD & Release phase | needs release pipeline |
 | Stale `web/contracts/schema/openapi.json` vs exporter output (562 diff lines; missing `file_preview` upload body, `WebContinuityBody`, `capability_once` schemas) | Foundation-tooling maintenance (upstream-lag) | pre-existing on the freeze commit; normalizing is not Phase-22 scope; verified `turn-protocol.json` clean and 2-line `info` transplant is intentional |

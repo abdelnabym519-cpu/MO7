@@ -48,7 +48,7 @@ def _require_exact_version() -> None:
     current = installed_version()
     if current != LIGHTRAG_VERSION:
         raise LightRagContractError(
-            f"DeepTutor requires {LIGHTRAG_DISTRIBUTION}=={LIGHTRAG_VERSION}; found {current}"
+            f"MO7 requires {LIGHTRAG_DISTRIBUTION}=={LIGHTRAG_VERSION}; found {current}"
         )
 
 

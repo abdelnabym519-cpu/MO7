@@ -1,7 +1,7 @@
 # Remote Hermes Agent backend
 
-DeepTutor Connected Agents can call a Hermes Agent gateway without installing a
-Hermes CLI in the DeepTutor container. The backend kind is `hermes_remote` and
+MO7 Connected Agents can call a Hermes Agent gateway without installing a
+Hermes CLI in the MO7 container. The backend kind is `hermes_remote` and
 its display name is **Hermes Agent (remote)**.
 
 ## Configuration
@@ -73,20 +73,20 @@ Session continuity uses both the gateway's documented
 sends the compatibility `X-Hermes-Session` header. Custom `system_prompt` is
 sent on a fresh session or when the history lookup reports that the session is
 gone (404). Every request carries the fixed
-`CONSULT_ORIGIN_INSTRUCTION` recursion guard identifying DeepTutor Connected
+`CONSULT_ORIGIN_INSTRUCTION` recursion guard identifying MO7 Connected
 Agents and telling the gateway agent to answer directly rather than delegate
-back to DeepTutor.
+back to MO7.
 
-The `/v1/runs` API has no image upload field. Attachments and their DeepTutor-
+The `/v1/runs` API has no image upload field. Attachments and their MO7-
 local paths are therefore not sent to the remote gateway.
 
 ## Isolation and security
 
-This backend keeps the Hermes gateway outside the DeepTutor process/container:
-tools run on the gateway host, not in DeepTutor. Scope each DeepTutor chat to
+This backend keeps the Hermes gateway outside the MO7 process/container:
+tools run on the gateway host, not in MO7. Scope each MO7 chat to
 its own returned session id; do not share session ids across users or chats.
 Keep `API_SERVER_KEY` (the gateway's server-side secret) and
-`DEEPTUTOR_HERMES_REMOTE_API_KEY` (the DeepTutor-side env name's value) out of
+`DEEPTUTOR_HERMES_REMOTE_API_KEY` (the MO7-side env name's value) out of
 settings files, logs, event text, and frontend payloads.
 
 Streaming is quiet except for the structured SSE lifecycle exposed by the
