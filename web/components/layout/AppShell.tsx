@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import Image from "next/image";
@@ -20,6 +21,9 @@ import type { ReactNode } from "react";
    desktop and anywhere outside AppShell, so `drawer?.close()` is a no-op there
    rather than a crash. */
 const SidebarDrawerContext = createContext<{ close: () => void } | null>(null);
+
+const DRAWER_FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function useSidebarDrawer() {
   return useContext(SidebarDrawerContext);
@@ -54,6 +58,66 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const close = useCallback(() => setDrawerOpen(false), []);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  // On mobile the drawer is a modal navigation surface: move focus into it,
+  // keep Tab inside it, and return focus to the trigger when it closes. The
+  // closed drawer is already inert above; this completes the keyboard path.
+  useEffect(() => {
+    if (!isMobile || !drawerOpen) {
+      if (!drawerOpen && restoreFocusRef.current) {
+        const trigger = menuButtonRef.current ?? restoreFocusRef.current;
+        restoreFocusRef.current = null;
+        window.requestAnimationFrame(() => trigger?.focus());
+      }
+      return;
+    }
+
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : menuButtonRef.current;
+    const focusFrame = window.requestAnimationFrame(() => {
+      const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(
+        DRAWER_FOCUSABLE_SELECTOR,
+      );
+      focusables?.[0]?.focus();
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(
+        DRAWER_FOCUSABLE_SELECTOR,
+      );
+      if (!focusables?.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [close, drawerOpen, isMobile]);
 
   // Any route change hands the screen back to the content. Compared during
   // render rather than in an effect (same pattern as SessionViewerPanel's
@@ -91,6 +155,10 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
             Tab walks the user into a sidebar they cannot see. This is the
             half `max-md:` cannot express, hence useDevice(). */}
         <div
+          ref={drawerRef}
+          role={isMobile && drawerOpen ? "dialog" : undefined}
+          aria-modal={isMobile && drawerOpen ? "true" : undefined}
+          aria-label={isMobile && drawerOpen ? t("Open navigation") : undefined}
           inert={isMobile && !drawerOpen ? true : undefined}
           className={`max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-xl max-md:transition-transform max-md:duration-200 max-md:ease-out ${
             drawerOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full"
@@ -102,6 +170,7 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">
           <div className="flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 md:hidden">
             <button
+              ref={menuButtonRef}
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label={t("Open navigation")}

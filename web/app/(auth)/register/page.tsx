@@ -153,7 +153,10 @@ export default function RegisterPage() {
 
           {/* Error message */}
           {error && (
-            <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">
+            <p
+              role="alert"
+              className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2"
+            >
               {error}
             </p>
           )}
