@@ -12,10 +12,10 @@ Based on: TODO.md specification
 """
 
 import logging
-import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import tarfile
 import tempfile
 import zipfile
@@ -154,30 +154,47 @@ class TexDownloader:
         except Exception:
             return False
 
-    def _extract_tar(self, tar_path: Path, extract_dir: Path):
-        """Extract tar file safely (prevent ZipSlip/TarSlip)"""
-        with tarfile.open(tar_path, "r:*") as tar:
-            # Safe extraction filter
-            def is_within_directory(directory, target):
-                abs_directory = os.path.abspath(directory)
-                abs_target = os.path.abspath(target)
-                prefix = os.path.commonprefix([abs_directory, abs_target])
-                return prefix == abs_directory
+    @staticmethod
+    def _safe_archive_target(extract_dir: Path, member_name: str) -> Path | None:
+        """Return an archive member's target when it stays under ``extract_dir``."""
+        root = extract_dir.resolve()
+        try:
+            target = (root / member_name).resolve()
+        except (OSError, RuntimeError):
+            return None
+        if target == root or root in target.parents:
+            return target
+        return None
 
+    def _extract_tar(self, tar_path: Path, extract_dir: Path):
+        """Extract regular tar members without allowing path or link escapes."""
+        with tarfile.open(tar_path, "r:*") as tar:
             def safe_members(members):
                 for member in members:
-                    member_path = os.path.join(extract_dir, member.name)
-                    if not is_within_directory(extract_dir, member_path):
-                        print(f"Suspicious file path in tar: {member.name}. Skipping.")
+                    if self._safe_archive_target(extract_dir, member.name) is None:
+                        logger.warning("Skipping unsafe tar member: %s", member.name)
+                        continue
+                    # Links and special files can redirect a later extraction or
+                    # create devices even when their names are inside the root.
+                    if not (member.isfile() or member.isdir()):
+                        logger.warning("Skipping unsupported tar member: %s", member.name)
                         continue
                     yield member
 
             tar.extractall(extract_dir, members=safe_members(tar))
 
     def _extract_zip(self, zip_path: Path, extract_dir: Path):
-        """Extract zip file"""
+        """Extract zip members without allowing path or symlink escapes."""
         with zipfile.ZipFile(zip_path, "r") as zip_file:
-            zip_file.extractall(extract_dir)
+            for member in zip_file.infolist():
+                if self._safe_archive_target(extract_dir, member.filename) is None:
+                    logger.warning("Skipping unsafe zip member: %s", member.filename)
+                    continue
+                mode = (member.external_attr >> 16) & 0o170000
+                if mode == stat.S_IFLNK:
+                    logger.warning("Skipping symlink zip member: %s", member.filename)
+                    continue
+                zip_file.extract(member, extract_dir)
 
     def _find_main_tex(self, directory: Path) -> Path | None:
         """
