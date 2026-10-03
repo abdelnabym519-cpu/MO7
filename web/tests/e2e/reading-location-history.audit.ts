@@ -1,4 +1,42 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Open the collection's contents panel.
+ *
+ * The outline starts closed — "a learner opens a collection to read, and the
+ * page is the thing to show" (`useLearningMode`) — and the panel state is only
+ * persisted in learning mode, so a fresh load (including a reload) starts with
+ * it closed again. Both the material list and the outline live inside it.
+ */
+async function openContents(page: Page) {
+  await page.getByRole("button", { name: "Expand contents", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Collapse contents", exact: true }),
+  ).toBeVisible();
+}
+
+/**
+ * Open the reader's History panel.
+ *
+ * The reader and the companion used to each own a ⋯; they now hand their
+ * actions to the workspace's single ⋯ (`WorkspaceMenu`), so History is reached
+ * from there rather than from a top-level button.
+ */
+async function openHistoryPanel(page: Page) {
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+}
+
+/**
+ * Choose a material from the collection list.
+ *
+ * Exact, because an expanded material's outline rows carry the same title as a
+ * prefix (`1 History material B first`), so a substring match is ambiguous as
+ * soon as that material is the open one.
+ */
+async function selectMaterial(page: Page, title: string) {
+  await page.getByRole("button", { name: title, exact: true }).click();
+}
 
 const MATERIAL_A = "aaaaaaaaaaaaaaaa";
 const MATERIAL_B = "bbbbbbbbbbbbbbbb";
@@ -198,11 +236,11 @@ test("back and forward cross materials, survive reload, and stay session-scoped"
   await page.goto(`/learning/reading/${WORKSPACE_ID}/sessions/${SESSION_ONE}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByText("History A1 text.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Expand contents", exact: true }).click();
+  await openContents(page);
   await page.getByRole("button", { name: "History material A second" }).click();
   await expect(page.getByText("History A2 text.")).toBeVisible();
 
-  await page.getByRole("button", { name: "History material B" }).click();
+  await selectMaterial(page, "History material B");
   await expect(page.getByText("History B1 text.")).toBeVisible();
 
   await page.getByRole("button", { name: "Back", exact: true }).click();
@@ -214,7 +252,10 @@ test("back and forward cross materials, survive reload, and stay session-scoped"
   await expect(page.getByText("History B1 text.")).toBeVisible();
 
   await page.goto(`/learning/reading/${WORKSPACE_ID}/sessions/${SESSION_TWO}`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "History material B" }).click();
+  // A session-scoped history is the point here, so the second session starts
+  // where it always did: with the collection open and material B selectable.
+  await openContents(page);
+  await selectMaterial(page, "History material B");
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
   ).toBeDisabled();
@@ -251,7 +292,7 @@ test("a deleted material remains identifiable and does not block older history",
       .getByRole("alert")
       .filter({ hasText: "Material is no longer available" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "History", exact: true }).click();
+  await openHistoryPanel(page);
   await expect(page.getByText("Deleted reading material")).toBeVisible();
   await expect(page.getByText("Section 2 · Unavailable")).toBeVisible();
 

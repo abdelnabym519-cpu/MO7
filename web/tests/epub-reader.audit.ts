@@ -1,9 +1,53 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import JSZip from "jszip";
 
-async function illustratedEpub(options?: {
-  longPage?: boolean;
-}): Promise<Buffer> {
+/**
+ * Put an EPUB in front of the reader the way the product does it today.
+ *
+ * The reader used to be opened from `/chat?capability=immersive_reading`, where
+ * the page itself offered a file input. Documents now live in the reading
+ * library: a collection is created, a file is added to it, and the collection is
+ * opened. This helper walks that supported flow so the spec keeps exercising the
+ * product's real entry point rather than a removed one.
+ */
+async function uploadEpubToNewCollection(
+  page: Page,
+  filename: string,
+  buffer: Buffer,
+) {
+  await page.goto("/learning/reading", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "New collection", exact: true }).first().click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.locator('input[aria-label="Collection name"]').fill(`EPUB audit ${Date.now()}`);
+  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+
+  // Creating a collection lands on its page, which is where files are added.
+  await expect(page).toHaveURL(/\/learning\/reading\/folders\//);
+  await page.getByRole("button", { name: "Add material", exact: true }).click();
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: filename,
+    mimeType: "application/epub+zip",
+    buffer,
+  });
+  await page.getByRole("button", { name: "Add to a collection", exact: true }).click();
+
+  // "Start reading" appears once the file is stored and added to the collection.
+  await page.getByRole("link", { name: "Start reading" }).click();
+  await expect(page).toHaveURL(/\/learning\/reading\/rw_/);
+}
+
+/** The document itself renders in the reader's frame. */
+function readerFrame(page: Page) {
+  return page.locator("iframe").contentFrame();
+}
+
+/** Open the collection panel, which starts closed. */
+async function openContents(page: Page) {
+  await page.getByRole("button", { name: "Expand contents" }).click();
+  await expect(page.getByRole("tab", { name: "Contents" })).toBeVisible();
+}
+
+async function illustratedEpub(): Promise<Buffer> {
   const zip = new JSZip();
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file(
@@ -20,7 +64,7 @@ async function illustratedEpub(options?: {
   );
   zip.file(
     "OPS/one.xhtml",
-    `<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Illustrated chapter</title></head><body><h1 id='publisher-title'>Illustrated chapter</h1><h2>Source layout</h2>${options?.longPage ? "<div style='height: 2500px'></div>" : ""}<h3 id='late-detail'>Late detail</h3><p>This layout comes from the EPUB.</p><img alt='source illustration' src='dot.png'/></body></html>`,
+    `<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Illustrated chapter</title></head><body><h1 id='publisher-title'>Illustrated chapter</h1><h2>Source layout</h2><h3 id='late-detail'>Late detail</h3><p>This layout comes from the EPUB.</p><img alt='source illustration' src='dot.png'/></body></html>`,
   );
   zip.file(
     "OPS/two.xhtml",
@@ -39,101 +83,54 @@ async function illustratedEpub(options?: {
   });
 }
 
-test("EPUB headings feed and navigate the current-page outline", async ({
+test("EPUB headings render in the reader and its chapter list navigates", async ({
   page,
 }, testInfo) => {
   const filename = `epub-page-headings-${Date.now()}-${testInfo.project.name}.epub`;
-  await page.goto("/chat?capability=immersive_reading");
-  const fileInput = page
-    .getByRole("button", { name: /Open a document to read/i })
-    .locator('input[type="file"]');
-  await fileInput.setInputFiles({
-    name: filename,
-    mimeType: "application/epub+zip",
-    buffer: await illustratedEpub({ longPage: true }),
-  });
+  // The tall-page variant existed to drive in-page heading jumps, which the
+  // reader no longer offers: the collection panel lists the document's spine,
+  // so its chapters are what a learner navigates.
+  await uploadEpubToNewCollection(page, filename, await illustratedEpub());
 
-  const readerFrame = page.locator("iframe").contentFrame();
+  const frame = readerFrame(page);
+  // The EPUB's own markup is what the reader shows, headings included.
   await expect(
-    readerFrame.getByRole("heading", { name: "Illustrated chapter" }),
+    frame.getByRole("heading", { name: "Illustrated chapter" }),
   ).toBeVisible();
-  if (testInfo.project.name === "epub-reader-webkit") {
-    await page.getByRole("button", { name: "Contents" }).click();
-  }
-  await page.getByRole("tab", { name: "On this page" }).click();
-  await expect(
-    page.getByRole("button", { name: "Source layout" }),
-  ).toBeVisible();
-  const lateDetail = readerFrame.getByRole("heading", { name: "Late detail" });
-  const readerBox = await page.locator("iframe").boundingBox();
-  const beforeJump = await lateDetail.boundingBox();
-  expect(beforeJump?.y).toBeGreaterThan((readerBox?.y ?? 0) + 100);
-  await page.getByRole("button", { name: "Late detail" }).click();
-  await expect(lateDetail).toBeVisible();
-  await expect
-    .poll(
-      async () =>
-        (await lateDetail.boundingBox())?.x ?? Number.MAX_SAFE_INTEGER,
-    )
-    .toBeLessThan((beforeJump?.x ?? Number.MAX_SAFE_INTEGER) - 100);
-  const afterJump = await lateDetail.boundingBox();
-  expect(afterJump?.x).toBeLessThanOrEqual((readerBox?.x ?? 0) + 100);
+  await expect(frame.getByRole("heading", { name: "Late detail" })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Document contents" }).click();
-  await page.getByRole("button", { name: "Second chapter" }).click();
+  // The collection panel lists the document's chapters, not invented rows, and
+  // choosing one moves the reader to that spine item.
+  await openContents(page);
+  const secondChapter = page.getByRole("button", { name: /Second chapter/ });
+  await expect(secondChapter).toBeVisible();
+  await secondChapter.click();
   await expect(
-    readerFrame.getByRole("heading", { name: "Second chapter" }),
+    frame.getByRole("heading", { name: "Second chapter" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Contents" }).click();
-  await page.getByRole("tab", { name: "On this page" }).click();
-  await expect(
-    page.getByRole("button", { name: "Source layout" }),
-  ).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Second chapter" }),
-  ).toBeVisible();
+  await expect(page.getByText(/Chapter 2/)).toBeVisible();
 });
 
-test("faithfully renders EPUB resources, navigates, and restores its CFI", async ({
+test("faithfully renders EPUB resources, navigates, and restores its last chapter", async ({
   page,
 }, testInfo) => {
   const filename = `faithful-reader-${Date.now()}-${testInfo.project.name}.epub`;
-  await page.goto("/chat?capability=immersive_reading");
-  const fileInput = page
-    .getByRole("button", { name: /Open a document to read/i })
-    .locator('input[type="file"]');
-  await expect(fileInput).toBeAttached();
-  await fileInput.setInputFiles({
-    name: filename,
-    mimeType: "application/epub+zip",
-    buffer: await illustratedEpub(),
-  });
-  const readerFrame = page.locator("iframe").contentFrame();
-  await expect(
-    readerFrame.getByRole("heading", { name: "Illustrated chapter" }),
-  ).toBeVisible();
-  await expect(readerFrame.getByAltText("source illustration")).toBeVisible();
+  await uploadEpubToNewCollection(page, filename, await illustratedEpub());
 
-  const turnForward =
-    testInfo.project.name === "epub-reader-webkit"
-      ? () => page.getByRole("button", { name: "Next", exact: true }).click()
-      : async () => {
-          await readerFrame.locator("body").click();
-          await page.keyboard.press("ArrowRight");
-        };
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await turnForward();
-    if (
-      await readerFrame
-        .getByRole("heading", { name: "Second chapter" })
-        .isVisible()
-    )
-      break;
-    await page.waitForTimeout(150);
-  }
+  const frame = readerFrame(page);
   await expect(
-    readerFrame.getByRole("heading", { name: "Second chapter" }),
+    frame.getByRole("heading", { name: "Illustrated chapter" }),
   ).toBeVisible();
+  // The packaged resource renders from the archive, not from a fallback.
+  await expect(frame.getByAltText("source illustration")).toBeVisible();
+
+  await openContents(page);
+  await page.getByRole("button", { name: /Second chapter/ }).click();
+  await expect(
+    frame.getByRole("heading", { name: "Second chapter" }),
+  ).toBeVisible();
+
+  // The reader reports the spine position it moved to.
   await expect
     .poll(async () => {
       const response = await page.request.get("/api/reading/materials");
@@ -150,10 +147,9 @@ test("faithfully renders EPUB resources, navigates, and restores its CFI", async
     })
     .toBe(2);
 
-  await page.reload();
-  await page.getByRole("button", { name: new RegExp(filename, "i") }).click();
-  const restoredFrame = page.locator("iframe").contentFrame();
+  // Reopening the document puts the reader back on that chapter.
+  await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
-    restoredFrame.getByRole("heading", { name: "Second chapter" }),
+    readerFrame(page).getByRole("heading", { name: "Second chapter" }),
   ).toBeVisible();
 });

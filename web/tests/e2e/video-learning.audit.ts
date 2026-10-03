@@ -1,7 +1,44 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const MATERIAL_ID = '0123456789abcdef0123456789abcdef'
 const SECOND_MATERIAL_ID = 'fedcba9876543210fedcba9876543210'
+
+/** The fake YouTube player the audit installs, as the page sees it. */
+type FakePlayerHandle = { current: number; ready: boolean }
+
+/**
+ * Move playback to `seconds`, the way real playback would.
+ *
+ * The app seeks to `playback.start_seconds` from inside the player's `onReady`
+ * callback, so any write that lands before that callback runs is overwritten:
+ * the transcript highlight then tracks the restored position instead of the
+ * injected one, and the assertion times out even though playback behaved
+ * correctly. A remount (`page.reload()`, the route change when the first turn is
+ * sent) can reorder the two under parallel load, which is why this passed
+ * serially and failed in the full suite.
+ *
+ * Waiting for `ready` puts the write after the app's own seek, and writing to
+ * every live instance covers a remount that replaced the player meanwhile. No
+ * sleeps and no timeout inflation: the wait is on the app's own callback.
+ */
+async function playTo(page: Page, seconds: number) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const players = (
+          window as typeof window & { __fakePlayers?: Array<{ ready: boolean }> }
+        ).__fakePlayers ?? []
+        return players.length > 0 && players.every(player => player.ready)
+      })
+    )
+    .toBe(true)
+  await page.evaluate(value => {
+    const players = (
+      window as typeof window & { __fakePlayers?: FakePlayerHandle[] }
+    ).__fakePlayers ?? []
+    for (const player of players) player.current = value
+  }, seconds)
+}
 
 for (const mobile of [false, true]) {
   test(`Watching workspace restores its session and handles provider failures (${mobile ? 'mobile' : 'desktop'})`, async ({
@@ -102,6 +139,7 @@ for (const mobile of [false, true]) {
         current = 0
         duration = 120
         rate = 1
+        ready = false
         element: HTMLElement
         options: Record<string, unknown>
 
@@ -124,6 +162,10 @@ for (const mobile of [false, true]) {
               onReady?: (event: { target: FakePlayer }) => void
             }
             events.onReady?.({ target: this })
+            // Set AFTER onReady: the app seeks to playback.start_seconds inside
+            // that callback, so `ready` proves the restored position has been
+            // applied and a test-injected position can no longer be overwritten.
+            this.ready = true
           })
         }
 
@@ -385,12 +427,7 @@ for (const mobile of [false, true]) {
       )
       .toBe(1.5)
 
-    await page.evaluate(() => {
-      const player = (
-        window as typeof window & { __fakePlayers: Array<{ current: number }> }
-      ).__fakePlayers.at(-1)
-      if (player) player.current = 8
-    })
+    await playTo(page, 8)
     await expect(page.getByText('The first grounded concept.').locator('..')).toHaveClass(/ring-1/)
 
     const transcriptList = page.getByTestId('video-transcript-list')
@@ -444,12 +481,7 @@ for (const mobile of [false, true]) {
     await expect(followButton).toHaveAttribute('aria-pressed', 'false')
     await followButton.click()
     await expect(followButton).toHaveAttribute('aria-pressed', 'true')
-    await page.evaluate(() => {
-      const player = (
-        window as typeof window & { __fakePlayers: Array<{ current: number }> }
-      ).__fakePlayers.at(-1)
-      if (player) player.current = 74
-    })
+    await playTo(page, 74)
     await expect(page.getByText('The second grounded concept.').locator('..')).toHaveClass(/ring-1/)
     await expect
       .poll(() => transcriptList.evaluate(element => element.scrollTop))
@@ -459,12 +491,7 @@ for (const mobile of [false, true]) {
     await page.mouse.wheel(0, 20)
     await expect(followButton).toHaveAttribute('aria-pressed', 'false')
     const pausedScrollTop = await transcriptList.evaluate(element => element.scrollTop)
-    await page.evaluate(() => {
-      const player = (
-        window as typeof window & { __fakePlayers: Array<{ current: number }> }
-      ).__fakePlayers.at(-1)
-      if (player) player.current = 112
-    })
+    await playTo(page, 112)
     await expect(page.getByText('The third grounded concept.').locator('..')).toHaveClass(/ring-1/)
     await expect
       .poll(() => transcriptList.evaluate(element => element.scrollTop))
@@ -485,12 +512,7 @@ for (const mobile of [false, true]) {
       timed_media_id: MATERIAL_ID,
     })
     if (mobile) await page.getByRole('button', { name: 'Video', exact: true }).click()
-    await page.evaluate(() => {
-      const player = (
-        window as typeof window & { __fakePlayers: Array<{ current: number }> }
-      ).__fakePlayers.at(-1)
-      if (player) player.current = 8
-    })
+    await playTo(page, 8)
     await expect(page.getByText('The first grounded concept.').locator('..')).toHaveClass(/ring-1/)
 
     await page.getByRole('tab', { name: 'Video notes' }).click()
@@ -517,12 +539,7 @@ for (const mobile of [false, true]) {
     await page.getByRole('tab', { name: 'Video notes' }).click()
     await expect(page.getByText('First timestamped note')).toBeVisible()
 
-    await page.evaluate(() => {
-      const player = (
-        window as typeof window & { __fakePlayers: Array<{ current: number }> }
-      ).__fakePlayers.at(-1)
-      if (player) player.current = 70
-    })
+    await playTo(page, 70)
     await page.getByRole('button', { name: '0:08', exact: true }).click()
     await expect
       .poll(() =>

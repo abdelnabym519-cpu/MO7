@@ -2,15 +2,22 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NEXT_OUTPUT_DIR = path.join(WEB_ROOT, ".next");
 const BUILD_MANIFEST_PATH = path.join(NEXT_OUTPUT_DIR, "build-manifest.json");
 const NEXT_BIN = path.join(WEB_ROOT, "node_modules", "next", "dist", "bin", "next");
 
-const ROUTE_TARGETS = [
-  { route: "/", requestPath: "/", budgetKb: 300 },
+// Every row is measured on the route it names, so a row must resolve without a
+// redirect. `/` is an intentional 307 to `/chat` (`next.config.js`,
+// `permanent: false`, with the page's own `redirect("/chat")` as the fallback),
+// and the payload it serves *is* the chat payload that the `/chat/[sessionId]`
+// row already sizes against the chat budget. Listing `/` as its own measured row
+// therefore sized `/chat` a second time and judged it against a budget written
+// for a redirect stub. The redirect is asserted instead, in REDIRECT_TARGETS, so
+// the routing contract stays covered without a second copy of the same number.
+export const ROUTE_TARGETS = [
   { route: "/chat/[sessionId]", requestPath: "/chat/perf-budget", budgetKb: 1_020 },
   { route: "/settings", requestPath: "/settings", budgetKb: 840 },
   { route: "/knowledge-bases", requestPath: "/knowledge-bases", budgetKb: 550 },
@@ -26,6 +33,12 @@ const ROUTE_TARGETS = [
     requestPath: "/learning/mastery/perf-budget/sessions/perf-session",
     budgetKb: 980,
   },
+];
+
+// Routes whose whole purpose is to redirect. They carry no bundle of their own,
+// so they are asserted rather than measured.
+export const REDIRECT_TARGETS = [
+  { requestPath: "/", expectedPath: "/chat" },
 ];
 
 const ROOT_SHELL_BUDGET_KB = 390;
@@ -106,12 +119,54 @@ function scriptChunks(html, baseUrl) {
   return chunks;
 }
 
-async function loadRouteChunks(baseUrl, requestPath) {
-  const response = await fetch(`${baseUrl}${requestPath}`);
+/**
+ * Reject a measurement that did not land on the route it names.
+ *
+ * `fetch` follows redirects by default, so without this a redirecting route is
+ * silently measured as its destination. The check is deliberately on the
+ * response object rather than on `redirect: "manual"`: a manually-handled
+ * redirect yields an opaque response with status 0 and no body, which would
+ * turn a mis-targeted row into a confusing failure instead of a clear one.
+ *
+ * Takes a plain `{ redirected, url, ok, status }` shape so it is unit-testable.
+ */
+export function assertDirectRouteMeasurement(requestPath, response) {
+  if (response.redirected) {
+    const landed = new URL(response.url).pathname;
+    throw new Error(
+      `${requestPath} redirected to ${landed} during route measurement. ` +
+        "A route budget must be measured on the route it names; move this route " +
+        "to REDIRECT_TARGETS or point the row at the route that serves the payload.",
+    );
+  }
   if (!response.ok) {
     throw new Error(`${requestPath} returned HTTP ${response.status} during route measurement`);
   }
+}
+
+/** Assert that a redirect route resolves to the path the product intends. */
+export function assertExpectedRedirect(requestPath, expectedPath, response) {
+  const landed = new URL(response.url).pathname;
+  if (!response.redirected || landed !== expectedPath) {
+    throw new Error(
+      `${requestPath} was expected to redirect to ${expectedPath}, but resolved to ${landed}. ` +
+        "Update REDIRECT_TARGETS to match the product's routing.",
+    );
+  }
+  if (!response.ok) {
+    throw new Error(`${requestPath} returned HTTP ${response.status} during route measurement`);
+  }
+}
+
+async function loadRouteChunks(baseUrl, requestPath) {
+  const response = await fetch(`${baseUrl}${requestPath}`);
+  assertDirectRouteMeasurement(requestPath, response);
   return scriptChunks(await response.text(), baseUrl);
+}
+
+async function assertRedirect(baseUrl, requestPath, expectedPath) {
+  const response = await fetch(`${baseUrl}${requestPath}`);
+  assertExpectedRedirect(requestPath, expectedPath, response);
 }
 
 function intersection(sets) {
@@ -165,6 +220,9 @@ async function main() {
     for (const target of ROUTE_TARGETS) {
       rows.push({ ...target, chunks: await loadRouteChunks(server.baseUrl, target.requestPath) });
     }
+    for (const target of REDIRECT_TARGETS) {
+      await assertRedirect(server.baseUrl, target.requestPath, target.expectedPath);
+    }
     // Auth uses the root layout but neither utility nor workspace layout, so
     // it prevents feature shells from being misclassified as the root shell.
     const authChunks = await loadRouteChunks(server.baseUrl, "/login");
@@ -182,13 +240,25 @@ async function main() {
     failed =
       printRow("root-app-shell", kb(sumChunkSizes(appShellChunks)), ROOT_SHELL_BUDGET_KB) || failed;
 
+    for (const target of REDIRECT_TARGETS) {
+      console.log(
+        `${"OK".padEnd(4)} ${target.requestPath.padEnd(47)} ${`redirects to ${target.expectedPath}`}`,
+      );
+    }
+
     if (failed) process.exitCode = 1;
   } finally {
     server.child.kill("SIGTERM");
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+// Only run when invoked as the entry point, so the exported predicates above
+// can be unit-tested without launching a production server.
+const invokedDirectly =
+  Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

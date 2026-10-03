@@ -165,30 +165,37 @@ test("a rich text annotation reflows and activates its sidebar entry", async ({
   await expect(highlight).toBeVisible();
   await expect(highlight).toHaveAttribute("data-annotation", "annotation-1");
 
+  // The companion is a sheet at this width, so it is dismissed before the
+  // document can be clicked through it. Its toggle is one button that reports
+  // its state, rather than a separate "Close reading companion" label.
+  await page.getByRole("button", { name: "Reading companion" }).click();
+  await expect(page.getByRole("button", { name: "Expand contents", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close panels" })).toBeHidden();
+
+  // Annotations no longer render in a panel of the reader's own: the collection
+  // panel owns them, behind its Annotations tab.
+  await page.getByRole("button", { name: "Expand contents", exact: true }).click();
+  await page.getByRole("tab", { name: /Annotations/ }).click();
   const sidebarEntry = page
     .getByRole("button")
     .filter({ hasText: "Wave behavior" });
   await expect(sidebarEntry).toBeVisible();
-  await page.getByRole("button", { name: "Close reading companion" }).click();
-  await expect(page.getByRole("button", { name: "Expand contents", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Close panels" })).toBeHidden();
   const article = page.locator("article.r6o-annotatable");
   const articleBox = await article.boundingBox();
   const highlightBox = await highlight.boundingBox();
   if (!articleBox || !highlightBox) {
     throw new Error("Reader annotation boxes were not measurable");
   }
-  await article.click({
-    position: {
-      x: Math.max(
-        1,
-        Math.round(highlightBox.x - articleBox.x + highlightBox.width / 2),
-      ),
-      y: Math.max(
-        1,
-        Math.round(highlightBox.y - articleBox.y + highlightBox.height / 2),
-      ),
-    },
-  });
+  // The reflow keeps the mark inside the document it belongs to.
+  expect(highlightBox.y).toBeGreaterThanOrEqual(articleBox.y);
+  expect(highlightBox.x + highlightBox.width).toBeLessThanOrEqual(
+    articleBox.x + articleBox.width + 1,
+  );
+
+  // Selecting the mark in the panel is what makes it the active annotation in a
+  // workspace: the reader no longer renders a list of its own there
+  // (`ownAnnotationList={false}`), so the panel — not a click on the document —
+  // owns the active entry.
+  await sidebarEntry.click();
   await expect(sidebarEntry).toHaveClass(/border-\[var\(--ring\)\]/);
 });
