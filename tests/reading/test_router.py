@@ -898,6 +898,50 @@ def test_deleting_a_material_reports_where_it_was_used(client: TestClient) -> No
     assert client.get(f"/api/reading/materials/{second_id}/units/1").json()["text"]
 
 
+def test_deleting_one_copy_does_not_leave_its_id_readable(client: TestClient) -> None:
+    data = _pdf_bytes()
+    first = _upload(client, name="attention.pdf", data=data)
+    second_id = client.post(
+        "/api/reading/materials",
+        params={"reuse": "false"},
+        files={"file": ("attention.pdf", io.BytesIO(data), "application/pdf")},
+    ).json()["material_id"]
+    first_id = first["material_id"]
+
+    assert client.delete(f"/api/reading/materials/{first_id}").status_code == 200
+
+    # The bytes stay for the sibling, but the deleted material is gone: its id
+    # resolves neither through the direct route nor through any listing.
+    assert client.get(f"/api/reading/materials/{first_id}").status_code == 404
+    assert client.get(f"/api/reading/materials/{first_id}/units/1").status_code == 404
+    assert first_id not in {
+        row["material_id"] for row in client.get("/api/reading/materials").json()
+    }
+    library = client.get("/api/reading/library/materials").json()["materials"]
+    assert {row["material_id"] for row in library} == {second_id}
+    assert client.get(f"/api/reading/materials/{second_id}/units/1").status_code == 200
+
+
+def test_deleting_the_last_copy_removes_the_shared_directory(client: TestClient) -> None:
+    data = _pdf_bytes()
+    first_id = _upload(client, name="attention.pdf", data=data)["material_id"]
+    second = client.post(
+        "/api/reading/materials",
+        params={"reuse": "false"},
+        files={"file": ("attention.pdf", io.BytesIO(data), "application/pdf")},
+    ).json()
+
+    client.delete(f"/api/reading/materials/{first_id}")
+    assert client.delete(f"/api/reading/materials/{second['material_id']}").status_code == 200
+
+    # With no reader left, the content directory and both ids are gone and a
+    # fresh upload starts from an empty library rather than a stale directory.
+    assert not any(path.is_dir() for path in ReadingStore().root.iterdir())
+    assert client.get(f"/api/reading/materials/{first_id}").status_code == 404
+    assert client.get(f"/api/reading/materials/{second['material_id']}").status_code == 404
+    assert client.get("/api/reading/library/materials").json()["materials"] == []
+
+
 def test_collection_color_round_trips_through_create_and_patch(client: TestClient) -> None:
     created = client.post(
         "/api/reading/workspaces", json={"title": "Close reading", "color": "violet"}

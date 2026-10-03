@@ -217,9 +217,46 @@ class ReadingStore:
             )
             return None
 
+    def _content_owned_by_other(self, material_id: str) -> bool:
+        """True when *material_id* is a content directory another material owns.
+
+        The original upload of a file is content-addressed: its material id is
+        the content id, and it shares that directory with every later copy.
+        Deleting it while a sibling still reads the content drops its row but
+        leaves the directory in place, so the plain content id stops naming a
+        material even though its bytes are still on disk.
+
+        One query answers both halves: a row for the id itself means it is a
+        registered material, while rows under other material ids with the same
+        content mean the directory belongs to those siblings. A store without
+        a catalog (the pure engine layout) keeps the legacy behaviour.
+        """
+        resolved_id = self._validate_id(material_id)
+        db_path = self.root / "_catalog.sqlite3"
+        if not db_path.is_file():
+            return False
+        try:
+            with sqlite3.connect(db_path, timeout=30) as conn:
+                rows = conn.execute(
+                    "SELECT material_id FROM reading_materials "
+                    "WHERE material_id = ? OR content_id = ?",
+                    (resolved_id, resolved_id),
+                ).fetchall()
+        except sqlite3.Error:
+            logger.warning("Could not resolve content ownership for %s", material_id, exc_info=True)
+            return False
+        if any(str(row[0]) == resolved_id for row in rows):
+            return False
+        return bool(rows)
+
     def _content_id(self, material_id: str) -> str:
         resolved_id = self._validate_id(material_id)
         row = self._catalog_row(resolved_id)
+        if row is None and resolved_id.startswith("rm_"):
+            # ``rm_`` ids are minted by the catalog for an extra copy of
+            # content that is already stored; without their row there is no
+            # directory to resolve, so the id is simply not a material.
+            raise MaterialNotFound(f"material {material_id!r} not found")
         content_id = str(row["content_id"] if row else resolved_id).strip().lower()
         if not _CONTENT_ID_RE.fullmatch(content_id):
             raise ReadingError(f"invalid content id for material {material_id!r}")
@@ -837,7 +874,10 @@ class ReadingStore:
 
     def manifest(self, material_id: str) -> MaterialManifest:
         manifest = self._load_manifest(material_id)
-        if manifest is None:
+        if manifest is None or self._content_owned_by_other(material_id):
+            # Deleted materials whose content a sibling still reads keep their
+            # directory, so the id must stop resolving here rather than serve
+            # bytes for a material the catalog no longer has.
             raise MaterialNotFound(f"material {material_id!r} not found")
         return manifest
 
@@ -848,7 +888,12 @@ class ReadingStore:
             return False
 
     def list_materials(self) -> list[MaterialManifest]:
-        """All usable materials, newest first. Unreadable dirs are skipped."""
+        """All usable materials, newest first. Unreadable dirs are skipped.
+
+        A content directory that belongs to another material (the original
+        upload deleted while its copies live on) is not a material of its own,
+        so listings do not resurrect it.
+        """
         root = self.root
         if not root.is_dir():
             return []
@@ -857,8 +902,9 @@ class ReadingStore:
             if not child.is_dir() or not _CONTENT_ID_RE.fullmatch(child.name):
                 continue
             manifest = self._load_manifest(child.name)
-            if manifest is not None:
-                found.append(manifest)
+            if manifest is None or self._content_owned_by_other(child.name):
+                continue
+            found.append(manifest)
         return sorted(found, key=lambda m: m.created_at, reverse=True)
 
     def unit_text(self, material_id: str, locator: int) -> str:
