@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sqlite3
 
@@ -51,6 +52,31 @@ def _handoff_client(
         )
         bearer = "pb-bearer-token-that-must-not-persist"
     else:
+        # ``decode_token`` resolves the account from the user store on every
+        # request, so this fixture owns a real record for the bearer it mints.
+        # Written directly to keep the stable id the assertions below expect.
+        from deeptutor.multi_user import identity
+
+        users_file = state_root / "auth" / "users.json"
+        monkeypatch.setattr(identity, "USERS_FILE", users_file)
+        monkeypatch.setattr(identity, "AUTH_DIR", users_file.parent)
+        users_file.parent.mkdir(parents=True, exist_ok=True)
+        users_file.write_text(
+            json.dumps(
+                {
+                    "alice": {
+                        "id": "u-alice",
+                        "hash": auth_service.hash_password("pw"),
+                        "role": "user",
+                        "created_at": "2026-01-01T00:00:00+00:00",
+                        "disabled": False,
+                        "avatar": "",
+                        "preset": "standard",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         bearer = auth_service.create_token("alice", "user", "u-alice")
 
     app = FastAPI()

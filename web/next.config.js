@@ -173,6 +173,34 @@ const nextConfig = {
   // dev server on these addresses is already inside the LAN.
   allowedDevOrigins: ["127.0.0.1", ...localNetworkHosts()],
 
+  // Baseline document hardening for everything this server renders itself.
+  //
+  // The backend already sends nosniff (and a sandbox CSP) on the routes that
+  // hand back user-controlled bytes — /api/**, which is rewritten away from
+  // this rule — so the gap this closes is the app's own HTML: without a
+  // framing directive any site can iframe MO7 and overlay its own UI on the
+  // logged-in reader (clickjacking), and without nosniff a browser is free to
+  // guess a type for the proxied previews that do come through this origin.
+  //
+  // Deliberately not a full Content-Security-Policy: the app renders inline
+  // theme scripts, blob: media and data: images, so a strict CSP would need
+  // nonces across the whole render path — a product change, not a header
+  // change. Referrer-Policy matches what the backend already sends on its
+  // redirect/callback responses.
+  async headers() {
+    return [
+      {
+        source: "/((?!api/).*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+        ],
+      },
+    ];
+  },
+
   // Turbopack configuration (used when running `npm run dev:turbo`)
   turbopack: {
     resolveAlias: {

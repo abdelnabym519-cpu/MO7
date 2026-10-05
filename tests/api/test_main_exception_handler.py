@@ -18,10 +18,14 @@ def test_unhandled_exception_returns_json_error() -> None:
 
     assert response.status_code == 500
     assert response.headers["content-type"].startswith("application/json")
-    assert response.json() == {
-        "detail": "RuntimeError: intentional test failure",
-        "type": "RuntimeError",
-    }
+    body = response.json()
+    # The machine-readable discriminator survives; the exception message does
+    # not, because those carry database errors, absolute paths and sometimes
+    # credential values. The full text goes to the server log instead.
+    assert body["type"] == "RuntimeError"
+    assert body["detail"] == "The request could not be completed."
+    assert "intentional test failure" not in response.text
+    assert "/home/" not in response.text
 
 
 def test_unhandled_exception_response_carries_cors_headers() -> None:

@@ -327,7 +327,7 @@ class TestChannelOnboarding:
         cancelled = client.delete(f"/api/partners/ada/channel-onboarding/{started['session_id']}")
         assert cancelled.json()["status"] == "cancelled"
 
-    def test_onboarding_routes_carry_the_partner_manage_gate(self, monkeypatch):
+    def test_onboarding_routes_carry_the_partner_manage_gate(self, monkeypatch, tmp_path):
         """The real app must gate the onboarding routes on *manage*, not just auth.
 
         These routes write a channel bot token into the partner's config, so
@@ -377,7 +377,16 @@ class TestChannelOnboarding:
         # route from a merely authenticated one.
         monkeypatch.setattr(auth_service, "AUTH_SECRET", "test-secret")
         monkeypatch.setattr(auth_service, "POCKETBASE_ENABLED", False)
-        token = auth_service.create_token("not-an-admin", role="user", user_id="u-1")
+        # ``decode_token`` resolves the account from the user store on every
+        # request (so a deletion or demotion cannot outlive its token), so the
+        # fixture has to own a real non-admin record rather than invent an id.
+        from deeptutor.multi_user import identity
+
+        users_file = tmp_path / "auth" / "users.json"
+        monkeypatch.setattr(identity, "USERS_FILE", users_file)
+        monkeypatch.setattr(identity, "AUTH_DIR", users_file.parent)
+        identity.save_user("not-an-admin", auth_service.hash_password("pw"), role="user")
+        token = auth_service.create_token("not-an-admin", role="user")
         # No context manager: this must not run the app's lifespan.
         client = TestClient(api_main.app)
         response = client.post(

@@ -440,10 +440,14 @@ async def json_error_boundary(request: Request, call_next):
             exc,
             exc_info=True,
         )
+        # The body stays a stable, sanitized shape. Exception messages here
+        # carry database errors, absolute paths and occasionally credential
+        # values; they belong in the log above, not in a response any caller
+        # (including an unauthenticated one hitting a public route) can read.
         return JSONResponse(
             status_code=500,
             content={
-                "detail": f"{type(exc).__name__}: {exc}",
+                "detail": "The request could not be completed.",
                 "type": type(exc).__name__,
             },
         )

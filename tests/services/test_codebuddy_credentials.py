@@ -24,12 +24,15 @@ from deeptutor.services.codebuddy_credentials import (
 
 
 def _write_auth_file(tmp_path: Path, monkeypatch, **auth_overrides) -> Path:
+    # Relative to "now": absolute epoch constants turn this fixture into a
+    # time bomb once the wall clock passes them.
+    now_ms = int(time.time() * 1000)
     auth = {
         "accessToken": "access-token",
         "refreshToken": "refresh-token",
         "tokenType": "Bearer",
-        "expiresAt": 1791055241000,
-        "refreshExpiresAt": 1793647241000,
+        "expiresAt": now_ms + 3_600_000,
+        "refreshExpiresAt": now_ms + 7 * 86_400_000,
         "domain": "www.codebuddy.cn",
     }
     auth.update(auth_overrides)
@@ -43,7 +46,8 @@ def _write_auth_file(tmp_path: Path, monkeypatch, **auth_overrides) -> Path:
 
 
 def test_load_credentials_parses_session(tmp_path, monkeypatch) -> None:
-    _write_auth_file(tmp_path, monkeypatch)
+    path = _write_auth_file(tmp_path, monkeypatch)
+    written = json.loads(path.read_text(encoding="utf-8"))["auth"]
 
     credentials = load_credentials()
 
@@ -53,7 +57,7 @@ def test_load_credentials_parses_session(tmp_path, monkeypatch) -> None:
     assert credentials.user_id == "uid-1"
     assert credentials.user_label == "tester"
     # Epoch milliseconds in the file, seconds in the dataclass.
-    assert credentials.expires_at == pytest.approx(1791055241.0)
+    assert credentials.expires_at == pytest.approx(written["expiresAt"] / 1000)
     assert credentials.is_expired() is False
 
 

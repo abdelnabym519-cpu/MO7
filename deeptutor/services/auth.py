@@ -315,14 +315,29 @@ def decode_token(token: str) -> TokenPayload | None:
         return None
 
     try:
-        payload = jwt.decode(token, AUTH_SECRET, algorithms=[_ALGORITHM])
+        # ``require_exp`` rejects a correctly signed token that carries no
+        # expiry at all — without it such a token would never expire. Every
+        # minter in this codebase sets ``exp`` (see ``create_token``).
+        payload = jwt.decode(
+            token,
+            AUTH_SECRET,
+            algorithms=[_ALGORITHM],
+            options={"require_exp": True},
+        )
         username = payload.get("sub")
         if not username:
             return None
-        user_id = str(payload.get("uid") or "")
+        # The stored account record is authoritative for identity, role and
+        # availability, so deleting, demoting or disabling an account takes
+        # effect on the next request instead of at token expiry (12 h by
+        # default). The signature check above still proves this deployment
+        # issued the token; the record decides what it may still do.
+        record = _load_users().get(str(username))
+        if record is None or bool(record.get("disabled")):
+            return None
+        user_id = str(record.get("id") or payload.get("uid") or "")
         if not user_id:
-            record = _load_users().get(str(username)) or {}
-            user_id = str(record.get("id") or "")
+            return None
         device_credential_id = str(payload.get("dcid") or "")
         device_session_nonce = str(payload.get("dcs") or "")
         if device_credential_id:
@@ -336,13 +351,151 @@ def decode_token(token: str) -> TokenPayload | None:
                 return None
         return TokenPayload(
             username=username,
-            role=payload.get("role", "user"),
+            # The stored role, not the claim: a demotion must not survive in an
+            # already-issued token.
+            role=str(record.get("role") or payload.get("role") or "user"),
             user_id=user_id,
             device_credential_id=device_credential_id,
             device_session_nonce=device_session_nonce,
         )
     except JWTError:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Failed-login throttle
+# ---------------------------------------------------------------------------
+
+#: Failed sign-ins allowed for one (account, caller) pair per window, seconds.
+#: bcrypt costs ~270 ms per verification, so an unthrottled endpoint is both an
+#: online password-guessing surface and a CPU-exhaustion lever. Ten attempts
+#: per five minutes leaves a person who mistyped their password multiple tries
+#: while making guessing impractical; a successful sign-in clears the counter.
+LOGIN_ATTEMPT_LIMIT = (10, 300)
+
+
+class LoginThrottled(Exception):
+    """Raised when an account has too many recent failed sign-in attempts."""
+
+
+def _login_throttle_path():
+    """Counter database beside the other auth state (``data/system/auth``)."""
+    from pathlib import Path
+
+    from deeptutor.multi_user.identity import AUTH_DIR
+
+    return Path(AUTH_DIR) / "login_attempts.sqlite3"
+
+
+def _login_throttle_connect():
+    import sqlite3
+
+    path = _login_throttle_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(str(path), timeout=10, isolation_level=None)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA busy_timeout=10000")
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            bucket TEXT PRIMARY KEY,
+            window_start INTEGER NOT NULL,
+            count INTEGER NOT NULL
+        )
+        """
+    )
+    return connection
+
+
+def _login_bucket(username: str, client_key: str) -> str:
+    return f"{str(username).strip().lower()}|{client_key}"
+
+
+def check_login_throttle(username: str, client_key: str) -> None:
+    """Raise :class:`LoginThrottled` once the failure window is exhausted.
+
+    A counter that cannot be read does not block sign-in: this is a secondary
+    control behind bcrypt, and an unwritable counter file must not lock every
+    account out of a running deployment. The failure is logged instead.
+    """
+    import time
+
+    limit, window = LOGIN_ATTEMPT_LIMIT
+    now = int(time.time())
+    window_start = now - (now % window)
+    try:
+        connection = _login_throttle_connect()
+    except Exception as exc:  # pragma: no cover - filesystem failure path
+        logger.warning("Login throttle unavailable (%s); allowing the attempt", exc)
+        return
+    try:
+        row = connection.execute(
+            "SELECT window_start, count FROM login_attempts WHERE bucket = ?",
+            (_login_bucket(username, client_key),),
+        ).fetchone()
+    except Exception as exc:  # pragma: no cover - corrupt counter file
+        logger.warning("Login throttle read failed (%s); allowing the attempt", exc)
+        return
+    finally:
+        connection.close()
+    if row is None or int(row["window_start"]) != window_start:
+        return
+    if int(row["count"]) >= limit:
+        raise LoginThrottled("Too many failed sign-in attempts. Try again in a few minutes.")
+
+
+def record_failed_login(username: str, client_key: str) -> None:
+    """Count one failed sign-in; throttling read is the next request's job."""
+    import time
+
+    _, window = LOGIN_ATTEMPT_LIMIT
+    now = int(time.time())
+    window_start = now - (now % window)
+    try:
+        connection = _login_throttle_connect()
+    except Exception as exc:  # pragma: no cover - filesystem failure path
+        logger.warning("Login throttle unavailable (%s); failure not counted", exc)
+        return
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """
+            INSERT INTO login_attempts(bucket, window_start, count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(bucket) DO UPDATE SET
+                window_start=excluded.window_start,
+                count=CASE
+                    WHEN login_attempts.window_start != excluded.window_start
+                    THEN 1 ELSE login_attempts.count + 1
+                END
+            """,
+            (_login_bucket(username, client_key), window_start),
+        )
+        connection.execute("DELETE FROM login_attempts WHERE window_start + 86400 < ?", (now,))
+        connection.commit()
+    except Exception as exc:  # pragma: no cover - filesystem failure path
+        logger.warning("Login throttle write failed (%s)", exc)
+    finally:
+        connection.close()
+
+
+def clear_login_throttle(username: str, client_key: str) -> None:
+    """Drop the counter after a successful sign-in."""
+    try:
+        connection = _login_throttle_connect()
+    except Exception as exc:  # pragma: no cover - filesystem failure path
+        logger.warning("Login throttle unavailable (%s); counter not cleared", exc)
+        return
+    try:
+        connection.execute(
+            "DELETE FROM login_attempts WHERE bucket = ?",
+            (_login_bucket(username, client_key),),
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Login throttle clear failed (%s)", exc)
+    finally:
+        connection.close()
 
 
 # ---------------------------------------------------------------------------

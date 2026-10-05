@@ -70,17 +70,21 @@ from deeptutor.services.auth import (
     AUTH_ENABLED,
     POCKETBASE_ENABLED,
     TOKEN_EXPIRE_HOURS,
+    LoginThrottled,
     TokenPayload,
     add_user,
     authenticate,
     authenticate_device,
     authenticate_pb,
+    check_login_throttle,
+    clear_login_throttle,
     create_token,
     decode_token,
     delete_user,
     get_user_info,
     is_first_user,
     list_users,
+    record_failed_login,
     register_pb,
     set_avatar,
     set_learner_profile,
@@ -98,6 +102,9 @@ router = APIRouter()
 
 _COOKIE_NAME = "dt_token"
 _COOKIE_MAX_AGE = TOKEN_EXPIRE_HOURS * 3600
+#: Advertised backoff after a throttled sign-in attempt; mirrors the
+#: service-side window so a client waiting this long is not throttled again.
+_LOGIN_ATTEMPT_RETRY_AFTER = 300
 _USER_IMPORT_MAX_BYTES = 2 * 1024 * 1024
 _USER_IMPORT_MAX_ROWS = 500
 _USER_BATCH_MAX_ROWS = 500
@@ -790,14 +797,28 @@ async def login(body: LoginRequest, request: Request, response: Response) -> dic
             "is_admin": payload.role == "admin",
         }
 
-    # Standard JWT + bcrypt mode
+    # Standard JWT + bcrypt mode. Failed attempts are counted per account and
+    # caller before bcrypt runs, so an unthrottled endpoint cannot be used to
+    # guess passwords or burn CPU on verification hashes.
+    caller = (request.client.host if request.client else "") or "unknown"
+    try:
+        check_login_throttle(body.username, caller)
+    except LoginThrottled as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers={"Retry-After": str(_LOGIN_ATTEMPT_RETRY_AFTER)},
+        ) from exc
+
     result = authenticate(body.username, body.password)
     if not result:
+        record_failed_login(body.username, caller)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
 
+    clear_login_throttle(result.username, caller)
     token = create_token(result.username, result.role, result.user_id)
     response.set_cookie(value=token, max_age=_COOKIE_MAX_AGE, **_cookie_attrs())
 
