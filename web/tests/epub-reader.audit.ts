@@ -47,7 +47,7 @@ async function openContents(page: Page) {
   await expect(page.getByRole("tab", { name: "Contents" })).toBeVisible();
 }
 
-async function illustratedEpub(): Promise<Buffer> {
+async function illustratedEpub(fillerParagraphs = 0): Promise<Buffer> {
   const zip = new JSZip();
   zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
   zip.file(
@@ -66,9 +66,20 @@ async function illustratedEpub(): Promise<Buffer> {
     "OPS/one.xhtml",
     `<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Illustrated chapter</title></head><body><h1 id='publisher-title'>Illustrated chapter</h1><h2>Source layout</h2><h3 id='late-detail'>Late detail</h3><p>This layout comes from the EPUB.</p><img alt='source illustration' src='dot.png'/></body></html>`,
   );
+  // The switch to this section is the reader's navigation under test. Filler
+  // makes that display take long enough to overlap a layout change, which is
+  // the condition the regression below pins down.
+  const filler =
+    fillerParagraphs > 0
+      ? Array.from(
+          { length: fillerParagraphs },
+          (_, index) =>
+            `<p>Filler paragraph ${index} lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor.</p>`,
+        ).join("")
+      : "";
   zip.file(
     "OPS/two.xhtml",
-    "<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Second chapter</title></head><body><h1>Second chapter</h1><p>Keyboard navigation reached the second spine item.</p></body></html>",
+    `<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Second chapter</title></head><body><h1>Second chapter</h1><p>Keyboard navigation reached the second spine item.</p>${filler}</body></html>`,
   );
   zip.file(
     "OPS/dot.png",
@@ -159,4 +170,60 @@ test("faithfully renders EPUB resources, navigates, and restores its last chapte
   await expect(
     readerFrame(page).getByRole("heading", { name: "Second chapter" }),
   ).toBeVisible();
+});
+
+/**
+ * A layout change must never undo a chapter the reader asked for.
+ *
+ * The reader re-anchors itself after a resize (ResizeObserver -> debounce ->
+ * display of the location it was on). When that fires while a spine switch is
+ * still being displayed, the stale anchor used to win: the reader went back to
+ * the chapter it was leaving, reported that locator, and persisted it as the
+ * reading position — the click looked like it had never happened.
+ */
+test("a layout change during a chapter switch does not undo the navigation", async ({
+  page,
+}, testInfo) => {
+  const filename = `chapter-switch-race-${Date.now()}-${testInfo.project.name}.epub`;
+  await uploadEpubToNewCollection(page, filename, await illustratedEpub(8_000));
+
+  const frame = readerFrame(page);
+  await expect(
+    frame.getByRole("heading", { name: "Illustrated chapter" }),
+  ).toBeVisible();
+
+  await openContents(page);
+  await page.getByRole("button", { name: /Second chapter/ }).click();
+  // The reader has taken the destination (it reports locator 2) but the spine
+  // item is still being displayed. Closing the panel now widens the reader, so
+  // the reader re-anchors while the switch is in flight — the condition that
+  // used to drag it back to the chapter it was leaving.
+  await page
+    .waitForRequest((request) => request.url().includes("ask-hint?locator=2"), {
+      timeout: 10_000,
+    })
+    .catch(() => null);
+  await page.getByRole("button", { name: "Collapse contents" }).click();
+
+  await expect(
+    frame.getByRole("heading", { name: "Second chapter" }),
+  ).toBeVisible({ timeout: 15_000 });
+
+  // The switch is also what the reader remembers: a stale anchor must not be
+  // written back as the position.
+  await expect
+    .poll(async () => {
+      const response = await page.request.get("/api/reading/materials");
+      const rows = (await response.json()) as Array<{
+        material_id: string;
+        filename: string;
+      }>;
+      const material = rows.find((row) => row.filename === filename);
+      if (!material) return 0;
+      const position = await page.request.get(
+        `/api/reading/materials/${material.material_id}/position`,
+      );
+      return ((await position.json()) as { locator: number }).locator;
+    })
+    .toBe(2);
 });

@@ -191,6 +191,16 @@ export function EpubDocumentView({
   const activeSpreadRef = useRef(DEFAULT_READER_DISPLAY_PREFERENCES.spreadMode);
   const relayoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const relayoutAnchorRef = useRef<string | undefined>(undefined);
+  /**
+   * How many displays the reader asked for (a chapter, a citation, a heading, a
+   * page turn) have not settled yet. A relayout must not re-anchor while one is
+   * in flight: re-anchoring re-displays the location being left, which cancels
+   * the navigation and is then reported — and persisted — as where the reader
+   * is. Relayouts therefore wait for it, bounded so a stalled display cannot
+   * freeze the page geometry.
+   */
+  const navigationInFlightRef = useRef(0);
+  const relayoutDeferralsRef = useRef(0);
   const [preferences, setPreferences] = useState<ReaderDisplayPreferences>(
     DEFAULT_READER_DISPLAY_PREFERENCES,
   );
@@ -225,16 +235,43 @@ export function EpubDocumentView({
       const width = Math.round(bounds.width);
       const height = Math.round(bounds.height);
       if (!width || !height) return;
-      const cfi =
-        relayoutAnchorRef.current ?? rendition.currentLocation()?.start?.cfi;
-      relayoutAnchorRef.current = undefined;
-      rendition.resize(width, height);
-      if (cfi) {
-        void rendition.display(cfi).catch(() => {
-          // A stale publisher CFI must not break the current reading page.
-        });
+      if (
+        navigationInFlightRef.current > 0 &&
+        relayoutDeferralsRef.current < 20
+      ) {
+        relayoutDeferralsRef.current += 1;
+        scheduleRelayout(relayoutAnchorRef.current);
+        return;
       }
+      const anchor = relayoutAnchorRef.current;
+      const currentCfi = rendition.currentLocation()?.start?.cfi;
+      const anchorIsStale = Boolean(anchor && currentCfi && anchor !== currentCfi);
+      const navigationStillInFlight = navigationInFlightRef.current > 0;
+      relayoutAnchorRef.current = undefined;
+      relayoutDeferralsRef.current = 0;
+      rendition.resize(width, height);
+      const cfi = anchor ?? currentCfi;
+      // The resize above is enough when the reader moved on: displaying the
+      // anchor it was armed with would pull the reader back to the location it
+      // is leaving, and that location is what would be stored as its position.
+      if (!cfi || anchorIsStale || navigationStillInFlight) return;
+      void rendition.display(cfi).catch(() => {
+        // A stale publisher CFI must not break the current reading page.
+      });
     }, 100);
+  }, []);
+
+  /** Display a destination the reader asked for, and own the view until it lands. */
+  const displayDestination = useCallback((target: string) => {
+    const rendition = renditionRef.current;
+    if (!rendition) return Promise.resolve();
+    navigationInFlightRef.current += 1;
+    return rendition.display(target).finally(() => {
+      navigationInFlightRef.current = Math.max(
+        0,
+        navigationInFlightRef.current - 1,
+      );
+    });
   }, []);
 
   useEffect(() => {
@@ -261,7 +298,15 @@ export function EpubDocumentView({
     const rendition = renditionRef.current;
     if (!rendition) return;
     const physical = directionForEpubLayout(direction, isRtlRef.current);
-    void (physical === "next" ? rendition.next() : rendition.prev());
+    navigationInFlightRef.current += 1;
+    void (physical === "next" ? rendition.next() : rendition.prev()).finally(
+      () => {
+        navigationInFlightRef.current = Math.max(
+          0,
+          navigationInFlightRef.current - 1,
+        );
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -517,12 +562,10 @@ export function EpubDocumentView({
     );
     const sourceHref = headingJump.sourceHref || section?.href;
     if (!sourceHref) return;
-    void renditionRef.current
-      .display(`${sourceHref}#${headingJump.id}`)
-      .catch(() => {
-        // A damaged publisher anchor leaves the reader on the current page.
-      });
-  }, [headingJump]);
+    void displayDestination(`${sourceHref}#${headingJump.id}`).catch(() => {
+      // A damaged publisher anchor leaves the reader on the current page.
+    });
+  }, [displayDestination, headingJump]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -589,7 +632,7 @@ export function EpubDocumentView({
     const ref = unitRefs.find((row) => row.locator === jump.locator);
     const target = sectionTarget?.href ?? ref?.source_href;
     if (!target) return;
-    void renditionRef.current.display(target).then(async () => {
+    void displayDestination(target).then(async () => {
       if (!jump.quote || !bookRef.current || !renditionRef.current) return;
       const section = bookRef.current.spine.get(jump.locator - 1);
       if (!section) return;
@@ -611,7 +654,7 @@ export function EpubDocumentView({
         // Reaching the requested locator is still useful if quote search fails.
       }
     });
-  }, [jump, unitRefs]);
+  }, [displayDestination, jump, unitRefs]);
 
   const surface =
     preferences.readerTheme === "sepia"
