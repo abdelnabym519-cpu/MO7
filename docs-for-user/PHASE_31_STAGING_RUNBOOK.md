@@ -211,8 +211,10 @@ Do not delete `home/` unless intentionally testing restore/recovery.
 
 ## 9. Validation harnesses
 
-Every harness takes its defaults from `etc/staging.env` (the deployment
-contract): release identity, ports, origins and paths. Overriding them with
+Every harness is standard-library-only Python 3.11, so `venv/bin/python` and the
+repository virtualenv are both fine. Each takes its defaults from
+`etc/staging.env` (the deployment contract): release identity, ports, origins and
+paths. Overriding them with
 `STAGING_FRONTEND` / `STAGING_BACKEND` / `STAGING_PUBLIC_HOST` points a harness
 at a different shape and is only for debugging.
 
@@ -228,7 +230,10 @@ STAGING_BACKEND=127.0.0.1:8101 venv/bin/python harness/staging_security.py
 
 # Release-artifact wire probe (29 checks): cookie flags as sent, header
 # hardening, CORS decisions, request ambiguity, framing, path normalisation.
-venv/bin/python harness/artifact/staging_artifact_probe.py
+# The default target is the TLS ingress; STAGING_ARTIFACT_TARGET switches it to
+# the loopback API (document-surface checks are then scoped to the API).
+venv/bin/python harness/staging_artifact_probe.py
+STAGING_ARTIFACT_TARGET=127.0.0.1:8101 venv/bin/python harness/staging_artifact_probe.py
 
 # Fault injection, degradation, recovery and log observability
 venv/bin/python harness/staging_faults.py --phase inject
@@ -244,11 +249,22 @@ venv/bin/python harness/staging_perf.py
 bin/staging.sh session admin
 
 # Chromium suites against staging (needs the 8443 TLS harness ingress running)
+# Always call the locally installed binary: `npx playwright` fetches a different
+# playwright version and then cannot resolve @playwright/test for the config.
 cd /home/user/MO7/web
-LD_LIBRARY_PATH=/home/user/.cache/ms-playwright/chromium-deps:/home/user/.cache/ms-playwright/chromium-deps/lib \
+PLAYWRIGHT_BROWSERS_PATH=/home/user/.cache/ms-playwright \
+LD_LIBRARY_PATH=/home/user/.cache/ms-playwright/chromium-deps/lib \
 WEB_BASE_URL=https://127.0.0.1:8443 MO7_STORAGE_STATE=/home/user/mo7-staging/harness/storage-state.json \
-npx playwright test --config=/home/user/mo7-staging/harness/playwright.staging.config.ts \
+./node_modules/.bin/playwright test \
+  --config=/home/user/mo7-staging/harness/playwright.staging.config.ts \
   --project=ui-audit --project=epub-reader-chromium
+
+# Phase 27 attack matrix, Phase 27 header probes and the Phase 29 probe run the
+# same way, from the repository's own harness directory:
+cd /home/user/MO7/docs-for-user/phase27-harnesses
+/home/user/MO7/.venv/bin/python mo7_p27_attack.py
+/home/user/MO7/.venv/bin/python mo7_p27_probe.py
+/home/user/MO7/.venv/bin/python mo7_p29_probe.py
 ```
 
 The matrix acts as the staging administrator. With no LLM provider reachable from
