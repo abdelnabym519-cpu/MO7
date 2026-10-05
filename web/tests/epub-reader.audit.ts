@@ -105,10 +105,16 @@ test("EPUB headings render in the reader and its chapter list navigates", async 
   const secondChapter = page.getByRole("button", { name: /Second chapter/ });
   await expect(secondChapter).toBeVisible();
   await secondChapter.click();
+  // Switching spine items renders the chapter inside epub.js's iframe. The
+  // first switch of a run also fetches and parses the dynamically imported
+  // reader chunk, and under the matrix's parallel workers this measured at
+  // ~4.5-5 s (Phase 29 report, section 4.4), which the 5 s expect default sits
+  // exactly on. Keep the assertion, give it a timeout that does not turn load
+  // variability into a failure.
   await expect(
     frame.getByRole("heading", { name: "Second chapter" }),
-  ).toBeVisible();
-  await expect(page.getByText(/Chapter 2/)).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Chapter 2/)).toBeVisible({ timeout: 15_000 });
 });
 
 test("faithfully renders EPUB resources, navigates, and restores its last chapter", async ({
@@ -126,9 +132,10 @@ test("faithfully renders EPUB resources, navigates, and restores its last chapte
 
   await openContents(page);
   await page.getByRole("button", { name: /Second chapter/ }).click();
+  // Same spine-switch cost as the spec above; see the note there.
   await expect(
     frame.getByRole("heading", { name: "Second chapter" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
 
   // The reader reports the spine position it moved to.
   await expect
