@@ -228,7 +228,8 @@ everything except the WebKit project named above.
 
 ## 11. Repository state
 
-* Work branch: `arena/01a0ff3f-mo7` (pushed; `git ls-remote` verified against the local HEAD).
+* Work branch: `arena/01a0ff3f-mo7`, Phase 27 commit **`d20bb70`** (pushed; `git ls-remote`
+  returned the same hash as the local HEAD).
 * Safety branch: `mo7-phase27-security-closure-safety` @ `31376d0` (untouched).
 * `arena/01a0dba1-mo7` not touched; no Phase 28 branch created.
 * Working tree clean after the Phase 27 commit; the Phase 26 report and artifacts are unchanged.
