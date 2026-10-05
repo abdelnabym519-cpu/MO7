@@ -108,6 +108,14 @@ hash recorded in the contract → artifact installed and verified in the
 deployment → same commit in `run/deployments.log`**. No undocumented manual
 patch exists anywhere in that chain, and no artifact was substituted silently.
 
+The Phase 31 documents and harness sources live in the repository commit that
+follows the release commit. That commit contains **no product code**: the only
+paths it touches are `docs-for-user/phase31-staging/`,
+`docs-for-user/PHASE_31_STAGING_RUNBOOK.md` and this report. The deployed
+artifact therefore still corresponds to the product source at `40e9106`; the
+documentation commit is part of the auditable chain, not a patch to the
+deployment.
+
 Evidence: `evidence/rebuild-fingerprint.log`, `evidence/pip-install.log`,
 `evidence/pip-reinstall.log`, `run/deployments.log`.
 
@@ -398,6 +406,7 @@ Full Chromium matrix against the deployed staging origin
 | --- | --- |
 | Pass 1 | **64 passed / 0 failed / 9 skipped**, EXIT 0 (`evidence/rebuild-chromium-pass1.log`) |
 | Pass 2 | **64 passed / 0 failed / 9 skipped**, EXIT 0 (`evidence/rebuild-chromium-pass2.log`) |
+| Pass 3 (after the controlled restart of §24) | **64 passed / 0 failed / 9 skipped**, EXIT 0 (`evidence/rebuild-chromium-pass3-post-restart.log`) |
 
 * 73 tests are listed by the two projects; the 9 skips are guarded by the tests
   themselves and require a deterministic backend turn fixture
@@ -435,6 +444,14 @@ Contract-shape claims are verified against the delivered responses (for example
 `POST /api/notebooks` → `{"success":true,"notebook":{…}}`,
 `GET /api/reading/workspaces/index` → `{"collections":[…]}`), and the harness
 asserts the documented shapes — it does not accept "any 2xx".
+
+The wire-level release-artifact probe (§20) runs the identical 29 assertions
+against both targets: the TLS ingress (`evidence/rebuild-artifact-tls.log`,
+`evidence/staging-artifact-probe-tls.json`) and the loopback API
+(`evidence/rebuild-artifact-probe-loopback.log`,
+`evidence/staging-artifact-probe-loopback.json`) — **29/29 on each**. The
+document-surface assertions are scoped to the frontend target by the harness,
+because the API does not serve the SPA document.
 
 Evidence: `evidence/rebuild-validate-pre.log`, `evidence/rebuild-artifact-tls.log`,
 `evidence/staging-validation-pre.json`.
@@ -493,22 +510,37 @@ Phase 26 data regression: `tests/reading/test_router.py`,
 `tests/services/session/test_sqlite_store.py`,
 `tests/services/session/test_legacy_migration.py`,
 `tests/services/workspace/test_data_migration.py`,
-`tests/services/partners/test_channel_state_migration.py` — result in
-`evidence/rebuild-phase26.log`.
+`tests/services/partners/test_channel_state_migration.py` — **110 passed /
+0 failed** (`evidence/rebuild-phase26.log`).
+
+Full repository regression on this host after the final deployment
+(`evidence/rebuild-pytest.log`, `evidence/rebuild-lint.log`,
+`evidence/rebuild-frontend.log`):
+
+| Suite | Result |
+| --- | --- |
+| Python test suite (full) | **8434 passed / 54 skipped / 0 failed** (543.79 s, EXIT 0) |
+| Ruff | All checks passed |
+| import-linter | 3 contracts kept, 0 broken |
+| Bandit (`-c pyproject.toml`, `deeptutor/`) | 0 issues at every severity and confidence |
+| Architecture boundaries + hygiene | OK, EXIT 0 |
+| Frontend `npm run check:fast` | **108 test files / 427 tests passed, 0 failures**, 0 ESLint errors (49 pre-existing warnings), EXIT 0 |
 
 ---
 
 ## 22. Stability
 
-* Two full Chromium passes and the whole API/security battery ran against the
-  same deployment without a restart or a reload.
+* Three full Chromium passes and the whole API/security battery ran against the
+  same deployment (the third pass after the controlled restart in §24).
 * A 240-request burst produced zero errors and no frontend RSS growth.
 * No component restarted itself, and no port changed holder during validation.
 * The fault run (below) deliberately broke and restored components; the
   deployment returned to a healthy state each time without a manual step.
 
 Evidence: `evidence/staging-perf.json`, `evidence/rebuild-chromium-pass1.log`,
-`evidence/rebuild-chromium-pass2.log`, `evidence/rebuild-faults-inject.log`.
+`evidence/rebuild-chromium-pass2.log`,
+`evidence/rebuild-chromium-pass3-post-restart.log`,
+`evidence/rebuild-faults-inject.log`.
 
 ---
 
@@ -533,6 +565,15 @@ Recovery was proven for each injected fault above, and separately for a full
 application-layer restart (post-restart validation: notebook, library metadata,
 library bytes by sha256, reading material text, reading collection, account) —
 **6/6** (`evidence/rebuild-validate-post-restart.log`).
+
+The full restart was a controlled, recorded operation: all three components were
+stopped and started by the supervisor (`evidence/rebuild-restart.log`), then
+health and identity were re-checked — `/health/live` 200, `/health/ready` 200,
+frontend `/login` 200, ingress `https://127.0.0.1:8443/login` 200, and
+`bin/staging.sh identity` still `traceable: true` with the same release,
+artifact hash and commit. The complete Chromium matrix was then re-run against
+the restarted deployment: 64 passed / 0 failed / 9 skipped, EXIT 0
+(`evidence/rebuild-chromium-pass3-post-restart.log`).
 
 Data survived because it lives in the persistent layer; sessions survived
 because the auth secret lives there too. Recovery was never claimed merely
@@ -671,7 +712,7 @@ excuse a repo, deployment, configuration, test or harness defect.
 | Core workflows pass | PASS | §17 |
 | Persistence proven | PASS | §15, §16, §24, §25 |
 | Redeployment proven | PASS | §25 |
-| Browser validation | PASS | 64 passed / 0 failed / 9 fixture-gated skips, twice (§18) |
+| Browser validation | PASS | 64 passed / 0 failed / 9 fixture-gated skips, three times — twice on the deployment and once after the restart (§18, §24) |
 | API validation | PASS | §19 |
 | Phase 27 security | PASS | 56/56 + 2/2 (§20) |
 | Phase 29 security | PASS | 15/15 (§20) |
@@ -685,6 +726,7 @@ excuse a repo, deployment, configuration, test or harness defect.
 | Infrastructure blockers documented | PASS | §29 |
 | Runbook complete | PASS | `docs-for-user/PHASE_31_STAGING_RUNBOOK.md` |
 | Closure report complete | PASS | this document |
+| Repository regression after the final deployment | PASS | Python 8434/54, Phase 26 110/0, Ruff, import-linter, Bandit, architecture/hygiene, frontend 427 tests (§21) |
 | Repository clean, changes committed and pushed | PASS | §33 |
 
 No critical node fails. The promotion gate passes.
@@ -719,7 +761,12 @@ bin/staging.sh session admin                        # writes harness/storage-sta
 python3 harness/staging_validate.py --phase pre
 python3 harness/staging_validate.py --phase post-restart
 python3 harness/staging_security.py                 # TLS ingress; STAGING_BACKEND switches target
-python3 harness/artifact/staging_artifact_probe.py
+python3 harness/staging_artifact_probe.py                       # TLS ingress target
+STAGING_ARTIFACT_TARGET=127.0.0.1:8101 python3 harness/staging_artifact_probe.py   # loopback API target
+cd /home/user/MO7/docs-for-user/phase27-harnesses               # Phase 27 + Phase 29 probes
+/home/user/MO7/.venv/bin/python mo7_p27_attack.py
+/home/user/MO7/.venv/bin/python mo7_p27_probe.py
+/home/user/MO7/.venv/bin/python mo7_p29_probe.py
 python3 harness/staging_faults.py --phase inject
 python3 harness/staging_faults.py --phase observe
 python3 harness/staging_perf.py
@@ -751,7 +798,8 @@ validation component and is stopped outside validation windows.
 
 ## 33. Final checklist and repository state
 
-* Branch: `arena/01a0ff3f-mo7`; HEAD after this phase's commit; the Phase 30
+* Branch: `arena/01a0ff3f-mo7`; HEAD is the documentation/harness commit
+  (`19c2a16`, pushed) on top of the release commit `40e9106`; the Phase 30
   certification commit `489bcf9` is an ancestor; `arena/01a0dba1-mo7` untouched.
 * Changes in this phase: the reader defect fix (`40e9106`, already pushed), the
   Phase 31 harness suite, the staging runbook, this report, and the bootstrap
@@ -762,11 +810,12 @@ validation component and is stopped outside validation windows.
 * The repository keeps no staging runtime data: staging lives entirely outside
   the checkout (`/home/user/mo7-staging`), and no credential, log or evidence
   file is committed.
-* Full regression after the final deployment: Python pytest (full suite), Ruff,
-  import-linter, architecture + hygiene checks, Bandit; frontend
-  `npm run check:fast` (contracts, architecture, typecheck, Node tests, Vitest,
-  ESLint, i18n); Chromium ×2; Phase 27 attack matrix + probes; Phase 29 probe;
-  Phase 26 data regression; Phase 28 performance/stability — results cited in
+* Full regression after the final deployment: Python pytest (8434 passed /
+  54 skipped), Ruff, import-linter (3 kept / 0 broken), architecture + hygiene,
+  Bandit (0 issues); frontend `npm run check:fast` (108 files / 427 tests,
+  0 failures, 0 errors); Chromium ×3 (64/0/9 each); Phase 27 attack matrix
+  (56/56) + probes (2/2); Phase 29 probe (15/15); Phase 26 data regression
+  (110/0); Phase 28 performance/stability — results and evidence files in
   §18–§22.
 
 ---
