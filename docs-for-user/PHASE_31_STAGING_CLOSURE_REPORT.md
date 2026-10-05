@@ -108,12 +108,13 @@ hash recorded in the contract → artifact installed and verified in the
 deployment → same commit in `run/deployments.log`**. No undocumented manual
 patch exists anywhere in that chain, and no artifact was substituted silently.
 
-The Phase 31 documents and harness sources live in the repository commit that
-follows the release commit. That commit contains **no product code**: the only
-paths it touches are `docs-for-user/phase31-staging/`,
-`docs-for-user/PHASE_31_STAGING_RUNBOOK.md` and this report. The deployed
-artifact therefore still corresponds to the product source at `40e9106`; the
-documentation commit is part of the auditable chain, not a patch to the
+The Phase 31 documents and harness sources live in the repository commits that
+follow the release commit. Those commits contain **no product code**: the only
+paths they touch are `docs-for-user/phase31-staging/`,
+`docs-for-user/PHASE_31_STAGING_RUNBOOK.md` and this report
+(`git diff --stat 40e9106..HEAD` shows nothing else). The deployed artifact
+therefore still corresponds to the product source at `40e9106`; the
+documentation commits are part of the auditable chain, not patches to the
 deployment.
 
 Evidence: `evidence/rebuild-fingerprint.log`, `evidence/pip-install.log`,
@@ -798,9 +799,12 @@ validation component and is stopped outside validation windows.
 
 ## 33. Final checklist and repository state
 
-* Branch: `arena/01a0ff3f-mo7`; HEAD is the documentation/harness commit
-  (`19c2a16`, pushed) on top of the release commit `40e9106`; the Phase 30
-  certification commit `489bcf9` is an ancestor; `arena/01a0dba1-mo7` untouched.
+* Branch: `arena/01a0ff3f-mo7`; HEAD is the final documentation/harness commit
+  on top of the release commit `40e9106` — every commit after `40e9106` touches
+  only `docs-for-user/` (harness sources, runbook, this report), and the exact
+  HEAD hash is whatever `git log -1` / `git ls-remote origin
+  refs/heads/arena/01a0ff3f-mo7` reports at closure. The Phase 30 certification
+  commit `489bcf9` is an ancestor; `arena/01a0dba1-mo7` is untouched.
 * Changes in this phase: the reader defect fix (`40e9106`, already pushed), the
   Phase 31 harness suite, the staging runbook, this report, and the bootstrap
   script. No unrelated refactors; no dependency upgrades; no assertion was
