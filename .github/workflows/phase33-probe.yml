@@ -1,0 +1,33 @@
+name: Phase 33 Trigger Probe
+
+# Capability probe for Phase 33. It answers exactly one question with evidence:
+# does a push event to a non-default branch start a GitHub Actions run for this
+# repository? Nothing about the release process is claimed until that is known.
+on:
+  push:
+    branches:
+      - arena/01a0ff3f-mo7
+    paths:
+      - ".github/workflows/phase33-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Trigger probe
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report the event that started this run
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "sha=${{ github.sha }}"
+          echo "run_id=${{ github.run_id }}"
+          echo "run_attempt=${{ github.run_attempt }}"
+          echo "runner_os=${{ runner.os }}"
+          echo "repository=${{ github.repository }}"
+      - name: Confirm the runner can compute a hash
+        run: |
+          echo "probe payload" > /tmp/probe.txt
+          sha256sum /tmp/probe.txt
