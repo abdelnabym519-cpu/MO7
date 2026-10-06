@@ -104,6 +104,26 @@ if [ "$DO_BACKUP" = "1" ]; then
   "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_backup.py" --label "pre-deploy-$RELEASE_ID" \
     >>"$PHASE_LOG" 2>&1 || die "pre-deploy backup failed; refusing to promote"
   log "BACKUP complete"
+
+  # The migration gate: the control backup is proven restorable *before* the
+  # switch, not merely taken. The deployment verification requires that the
+  # newest backup has been rehearsed into a scratch root (that is what makes a
+  # backup a recovery path rather than a file), and a promotion takes a fresh
+  # backup every time -- so a promotion that takes one must rehearse it, or the
+  # very act of promoting invalidates the check it is then measured against.
+  # Observed: the first full cycle rolled back for exactly this reason.
+  BACKUP_DIR="$(ls -1dt "$PROD_BACKUPS"/*-pre-deploy-"$RELEASE_ID" 2>/dev/null | head -1)"
+  [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ] || die "the pre-deploy backup this promotion took cannot be found"
+  REHEARSAL_ROOT="$(mktemp -d /tmp/mo7-promote-rehearsal-XXXXXX)"
+  log "MIGRATION validating the pre-deploy backup is restorable ($(basename "$BACKUP_DIR"))"
+  if "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_restore.py" \
+       --backup "$BACKUP_DIR" --target "$REHEARSAL_ROOT" >>"$PHASE_LOG" 2>&1; then
+    log "MIGRATION restore rehearsal passed (10 checks) on the backup this promotion took"
+  else
+    rm -rf "$REHEARSAL_ROOT"
+    die "the pre-deploy backup could not be restored; refusing to promote"
+  fi
+  rm -rf "$REHEARSAL_ROOT"
 else
   log "BACKUP skipped (--no-backup)"
 fi
