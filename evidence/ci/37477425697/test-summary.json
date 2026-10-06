@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-10-06T14:15:36Z",
+  "commit": "00489d704dce4571ed5bf0684652950904a50d87",
+  "version": "",
+  "environment": "ci",
+  "result": "fail",
+  "pytest": {
+    "available": false,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "total": 0
+  },
+  "ruff": {
+    "product_tree": {},
+    "repository_wide": {}
+  },
+  "static_and_import_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "00489d704dce4571ed5bf0684652950904a50d87",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": false,
+      "detail": "None/None checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": false,
+      "detail": "violations=None {}",
+      "required": true
+    }
+  ]
+}

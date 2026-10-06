@@ -1,0 +1,116 @@
+{
+  "rc_id": "-00489d7-ci37477425697",
+  "created_at": "2026-10-06T14:15:36Z",
+  "commit": "00489d704dce4571ed5bf0684652950904a50d87",
+  "version": "",
+  "branch": "arena/01a0ff3f-mo7",
+  "repository": "abdelnabym519-cpu/MO7",
+  "pipeline_run": "37477425697",
+  "verdict": "NOT_RELEASABLE",
+  "releasable": false,
+  "artifact": {
+    "name": "",
+    "sha256": null,
+    "bytes": null,
+    "entries": null,
+    "canonical_sha256": null
+  },
+  "stages": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "00489d704dce4571ed5bf0684652950904a50d87",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": false,
+      "detail": "None/None checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": false,
+      "detail": "violations=None {}",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": false,
+      "detail": "byte_identical=False classified={'build_id_in_path': '', 'build_id_in_content': '', 'build_id_digest': '', 'unexplained': ''}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": false,
+      "detail": "no pytest report was produced",
+      "excepted": true,
+      "finding": "P33-CI-K1",
+      "required": false
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": false,
+      "detail": "errors=n/a unformatted=n/a scope=n/a",
+      "required": false
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": false,
+      "detail": "n/a findings, n/a high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [
+    "version is declared",
+    "artifact was produced",
+    "artifact sha256 is recorded",
+    "artifact contract passed",
+    "artifact security scan is clean",
+    "a second build is content-identical",
+    "the product tree passes ruff (lint and format)",
+    "code security scan has no high/high findings"
+  ],
+  "excepted_failures": [
+    {
+      "stage": "python tests",
+      "finding": "P33-CI-K1"
+    }
+  ],
+  "reproducibility": {
+    "raw_output": "",
+    "byte_identical": false,
+    "reproducible": false,
+    "classification": {
+      "build_id_in_path": "",
+      "build_id_in_content": "",
+      "build_id_digest": "",
+      "unexplained": ""
+    },
+    "build_ids": "",
+    "raw_difference": "",
+    "canonical_difference": ""
+  },
+  "immutability": {
+    "rule": "an RC is identified by (version, commit, pipeline run) and its evidence is written once; any source or artifact change produces a new RC",
+    "evidence_digest": "15c16a66ec8369d4c3abfdd23e33e0b120875a87ea96a370360635446b195f30"
+  }
+}
