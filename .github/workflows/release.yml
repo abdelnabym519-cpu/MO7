@@ -251,6 +251,7 @@ jobs:
           python docs-for-user/phase33-cicd/rc_manifest.py \
             --compare "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
                       "/tmp/mo7-build/out-b/${{ steps.build.outputs.artifact }}" \
+            --json-out /tmp/mo7-build/out/reproducibility.json \
             | tee /tmp/mo7-build/out/reproducibility.txt
 
       # -------------------------------------------------------------- evidence
@@ -272,6 +273,13 @@ jobs:
             --contract /tmp/mo7-build/out/artifact-contract.json \
             --scan /tmp/mo7-build/out/artifact-scan.json \
             --reproducibility /tmp/mo7-build/out/reproducibility.txt \
+            --reproducibility-json /tmp/mo7-build/out/reproducibility.json \
+            --raw /tmp/mo7-build/out/build-report.json \
+            --raw /tmp/mo7-build/out/artifact-contract.json \
+            --raw /tmp/mo7-build/out/artifact-scan.json \
+            --raw /tmp/mo7-build/out/reproducibility.json \
+            --raw /tmp/mo7-build/lint-product.json \
+            --raw /tmp/mo7-build/lint-repo.json \
             --pytest-report pytest-report.xml \
             --bandit-summary bandit-summary.json \
             --stage /tmp/mo7-build/stage-source.json \
