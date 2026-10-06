@@ -202,7 +202,15 @@ bin/prod.sh alerts --json      # 18 rules: condition, severity, response, owner,
 `etc/alerts.json` carries, per rule, the metric and threshold, the severity, the
 documented response, the owner (`mo7-platform-oncall`) and how the rule is
 verified — the fault injections drive those same rules and assert that the
-expected rule fired (and cleared). The scheduler (`harness/prod_scheduler.py`)
+expected rule fired (and cleared).
+
+The `application-errors` rule reads the backend log's last 400 lines and counts
+ERROR/CRITICAL/Traceback/FATAL lines. Because a fault drill *deliberately*
+produces such lines, the drill writes a boundary marker
+(`phase32 fault drill complete`) into the backend log when each case finishes and
+when the run ends; the collector counts errors written after the newest marker.
+Errors from the deployment itself always count, and the marker text contains no
+error keywords. The scheduler (`harness/prod_scheduler.py`)
 runs the collector and evaluator on an interval, prunes retention and writes
 `run/metrics/series.ndjson`.
 
@@ -219,7 +227,8 @@ bin/prod.sh faults --case <id>             # a single injection
 ```
 
 Each case injects a real fault, asserts the observable consequences, restores
-what it changed and asserts the recovery; the run takes a lock
+what it changed and asserts the recovery (including the drill's own log-marker
+boundary, section 8); the run takes a lock
 (`run/faults.lock`) so two runs can never fight over one deployment, and it
 re-checks the baseline before each case. Per-case JSON lands in
 `evidence/faults/<case>-<epoch>.json`; the aggregate is
@@ -258,6 +267,12 @@ bin/prod.sh session admin            # mint the browser session state (re-mint a
 bin/prod.sh browser --project=ui-audit --project=epub-reader-chromium
 ```
 
+`MO7_CHROMIUM_HOME` points at a directory holding `chrome-linux/chrome` and
+`chromium-deps/lib/libnspr4.so`; without it the wrapper looks in
+`/home/user/mo7-build/chromium` and `/home/user/mo7-prod-build/chromium` and
+exits `78` with a clear message rather than letting every test fail on a missing
+shared library.
+
 The browser suites need a Chromium build and its libraries, because the
 Playwright CDN is unreachable from this host: `harness/prod_browser.sh` locates
 the extracted `@sparticuz/chromium` build (`MO7_CHROMIUM_HOME`) and puts its
@@ -283,6 +298,12 @@ bin/prod.sh init-config                        # render the app's own settings (
 bin/prod.sh ingress start                      # validation window only
 bin/prod.sh provision                          # create the deployment accounts
 ```
+
+The bootstrap installs the harness instruments (`harness/prod_*.py` and the
+shell harnesses such as `harness/prod_browser.sh`), renders the process
+definitions, materialises the auth secret, issues the validation-ingress
+certificate and stages the first release through the same deployment pipeline the
+operator uses.
 
 The bootstrap is idempotent: it never overwrites an existing contract, secret or
 release directory, and never touches production data. A rebuild that has to

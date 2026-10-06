@@ -22,6 +22,16 @@ recorded value changed are failures (data lost or altered); entries that appeare
 are reported as additions. A deployment's own post-promote smoke legitimately
 creates runtime bookkeeping, so an addition is not a data-integrity failure —
 but a removal or a changed hash always is.
+
+One table is classified separately because the application treats it as an
+ephemeral counter rather than as data: `login_attempts` holds the failed-sign-in
+throttle buckets, `record_failed_login` prunes anything older than a day, and
+`clear_login_throttle` *deletes* the bucket of an account that just signed in
+(deeptutor/services/auth.py). Its row count therefore moves in both directions
+during ordinary operation, including during a deployment's own smoke sign-in.
+Volatile counts are reported with their before/after values and never decide the
+exit status; the file's own digest, and every other store, table, file and
+document, are still compared strictly.
 """
 
 from __future__ import annotations
@@ -124,6 +134,15 @@ def digest_of(document: dict) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+#: Keys whose value is a bounded, self-pruning operational counter rather than
+#: durable data. Their movement between two inventories is traffic (or a
+#: deployment's own smoke sign-in), so it is reported but never fails the
+#: comparison; everything else is still compared for equality.
+VOLATILE_KEYS = {
+    "system.auth/login_attempts.sqlite3.tables.login_attempts",
+}
+
+
 def flatten(document: dict, prefix: str = "") -> dict:
     """Flatten the inventory into dotted-key -> value pairs for comparison.
 
@@ -161,11 +180,17 @@ def main() -> int:
         added = sorted(set(right) - set(left))
         removed = sorted(set(left) - set(right))
         changed = sorted(key for key in set(left) & set(right) if left[key] != right[key])
+        volatile = [key for key in changed if key in VOLATILE_KEYS]
+        changed = [key for key in changed if key not in VOLATILE_KEYS]
         print(f"digest {args.compare[0]}: {first['digest']}")
         print(f"digest {args.compare[1]}: {second['digest']}")
-        for label, keys in (("added", added), ("removed", removed), ("changed", changed)):
+        for label, keys in (("volatile", volatile), ("added", added), ("removed", removed), ("changed", changed)):
             print(f"  {label}: {len(keys)}")
             for key in keys[:10]:
+                if label == "volatile":
+                    print(f"    {key}: {left.get(key)} -> {right.get(key)} "
+                          f"(append-and-prune operational counter; not a data change)")
+                    continue
                 detail = right.get(key, left.get(key))
                 print(f"    {key} = {str(detail)[:140]}")
         if removed or changed:

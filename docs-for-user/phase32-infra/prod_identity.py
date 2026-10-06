@@ -72,6 +72,13 @@ def bundle_comparison(release: Path, bundle: Path) -> dict:
         if not path.is_file():
             continue
         relative = path.relative_to(packaged)
+        # CPython writes bytecode caches into whichever copy of the package it
+        # imported (both the packaged and the materialised one), and a .pyc
+        # embeds the source timestamp, so two caches of the same source never
+        # hash alike. They are interpreter artifacts, not bundle content: the
+        # comparison is about the files the artifact ships.
+        if "__pycache__" in relative.parts or path.suffix == ".pyc":
+            continue
         target = bundle / relative
         if not target.exists():
             missing.append(str(relative))

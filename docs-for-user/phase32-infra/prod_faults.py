@@ -930,6 +930,26 @@ def acquire_run_lock():
     return handle
 
 
+def mark_backend_log(note: str) -> None:
+    """Append a drill-boundary marker to the backend log.
+
+    The log metric counts error lines only after the newest marker, so this is
+    what turns "the drill's deliberate errors are still in the log window" into
+    "the drill is finished and accounted for". Nothing else about the running
+    application is touched, and the marker itself carries no error text.
+    """
+    path = cfg.LOG_DIR / "backend.log"
+    if not path.exists():
+        return
+    line = f"--- {cfg.FAULT_LOG_MARKER}: {note} at {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} ---\n"
+    try:
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line)
+        print(f"    [marker] {line.strip()}")
+    except OSError as exc:  # pragma: no cover - log must never fail the drill
+        print(f"    [marker] could not mark the backend log: {exc}", file=sys.stderr)
+
+
 def main() -> int:
     args = sys.argv[1:]
     if "--list" in args or not args:
@@ -966,6 +986,7 @@ def main() -> int:
         results.append(document)
         FAULT_EVIDENCE.mkdir(parents=True, exist_ok=True)
         (FAULT_EVIDENCE / f"{case_id}-{int(time.time())}.json").write_text(json.dumps(document, indent=2) + "\n")
+        mark_backend_log(f"{case_id} done")
         if not document.get("ok") and not keep_going:
             print(f"stopping after {case_id} (pass --keep-going to continue)")
             break
@@ -987,6 +1008,9 @@ def main() -> int:
     }
     EVIDENCE.mkdir(parents=True, exist_ok=True)
     (EVIDENCE / "production-faults.json").write_text(json.dumps(document, indent=2) + "\n")
+    # The drill is over and every fault has been removed: mark the boundary so
+    # the log metric stops counting the errors this run deliberately produced.
+    mark_backend_log(f"all {len(results)} cases done, faults removed")
     print(f"\nfault injections: {document['cases_passed']}/{document['cases_total']} cases passed, "
           f"{document['checks_passed']}/{document['checks_total']} checks passed, "
           f"deployment healthy after={document['deployment_healthy_after']}")

@@ -255,7 +255,17 @@ def log_metrics() -> dict:
                 except OSError:
                     handle.seek(0)
                 text = handle.read().decode("utf-8", "replace")
-            for line in text.splitlines()[-400:]:
+            window = text.splitlines()[-400:]
+            # A fault drill deliberately produces the errors it measures and
+            # records them in evidence/faults/; it marks the boundary when it
+            # has restored the deployment. Counting from the newest marker keeps
+            # the alert about *unexplained* errors while any error written after
+            # the marker still counts.
+            for index in range(len(window) - 1, -1, -1):
+                if cfg.FAULT_LOG_MARKER in window[index]:
+                    window = window[index + 1:]
+                    break
+            for line in window:
                 if any(marker in line for marker in ("ERROR", "CRITICAL", "Traceback", "FATAL")):
                     errors += 1
         result[component] = {"recent_error_lines": errors, "exists": path.exists(), "bytes": path.stat().st_size if path.exists() else 0}

@@ -202,6 +202,11 @@ chmod 600 "$SECRET_FILE"
 # --- 6. validation instruments ----------------------------------------------
 cp -f "$HERE"/prod_*.py "$PROD_ROOT/harness/"
 chmod 755 "$PROD_ROOT/harness/"prod_*.py
+# Harness entry points that are shell rather than Python (the browser wrapper,
+# which owns the Chromium/Playwright environment). They live in harness/ because
+# they are validation instruments, not operational verbs.
+cp -f "$HERE"/prod_*.sh "$PROD_ROOT/harness/" 2>/dev/null || true
+chmod 755 "$PROD_ROOT/harness/"prod_*.sh 2>/dev/null || true
 if [ ! -e "$PROD_ROOT/harness/ingress_tls_proxy.js" ]; then
   cp -f "$HERE/../phase31-staging/ingress_tls_proxy.js" "$PROD_ROOT/harness/"
 fi

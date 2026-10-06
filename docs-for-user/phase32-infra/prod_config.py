@@ -115,6 +115,13 @@ SUPERVISOR_LOG = Path(value("PROD_SUPERVISOR_LOG", str(RUN / "supervisord.log"))
 SUPERVISOR_SOCK = value("PROD_SUPERVISOR_SOCK", str(RUN / "supervisor.sock"))
 SUPERVISOR_PID = Path(value("PROD_SUPERVISOR_PID", str(RUN / "supervisord.pid")))
 LOG_DIR = Path(value("PROD_LOG_DIR", str(RUN / "supervisor")))
+
+#: Line the fault-injection harness appends to the backend log when a drill's
+#: fault has been removed. Deliberate drill errors above the newest marker are
+#: recorded in evidence/faults/ and are not unexplained production errors, so
+#: the log metric counts error lines only after the newest marker in its window.
+#: The text must never contain the error markers the metric looks for.
+FAULT_LOG_MARKER = "phase32 fault drill complete"
 METRICS_DIR = Path(value("PROD_METRICS_DIR", str(RUN / "metrics")))
 ALERTS_DIR = Path(value("PROD_ALERTS_DIR", str(RUN / "alerts")))
 DEPLOY_LOG = RUN / "deployments.log"

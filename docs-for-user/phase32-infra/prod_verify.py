@@ -598,8 +598,28 @@ def section_backups() -> None:
               not missing,
               f"backed up {len(backed_up)} stores; missing={missing[:5]}; "
               f"{len(newer)} store(s) were created after the backup and are due in the next one")
-        check("backups", "the newest backup covers file storage",
-              bool((manifest.get("storage") or {}).get("files")), json.dumps(manifest.get("storage") or {}))
+        # Same reasoning as the database coverage check above: a backup can only
+        # contain the files that existed when it ran. The question is whether it
+        # covered them, not whether the deployment happened to have uploaded a
+        # file before the snapshot.
+        storage_paths = ["data/users"]
+        policy = json.loads((cfg.ETC / "backup-policy.json").read_text()) if (cfg.ETC / "backup-policy.json").exists() else {}
+        storage_paths = policy.get("storage_paths", storage_paths)
+        live_files: dict[str, float] = {}
+        for relative in storage_paths:
+            root = cfg.HOME / relative
+            if not root.exists():
+                continue
+            for path in root.rglob("*"):
+                if path.is_file():
+                    live_files[str(path.relative_to(cfg.HOME))] = path.stat().st_mtime
+        older_files = {name for name, mtime in live_files.items() if mtime <= backup_time}
+        archived = int((manifest.get("storage") or {}).get("files") or 0)
+        check("backups", "the newest backup covers the file storage that existed when it was taken",
+              archived >= len(older_files),
+              f"archive holds {archived} file(s); {len(older_files)} existed at backup time; "
+              f"{len(live_files) - len(older_files)} were uploaded afterwards and are due in the next one; "
+              f"{json.dumps(manifest.get('storage') or {})}")
         age_hours = round((time.time() - (newest / "manifest.json").stat().st_mtime) / 3600, 2)
         check("backups", "the newest backup is recent enough for the policy (< 26 h)", age_hours < 26, f"age={age_hours} h")
 
