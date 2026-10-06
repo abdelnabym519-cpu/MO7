@@ -190,7 +190,13 @@ INSTALLED_VERSION="$("$STAGING_DIR/venv/bin/python" -c 'from deeptutor.__version
 [ "$INSTALLED_VERSION" = "$VERSION" ] || die "installed version $INSTALLED_VERSION != $VERSION"
 
 log "STAGE materialising the web bundle from the artifact"
-"$STAGING_DIR/venv/bin/python" - "$STAGING_DIR" "http://$PROD_BACKEND_HOST:$PROD_BACKEND_PORT" <<'PYEOF' >>"$PHASE_LOG" 2>&1
+# -P keeps the current working directory out of sys.path. Without it, a stdin
+# script runs with '' (the CWD) first on sys.path, so `import deeptutor_web`
+# resolves to a *source checkout* if the operator happens to stand in one — the
+# release would then materialise a web bundle that is not the one inside the
+# artifact under test. Observed exactly that during Phase 33, with the checkout
+# mid-rebuild. The release must be materialised from the artifact, nowhere else.
+(cd "$STAGING_DIR" && "$STAGING_DIR/venv/bin/python" -P - "$STAGING_DIR" "http://$PROD_BACKEND_HOST:$PROD_BACKEND_PORT") <<'PYEOF' >>"$PHASE_LOG" 2>&1
 import sys
 from pathlib import Path
 
