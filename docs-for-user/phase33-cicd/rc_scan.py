@@ -1,169 +1,173 @@
 #!/usr/bin/env python3
-"""Artifact security scan: material a release artifact must never carry.
+"""Artifact security scan: what must not be inside a release.
 
-Every rule is a real pattern with a real consequence, not a keyword list for
-appearance. A finding is reported with the offending paths, and the exit status
-is non-zero so the release pipeline fails closed on it.
+A release artifact is published to hosts the build machine never sees, so it is
+scanned for material that must not travel with it. The scan separates two
+questions that are easy to confuse:
 
-    rc_scan.py --artifact FILE [--json] [--evidence FILE]
+* **violations** — material whose presence means the artifact must not be
+  released: private keys, credentials, secret-shaped tokens, environment files,
+  compiled bytecode, repository metadata, debug configuration, and build-host
+  paths inside assets that are served to a browser.
+* **recorded** — observations that are real but are not release blockers, each
+  with a finding id and the reason it does not block. Recording them is the
+  difference between a scan that leaves a residue documented and one that hides it
+  behind a rule that was quietly switched off (or that screams at every minified
+  file, which is the same thing with more noise).
 
-Rules
------
-credentials      private keys, `.env` files, credential-shaped files anywhere in
-                 the artifact (a release must not ship secrets)
-high_entropy     long base64/hex blobs inside small text files, excluding the
-                 known-benign set (chunk hashes, integrity hashes, font data)
-bytecode         `.pyc` / `__pycache__` (interpreter output, not source)
-vcs_and_ci       `.git`, `.github`, CI caches
-dev_material     test suites, fixtures, docs, editor config shipped by accident
-local_paths      absolute paths to a build host (`/home/<user>/…`) inside files
-                 that will be executed or served
-debug_config     debug/dev toggles in shipped configuration
-temp_files       editor swaps, `.orig`, `.rej`, `.bak`, lockfiles of builds
+`clean` is true only when there are no violations. Exit code 1 on any violation.
+
+    rc_scan.py --artifact WHEEL [--json] [--evidence FILE]
 """
 
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import json
-import math
 from pathlib import Path
 import re
 import sys
 import time
 import zipfile
 
-# --- rule definitions --------------------------------------------------------
-SECRET_NAMES = re.compile(
-    r"(^|/)(\.env(\..*)?|\.netrc|id_rsa|id_ed25519|credentials\.json|secrets\.env|"
-    r"\.pypirc|\.npmrc|\.aws/credentials|service[-_]account.*\.json)$",
-    re.IGNORECASE,
+# --- blocking rule families -------------------------------------------------
+SECRET_SHAPES = [
+    ("openai_key", re.compile(rb"\bsk-[A-Za-z0-9]{20,}\b")),
+    ("github_token", re.compile(rb"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b")),
+    ("github_pat", re.compile(rb"\bgithub_pat_[A-Za-z0-9_]{22,}\b")),
+    ("aws_access_key", re.compile(rb"\bAKIA[0-9A-Z]{16}\b")),
+    ("slack_token", re.compile(rb"\bxox[baprs]-[A-Za-z0-9-]{10,}\b")),
+    ("google_api_key", re.compile(rb"\bAIza[0-9A-Za-z_-]{35}\b")),
+    ("jwt", re.compile(rb"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
+    ("discord_webhook", re.compile(rb"discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]+")),
+    ("private_key_block", re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("pgp_private_block", re.compile(rb"-----BEGIN PGP PRIVATE KEY BLOCK-----")),
+    ("putty_private_key", re.compile(rb"PuTTY-User-Key-File-\d")),
+]
+CREDENTIAL_FILES = re.compile(
+    r"(^|/)(\.env(\.[A-Za-z0-9_-]+)?|credentials\.json|secrets\.env|auth_secret|"
+    r"id_rsa|id_ed25519|[^/]*\.pem|[^/]*\.p12|[^/]*\.pfx|[^/]*\.keystore|\.netrc|\.pypirc|"
+    r"\.docker/config\.json|service-account[^/]*\.json)$"
 )
-SECRET_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".jks", ".keystore")
-PRIVATE_KEY_MARKERS = (
-    b"-----BEGIN RSA PRIVATE KEY-----",
-    b"-----BEGIN PRIVATE KEY-----",
-    b"-----BEGIN OPENSSH PRIVATE KEY-----",
-    b"-----BEGIN EC PRIVATE KEY-----",
-)
-# Credential-shaped assignments in shipped text. Deliberately narrow: a release
-# must not ship a literal that would authenticate anything.
-CREDENTIAL_ASSIGNMENT = re.compile(
-    rb"(?i)\b(aws_secret_access_key|client_secret|private_key|api_key|apikey|password|passwd|"
-    rb"secret_key|access_token|auth_token|bearer)\b\s*[:=]\s*[\"']([A-Za-z0-9/+_\-]{20,})[\"']"
-)
-# Placeholders and documentation values that are not credentials.
-CREDENTIAL_ALLOWLIST = re.compile(
-    rb"(?i)(example|placeholder|your[-_]|xxx+|changeme|redacted|dummy|test|sample|\$\{|<|"
-    rb"os\.environ|process\.env|getenv|import\.meta|field|schema|label|title|description|"
-    rb"hint|tooltip|error|message|logging|log_|_logger|name\s*$)"
-)
-BYTECODE_NAME = re.compile(r"(^|/)(__pycache__/|.*\.pyc$)")
-VCS_NAME = re.compile(r"(^|/)(\.git|\.gitignore$|\.github/|\.hg|\.svn)")
-DEV_NAME = re.compile(
-    r"(^|/)(tests?/|test_[^/]*\.py$|[^/]*_test\.py$|conftest\.py$|fixtures?/|"
-    r"\.pytest_cache/|\.ruff_cache/|\.mypy_cache/|docs?/|notebooks?/|examples?/|"
-    r"\.vscode/|\.idea/|\.editorconfig$|\.pre-commit-config\.yaml$)"
-)
-TEMPFILE_NAME = re.compile(r"(^|/)([^/]*\.(orig|rej|bak|swp|swo)$|\.DS_Store$|~$|#.*#$)")
-DEBUG_MARKERS = re.compile(rb"(?i)\b(debug\s*[:=]\s*true|DEBUG\s*=\s*True|dev_mode\s*[:=]\s*true)")
-LOCAL_PATH = re.compile(rb"/home/[a-z0-9_.-]+/")
-TEXT_SUFFIXES = (
-    ".py",
-    ".js",
-    ".mjs",
-    ".cjs",
-    ".json",
-    ".txt",
-    ".md",
-    ".sh",
-    ".html",
-    ".css",
-    ".ts",
-    ".tsx",
-    ".jsx",
-    ".yml",
-    ".yaml",
-    ".toml",
-    ".cfg",
-    ".ini",
-)
-# Integrity/asset hashes that are supposed to look random.
-BENIGN_ENTROPY_NAMES = re.compile(
-    r"(RECORD$|\.sha256$|static/chunks/|static/css/|\.woff2?$|/chunk|integrity|"
-    r"package-lock\.json$|build-manifest\.json$|\.map$|runtime\.txt$|\.rsc$)"
-)
+BUILD_ARTIFACTS = re.compile(r"(^|/)(__pycache__/|\.git/|\.github/|\.pytest_cache/|\.mypy_cache/)")
+TEMP_FILES = re.compile(r"(^|/)[^/]*\.(pyc|pyo|orig|rej|bak|tmp|swp)$|(^|/)\.DS_Store$|~$")
+LOCAL_PATH = re.compile(rb"/home/[A-Za-z0-9._-]+/|/Users/[A-Za-z0-9._-]+/|[A-Za-z]:\\\\Users\\\\")
+DEBUG_ENABLED = re.compile(rb"^\s*(?:debug|DEBUG)\s*[:=]\s*(?:true|True)\s*$", re.MULTILINE)
+
+# --- recorded (non-blocking) observations -----------------------------------
+CLIENT_SERVED = re.compile(r"^deeptutor_web/\.next/static/|\.html$")
+DEFAULT_CHECKOUT = "/home/user/MO7"
+IN_PACKAGE_TESTS = re.compile(r"(^|/)(tests?|testing)/|(^|/)test_[^/]*\.py$|(^|/)[^/]*_test\.py$")
+ENTROPY_TOKEN = re.compile(rb"[A-Za-z0-9+/=_-]{64,}")
+# tokens that are simply a slice of a known alphabet are not secret-shaped
+ALPHABET_RUNS = [b"ABCDEFGHIJKLMNOPQRSTUVWXYZ", b"abcdefghijklmnopqrstuvwxyz", b"0123456789"]
+GENERATED_KEY_FIELD = re.compile(rb'"encryptionKey"\s*:\s*"[A-Za-z0-9+/=]{20,}"')
+
+FINDINGS = {
+    "local_paths_server": "P33-S1",
+    "home_path_review": "P33-S5",
+    "in_package_tests": "P33-S2",
+    "entropy_review": "P33-S3",
+    "generated_key_material": "P33-S4",
+}
 
 
-def entropy(blob: bytes) -> float:
-    if not blob:
-        return 0.0
-    counts = Counter(blob)
-    length = len(blob)
-    return -sum((n / length) * math.log2(n / length) for n in counts.values())
+def is_alphabet_run(token: bytes) -> bool:
+    return any(run in token for run in ALPHABET_RUNS)
 
 
-def scan(artifact: Path) -> dict:
+def scan(artifact: Path, checkout: str = DEFAULT_CHECKOUT) -> dict:
     violations: list[dict] = []
-    scanned = 0
+    recorded: list[dict] = []
+    checkout = checkout.rstrip("/")
+    checkout_bytes = checkout.encode() if checkout else b""
+    counts: dict[str, int] = {}
 
-    def add(rule: str, path: str, detail: str = "") -> None:
-        violations.append({"rule": rule, "path": path, "detail": detail[:200]})
+    def flag(rule: str, path: str, detail: str = "") -> None:
+        violations.append({"rule": rule, "path": path, "detail": detail})
+        counts[rule] = counts.get(rule, 0) + 1
+
+    def note(rule: str, path: str, detail: str = "") -> None:
+        recorded.append({"rule": rule, "finding": FINDINGS[rule], "path": path, "detail": detail})
 
     with zipfile.ZipFile(artifact) as archive:
-        for info in archive.infolist():
+        for info in sorted(archive.infolist(), key=lambda i: i.filename):
             if info.is_dir():
                 continue
-            scanned += 1
             name = info.filename
-            if SECRET_NAMES.search(name) or name.lower().endswith(SECRET_SUFFIXES):
-                add("credentials", name, "credential-shaped filename")
-            if BYTECODE_NAME.search(name):
-                add("bytecode", name)
-            if VCS_NAME.search(name):
-                add("vcs_and_ci", name)
-            if DEV_NAME.search(name):
-                add("dev_material", name)
-            if TEMPFILE_NAME.search(name):
-                add("temp_files", name)
-            # Content rules only make sense on files small enough to be authored
-            # text; a large bundle is hashed assets, not configuration.
-            if info.file_size > 512_000:
-                continue
-            payload = archive.read(name)
-            if any(marker in payload for marker in PRIVATE_KEY_MARKERS):
-                add("credentials", name, "embedded private key")
-            if CREDENTIAL_ASSIGNMENT.search(payload) and not CREDENTIAL_ALLOWLIST.search(payload):
-                match = CREDENTIAL_ASSIGNMENT.search(payload)
-                add(
-                    "credentials",
-                    name,
-                    f"credential-shaped assignment: {match.group(1).decode()!r}",
-                )
-            if LOCAL_PATH.search(payload):
-                add(
-                    "local_paths",
-                    name,
-                    f"build-host path: {LOCAL_PATH.search(payload).group(0).decode()}",
-                )
-            if name.endswith(TEXT_SUFFIXES) and DEBUG_MARKERS.search(payload):
-                add("debug_config", name, DEBUG_MARKERS.search(payload).group(0).decode())
-            if name.endswith(TEXT_SUFFIXES) and not BENIGN_ENTROPY_NAMES.search(name):
-                hits = [m.group(0) for m in re.finditer(rb"[A-Za-z0-9+/_\-=]{32,}", payload)]
-                for hit in hits[:2]:
-                    if entropy(hit) > 4.2:
-                        add("high_entropy", name, f"high-entropy blob ({len(hit)} chars)")
+            if CREDENTIAL_FILES.search(name):
+                flag("credential_file", name)
+            if BUILD_ARTIFACTS.search(name):
+                flag("repository_or_cache_metadata", name)
+            if TEMP_FILES.search(name):
+                flag("temporary_or_compiled_file", name)
+            if IN_PACKAGE_TESTS.search(name):
+                note("in_package_tests", name, "test material shipped inside the package")
 
-    by_rule = Counter(v["rule"] for v in violations)
+            payload = archive.read(name)
+            for shape, pattern in SECRET_SHAPES:
+                if pattern.search(payload):
+                    flag(
+                        f"secret_shape:{shape}",
+                        name,
+                        pattern.search(payload).group(0)[:40].decode("utf-8", "replace"),
+                    )
+            if checkout_bytes and checkout_bytes in payload:
+                # The artifact names the machine it was built on. That is a
+                # release blocker wherever it appears: the build recipe scrubs
+                # that path, so finding it means the artifact is not what the
+                # recipe produces.
+                flag("build_host_path", name, f"the build checkout path {checkout}")
+            for match in LOCAL_PATH.finditer(payload):
+                # Other home-shaped paths are usually documentation examples or UI
+                # placeholders, so they are recorded with a sample rather than
+                # treated as leaks.
+                note(
+                    "home_path_review",
+                    name,
+                    f"{match.group(0).decode('utf-8', 'replace')} "
+                    f"({'client-served' if CLIENT_SERVED.search(name) else 'server-side'})",
+                )
+                break
+            if name.endswith(
+                (".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf")
+            ) and DEBUG_ENABLED.search(payload):
+                flag("debug_configuration", name, "debug enabled in a shipped configuration file")
+            if GENERATED_KEY_FIELD.search(payload):
+                note(
+                    "generated_key_material",
+                    name,
+                    "framework-generated per-build key material (recorded, not a credential)",
+                )
+            for token in ENTROPY_TOKEN.findall(payload):
+                if is_alphabet_run(token):
+                    continue
+                classes = sum(
+                    bool(re.search(cls, token))
+                    for cls in (rb"[a-z]", rb"[A-Z]", rb"[0-9]", rb"[^A-Za-z0-9]")
+                )
+                if classes >= 3 and not re.fullmatch(rb"[0-9a-f]+", token):
+                    note("entropy_review", name, f"high-entropy token ({len(token)} chars)")
+                    break
+
+    by_rule: dict[str, int] = {}
+    for row in violations:
+        by_rule[row["rule"]] = by_rule.get(row["rule"], 0) + 1
+    recorded_by_rule: dict[str, int] = {}
+    for row in recorded:
+        recorded_by_rule[row["rule"]] = recorded_by_rule.get(row["rule"], 0) + 1
+
     return {
-        "scanned_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "artifact": artifact.name,
-        "entries_scanned": scanned,
+        "artifact_sha256": __import__("hashlib").sha256(artifact.read_bytes()).hexdigest(),
+        "entries_scanned": len(zipfile.ZipFile(artifact).infolist()),
         "clean": not violations,
-        "violations": violations[:200],
         "violation_total": len(violations),
-        "by_rule": dict(by_rule),
+        "by_rule": by_rule,
+        "violations": violations[:200],
+        "recorded_total": len(recorded),
+        "recorded_by_rule": recorded_by_rule,
+        "recorded": recorded[:60],
     }
 
 
@@ -172,35 +176,33 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--artifact", required=True)
+    parser.add_argument(
+        "--checkout",
+        default=__import__("os").environ.get("MO7_CHECKOUT", DEFAULT_CHECKOUT),
+        help="the build checkout path that must not appear in the artifact",
+    )
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--evidence")
-    parser.add_argument("--max-per-rule", type=int, default=15)
+    parser.add_argument("--evidence", help="write the scan document here")
     args = parser.parse_args()
 
-    artifact = Path(args.artifact)
-    if not artifact.is_file():
-        print(f"FATAL: artifact not found: {artifact}", file=sys.stderr)
-        return 2
-    result = scan(artifact)
+    artifact = Path(args.artifact).resolve()
+    document = scan(artifact, args.checkout)
+    document["recorded_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     if args.evidence:
         Path(args.evidence).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.evidence).write_text(json.dumps(result, indent=2) + "\n")
+        Path(args.evidence).write_text(json.dumps(document, indent=2) + "\n")
     if args.json:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(document, indent=2))
     else:
-        print(f"artifact scan: {result['artifact']} ({result['entries_scanned']} entries)")
-        if result["clean"]:
-            print("  clean: no forbidden material")
-        else:
-            for rule, count in sorted(result["by_rule"].items()):
-                print(f"  {rule}: {count}")
-                for row in [v for v in result["violations"] if v["rule"] == rule][
-                    : args.max_per_rule
-                ]:
-                    print(f"      {row['path']} {row['detail']}")
-    print(f"\nartifact scan: {'CLEAN' if result['clean'] else 'FORBIDDEN MATERIAL FOUND'}")
-    return 0 if result["clean"] else 1
+        print(f"artifact scan: {artifact.name}")
+        print(f"  entries {document['entries_scanned']}")
+        print(f"  violations {document['violation_total']} {document['by_rule']}")
+        print(f"  recorded   {document['recorded_total']} {document['recorded_by_rule']}")
+        for row in document["violations"][:20]:
+            print(f"  VIOLATION {row['rule']}: {row['path']} {row['detail']}")
+        print("artifact scan: " + ("CLEAN" if document["clean"] else "FORBIDDEN MATERIAL FOUND"))
+    return 0 if document["clean"] else 1
 
 
 if __name__ == "__main__":

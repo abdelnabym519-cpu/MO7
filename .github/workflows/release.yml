@@ -50,6 +50,10 @@ concurrency:
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PYTHONUNBUFFERED: "1"
+  # The tools that must know where the checkout is (build recipe, artifact scan)
+  # read this, so a release cannot accidentally be built or scanned against a
+  # different tree than the one that was validated.
+  MO7_CHECKOUT: ${{ github.workspace }}
 
 jobs:
   release:
@@ -70,24 +74,14 @@ jobs:
 
       # ---------------------------------------------------------------- source
       - name: Source gate
-        id: source
         run: |
-          set -euo pipefail
-          echo "repository=$GITHUB_REPOSITORY" | tee source.txt
-          echo "ref=$GITHUB_REF" | tee -a source.txt
-          echo "branch=$GITHUB_REF_NAME" | tee -a source.txt
-          echo "event=$GITHUB_EVENT_NAME" | tee -a source.txt
-          echo "sha=$GITHUB_SHA" | tee -a source.txt
-          echo "run_id=$GITHUB_RUN_ID" | tee -a source.txt
-          echo "run_attempt=$GITHUB_RUN_ATTEMPT" | tee -a source.txt
-          echo "checked_out_sha=$(git rev-parse HEAD)" | tee -a source.txt
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          # A release is built from a commit, never from a dirty tree.
-          test -z "$(git status --porcelain)"
-          echo "tree_clean=true" | tee -a source.txt
-          # Heredoc terminators cannot be indented inside a YAML block scalar,
-          # so this is a one-liner rather than a here-document.
-          python3 -c 'import pathlib,re;src=pathlib.Path("deeptutor/__version__.py").read_text(encoding="utf-8");m=re.search(r"__version__\s*=\s*\"([^\"]+)\"",src);assert m,"version not found";print("version="+m.group(1))' | tee version.txt
+          mkdir -p /tmp/mo7-build
+          python docs-for-user/phase33-cicd/rc_stage.py \
+            --stage "the source gate" \
+            --evidence /tmp/mo7-build/stage-source.json \
+            --log /tmp/mo7-build/source-gate.log \
+            --failure-hint "the release source is not a clean checkout of the event commit" \
+            -- python docs-for-user/phase33-cicd/rc_source_gate.py --out /tmp/mo7-build/source.json
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -280,6 +274,7 @@ jobs:
             --reproducibility /tmp/mo7-build/out/reproducibility.txt \
             --pytest-report pytest-report.xml \
             --bandit-summary bandit-summary.json \
+            --stage /tmp/mo7-build/stage-source.json \
             --stage /tmp/mo7-build/stage-deps.json \
             --stage /tmp/mo7-build/stage-imports.json \
             --stage /tmp/mo7-build/stage-pipcheck.json \

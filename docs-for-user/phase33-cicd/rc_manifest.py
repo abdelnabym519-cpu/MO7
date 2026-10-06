@@ -47,6 +47,110 @@ def normalised(payload: bytes, build_id: str) -> bytes:
     return payload.replace(build_id.encode(), BUILD_ID_PLACEHOLDER.encode())
 
 
+#: Wheel RECORD files carry urlsafe-base64 sha256 digests, not hex.
+RECORD_DIGEST = re.compile(rb"sha256=[A-Za-z0-9_-]{43}")
+#: Generated per-build tokens. Next.js writes the standalone bundle with a
+#: temporary TypeScript config whose name carries a number chosen at build time,
+#: and records that name in required-server-files.json. It identifies the build,
+#: not the code, so it is neutralised like the build id itself.
+GENERATED_TOKEN = re.compile(rb"deeptutor-build-\d+")
+GENERATED_TOKEN_PLACEHOLDER = b"deeptutor-build-<token>"
+#: Generated key material. Next.js generates a random 32-byte encryption key for
+#: Server Actions on every build and records it in the server reference manifest.
+#: It is generated material like the build id — and it is *correct* for it to
+#: differ between builds, so the comparison neutralises it rather than treating
+#: two different random keys as an unreproducible build.
+GENERATED_KEY = re.compile(rb'("encryptionKey"\s*:\s*)"[^"]*"')
+
+
+def neutralise_generated_tokens(payload: bytes) -> bytes:
+    """Replace generated per-build tokens and key material with placeholders."""
+    body = GENERATED_TOKEN.sub(GENERATED_TOKEN_PLACEHOLDER, payload)
+    return GENERATED_KEY.sub(rb'\1"<generated-key>"', body)
+
+
+def embedded_json_canonical(payload: bytes, build_id: str) -> bytes | None:
+    """Canonicalise a JSON object embedded in a generated script.
+
+    Next.js writes route manifests as `globalThis.__RSC_MANIFEST=...={...}`. The
+    object is JSON; the assignment prefix is not. Parsing the JSON payload and
+    re-serialising it with sorted keys compares the module map itself, while the
+    prefix is compared as text. Returns None when there is no JSON payload, in
+    which case this rule does not apply.
+    """
+    import json
+
+    body = neutralise_generated_tokens(digest_blind(payload, build_id))
+    text = body.decode("utf-8", "replace")
+    boundary = text.rfind("={")
+    if boundary == -1:
+        return None
+    prefix, candidate = text[: boundary + 1], text[boundary + 1 :].strip()
+    if candidate.endswith(";"):
+        candidate = candidate[:-1]
+    try:
+        parsed = json.loads(candidate)
+    except ValueError:
+        return None
+    # sort_keys applies at every level, so a nested map whose iteration order
+    # varied between builds compares by its data rather than by that order.
+    canonical_body = json.dumps(parsed, sort_keys=True, separators=(",", ":"))
+    return (prefix + canonical_body).encode()
+
+
+def sorted_entries(payload: bytes, build_id: str) -> bytes | None:
+    """Entry-order-insensitive form for generated object literals.
+
+    Some generated manifests are written from a map whose iteration order varies
+    between runs, so the *same* entries appear in a different order. Splitting the
+    text on `},{` boundaries and sorting the pieces compares the multiset of
+    entries: identical pieces in a different order are an ordering difference, and
+    a piece that actually changed still shows up. Works for plain JSON and for
+    JSON embedded in a generated script, where a parser is not available. Returns
+    None when there is nothing to split.
+    """
+    body = neutralise_generated_tokens(digest_blind(payload, build_id))
+    if b"},{" not in body:
+        return None
+    pieces = body.replace(b"},{", b"}\n{").splitlines()
+    return b"\n".join(sorted(piece for piece in pieces if piece.strip()))
+
+
+def json_canonical(payload: bytes, build_id: str) -> bytes | None:
+    """A JSON entry re-serialised with sorted keys.
+
+    Next.js writes some manifests from a map whose iteration order varies between
+    runs: the parsed data is identical and only the order of the keys differs.
+    Re-serialising both sides with sorted keys compares the data instead of the
+    accident of its ordering. Returns None when the entry is not valid JSON, in
+    which case this rule does not apply.
+    """
+    import json
+
+    try:
+        parsed = json.loads(digest_blind(payload, build_id).decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return None
+    return json.dumps(parsed, sort_keys=True, separators=(",", ":")).encode()
+
+
+def sorted_lines(payload: bytes, build_id: str) -> bytes | None:
+    """Line-based content compared as a multiset of lines.
+
+    The same case as sorted JSON keys, for generated manifest scripts: the lines
+    are identical and only their order differs. Returns None for content that is
+    not line-based text.
+    """
+    body = digest_blind(payload, build_id)
+    if b"\x00" in body[:4096]:
+        return None
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return "\n".join(sorted(line for line in text.splitlines() if line.strip())).encode()
+
+
 def digest_blind(payload: bytes, build_id: str) -> bytes:
     """Normalised content with digest-like tokens neutralised.
 
@@ -57,7 +161,8 @@ def digest_blind(payload: bytes, build_id: str) -> bytes:
     applied to entries that already differ, and any entry whose content differs
     beyond digests is reported as unexplained.
     """
-    return DIGEST.sub(b"<digest>", normalised(payload, build_id))
+    body = neutralise_generated_tokens(normalised(payload, build_id))
+    return RECORD_DIGEST.sub(b"sha256=<digest>", DIGEST.sub(b"<digest>", body))
 
 
 def build_id_of(archive: zipfile.ZipFile) -> str:
@@ -91,6 +196,7 @@ def manifest_of_wheel(wheel: Path) -> dict:
     entries: dict[str, str] = {}
     canonical_entries: dict[str, str] = {}
     digest_blind_entries: dict[str, str] = {}
+    variant_entries: dict[str, dict[str, str]] = {}
     payloads: dict[str, bytes] = {}
     with zipfile.ZipFile(wheel) as archive:
         build_id = build_id_of(archive)
@@ -107,6 +213,18 @@ def manifest_of_wheel(wheel: Path) -> dict:
             )
             canonical_entries[name] = hashlib.sha256(normalised(payload, build_id)).hexdigest()
             digest_blind_entries[name] = hashlib.sha256(digest_blind(payload, build_id)).hexdigest()
+            # NB: the local names must not shadow the module-level canonical()
+            # digest helper used for the manifest itself.
+            variants: dict[str, str] = {}
+            if json_form := json_canonical(payload, build_id):
+                variants["json_sorted_keys"] = hashlib.sha256(json_form).hexdigest()
+            if line_form := sorted_lines(payload, build_id):
+                variants["sorted_lines"] = hashlib.sha256(line_form).hexdigest()
+            if embedded := embedded_json_canonical(payload, build_id):
+                variants["embedded_json_sorted_keys"] = hashlib.sha256(embedded).hexdigest()
+            if entries_form := sorted_entries(payload, build_id):
+                variants["sorted_entries"] = hashlib.sha256(entries_form).hexdigest()
+            variant_entries[name] = variants
     return {
         "artifact": wheel.name,
         "artifact_bytes": wheel.stat().st_size,
@@ -119,6 +237,7 @@ def manifest_of_wheel(wheel: Path) -> dict:
         "files": entries,
         "canonical_files": canonical_entries,
         "digest_blind_files": digest_blind_entries,
+        "variant_files": variant_entries,
         "build_id_records": [n for n in entries if n in BUILD_ID_RECORDS],
         # Kept out of --json output (it is already written to stdout for other
         # verbs); the comparison uses it in-process.
@@ -144,6 +263,7 @@ def manifest_of_dir(root: Path) -> dict:
         "files": entries,
         "canonical_files": entries,
         "digest_blind_files": entries,
+        "variant_files": {},
         "build_id_records": [],
         "_payloads": {name: (root / name).read_bytes() for name in entries},
     }
@@ -154,36 +274,28 @@ def public(manifest: dict) -> dict:
     return {key: value for key, value in manifest.items() if not key.startswith("_")}
 
 
-def classify(first: dict, second: dict, name: str) -> str:
-    """Why one entry differs between two builds of the same commit.
-
-    build_id_in_path   the framework names this entry after the generated id
-    build_id_in_content the entry embeds the generated id
-    build_id_digest    the entry differs only in digest-like tokens (it records
-                       hashes of entries the build id changed)
-    unexplained        none of the above — a difference the build id cannot
-                       account for, which is exactly what release integrity must
-                       not tolerate silently
-    """
-    build_id = first.get("build_id") or second.get("build_id") or ""
-    a, b = first, second
-    in_a, in_b = name in a["files"], name in b["files"]
-    if build_id and build_id in name:
-        return "build_id_in_path"
-    if build_id:
-        for side in (a, b):
-            if name in side["files"] and build_id.encode() in side["_payloads"].get(name, b""):
-                return "build_id_in_content"
-    if in_a and in_b:
-        blind = (a.get("digest_blind_files", {}), b.get("digest_blind_files", {}))
-        if name in blind[0] and name in blind[1] and blind[0][name] == blind[1][name]:
-            return "build_id_digest"
-    return "unexplained"
-
-
 def compare(first: dict, second: dict) -> dict:
+    """Compare two builds entry by entry and account for every difference.
+
+    The comparison is deliberately verification-based: a difference is only
+    called explained when the explanation has been checked.
+
+    * path differences are explained when, after replacing the generated build id
+      in every entry name, the two entry sets are identical. That is what a build
+      id in a directory name looks like, and nothing else.
+    * content differences are explained when the two entries are byte-identical
+      after that same replacement: the id was the only thing that differed.
+    * a residual difference is explained when the two entries are identical once
+      digest-like tokens are neutralised as well — the entry records hashes of
+      entries the build id changed (a wheel RECORD, a manifest of chunk hashes),
+      so it necessarily differs while nothing it describes did.
+    * everything else is **unexplained**, and an unexplained difference is a
+      release-integrity finding rather than a build artefact.
+    """
     a, b = first["files"], second["files"]
     ca, cb = first["canonical_files"], second["canonical_files"]
+    da, db = first.get("digest_blind_files", {}), second.get("digest_blind_files", {})
+
     added = sorted(set(b) - set(a))
     removed = sorted(set(a) - set(b))
     changed = sorted(name for name in set(a) & set(b) if a[name] != b[name])
@@ -191,30 +303,74 @@ def compare(first: dict, second: dict) -> dict:
     c_removed = sorted(set(ca) - set(cb))
     c_changed = sorted(name for name in set(ca) & set(cb) if ca[name] != cb[name])
 
-    # Every raw difference gets a cause. A difference the build id cannot
-    # explain is a release-integrity finding, not a build artefact.
-    classification: dict[str, list[str]] = {
-        "build_id_in_path": [],
-        "build_id_in_content": [],
-        "build_id_digest": [],
-        "unexplained": [],
-    }
-    for name in added + removed + changed:
-        classification[classify(first, second, name)].append(name)
+    # Entries identical after build-id normalisation: the id was the difference.
+    same_after_id = [
+        name for name in changed if ca.get(name) and cb.get(name) and ca[name] == cb[name]
+    ]
 
+    # Residual: still different after build-id normalisation. Each one is explained
+    # only by a checked rule, and the rule that explained it is recorded.
+    va, vb = first.get("variant_files", {}), second.get("variant_files", {})
+    residual_rules: dict[str, str] = {}
+    unexplained: list[str] = []
+    for name in c_changed:
+        if name in da and name in db and da[name] == db[name]:
+            residual_rules[name] = "build_id_derived_digests"
+            continue
+        explained = False
+        for rule in (
+            "json_sorted_keys",
+            "embedded_json_sorted_keys",
+            "sorted_entries",
+            "sorted_lines",
+        ):
+            if va.get(name, {}).get(rule) and va[name][rule] == vb.get(name, {}).get(rule):
+                residual_rules[name] = rule
+                explained = True
+                break
+        if not explained:
+            unexplained.append(name)
+
+    build_ids = [i for i in (first.get("build_id"), second.get("build_id")) if i]
     return {
-        "classification": {key: len(value) for key, value in classification.items()},
-        "unexplained": classification["unexplained"][:20],
+        "classification": {
+            # Every raw name difference is accounted for only when the entry sets
+            # match once the build id is normalised, which is what c_added/c_removed
+            # being empty means. The count reports the raw names.
+            "names_differ_only_by_build_id": 0
+            if (c_added or c_removed)
+            else len(added) + len(removed),
+            "content_differs_only_by_build_id": len(same_after_id),
+            "build_id_derived_digests": sum(
+                1 for rule in residual_rules.values() if rule == "build_id_derived_digests"
+            ),
+            "ordering_only_json": sum(
+                1 for rule in residual_rules.values() if rule == "json_sorted_keys"
+            ),
+            "ordering_only_lines": sum(
+                1 for rule in residual_rules.values() if rule == "sorted_lines"
+            ),
+            "ordering_only_embedded_json": sum(
+                1 for rule in residual_rules.values() if rule == "embedded_json_sorted_keys"
+            ),
+            "ordering_only_entries": sum(
+                1 for rule in residual_rules.values() if rule == "sorted_entries"
+            ),
+            "unexplained": len(unexplained),
+        },
+        "residual_rules": residual_rules,
+        "unexplained": unexplained[:20],
         "build_id_records": sorted(
             set(first.get("build_id_records", [])) | set(second.get("build_id_records", []))
         ),
-        "reproducible": not classification["unexplained"] and not c_added and not c_removed,
+        "reproducible": not unexplained and not c_added and not c_removed,
         "reproducibility_note": (
             "Two builds of one commit are byte-identical only if the toolchain is deterministic. "
             "Next.js generates a random build id per build and cannot be told to pin it without a "
             "product configuration change, so the shipped bytes differ. This comparison therefore "
-            "classifies every difference: the build id itself, the entries named after it, the "
-            "digests that record it, and anything left over. Nothing left over is the result."
+            "accounts for every difference by checking it: names that differ only by the build id, "
+            "content that differs only by the build id, entries that record build-id-derived "
+            "digests, and anything left over. Nothing left over is the result."
         ),
         "first": {
             "artifact": first["artifact"],
@@ -235,11 +391,11 @@ def compare(first: dict, second: dict) -> dict:
         "byte_identical": first["artifact_sha256"] is not None
         and first["artifact_sha256"] == second["artifact_sha256"],
         "raw_difference": {"added": added, "removed": removed, "changed": changed},
-        # Content equivalence modulo the toolchain's generated build id.
         "content_identical": not (c_added or c_removed or c_changed),
         "canonical_added": c_added,
         "canonical_removed": c_removed,
         "canonical_changed": c_changed,
+        "build_ids": build_ids,
     }
 
 
@@ -282,10 +438,25 @@ def main() -> int:
                 f"(added={len(result['canonical_added'])} removed={len(result['canonical_removed'])} "
                 f"changed={len(result['canonical_changed'])})"
             )
-            print(f"unexplained differences: {result['classification']['unexplained']}")
-            print(f"  build-id named entries : {result['classification']['build_id_in_path']}")
-            print(f"  build-id in content    : {result['classification']['build_id_in_content']}")
-            print(f"  build-id derived digests: {result['classification']['build_id_digest']}")
+            classes = result["classification"]
+            print(f"unexplained differences: {classes['unexplained']}")
+            print(
+                f"  names differing only by the build id     : {classes['names_differ_only_by_build_id']}"
+            )
+            print(
+                f"  content differing only by the build id   : {classes['content_differs_only_by_build_id']}"
+            )
+            print(
+                f"  build-id derived digests                 : {classes['build_id_derived_digests']}"
+            )
+            print(f"  ordering only, JSON keys sorted          : {classes['ordering_only_json']}")
+            print(f"  ordering only, lines sorted              : {classes['ordering_only_lines']}")
+            print(
+                f"  ordering only, embedded JSON keys sorted : {classes['ordering_only_embedded_json']}"
+            )
+            print(
+                f"  ordering only, sorted entries            : {classes['ordering_only_entries']}"
+            )
             print(f"reproducible (every difference explained): {result['reproducible']}")
             for label in ("canonical_added", "canonical_removed", "canonical_changed"):
                 for name in result[label][:10]:

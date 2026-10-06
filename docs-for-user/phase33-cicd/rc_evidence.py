@@ -91,13 +91,15 @@ def reproducibility(text: str) -> dict:
         "byte_identical": grab("byte-identical").lower() == "true",
         "reproducible": grab("reproducible (every difference explained)").lower() == "true",
         "classification": {
-            "build_id_in_path": grab("build-id named entries"),
-            "build_id_in_content": grab("build-id in content"),
-            "build_id_digest": grab("build-id derived digests"),
+            "names_differ_only_by_build_id": grab("names differing only by the build id"),
+            "content_differs_only_by_build_id": grab("content differing only by the build id"),
+            "build_id_derived_digests": grab("build-id derived digests"),
+            "ordering_only_json": grab("ordering only, JSON keys sorted"),
+            "ordering_only_embedded_json": grab("ordering only, embedded JSON keys sorted"),
             "unexplained": grab("unexplained differences"),
         },
-        "build_ids": grab("build ids"),
         "raw_difference": grab("raw difference"),
+        "build_ids": grab("build ids"),
         "canonical_difference": grab("content-identical (canonical form)"),
     }
 

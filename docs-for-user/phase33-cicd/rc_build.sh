@@ -96,6 +96,17 @@ else
     || { tail -30 "$OUT/web-build.log" >&2; die "web build failed"; }
 fi
 
+# --- 2b. remove the build machine's own path --------------------------------
+# The bundle is shipped to hosts the builder never sees, and a path that varies
+# by builder is an input that varies by builder. Scrubbing it is both a
+# disclosure fix and a reproducibility fix; the replacement keeps every file's
+# size, and only text-like files are touched.
+PLACEHOLDER="${MO7_BUILD_PATH_PLACEHOLDER:-/srv/mo7-build}"
+log "scrubbing the build path $CHECKOUT from the web bundle"
+"$PY" "$HERE/rc_scrub_paths.py" --root "$CHECKOUT/web/.next" --path "$CHECKOUT" \
+  --placeholder "$PLACEHOLDER" --evidence "$OUT/path-scrub.json" >>"$OUT/web-build.log" 2>&1 \
+  || { tail -20 "$OUT/web-build.log" >&2; die "path scrub failed"; }
+
 # --- 3. materialise deeptutor_web -------------------------------------------
 log "packaging deeptutor_web from web/.next/standalone"
 ( cd "$CHECKOUT" && "$PY" scripts/prepare_web_package.py --skip-build ) >>"$OUT/web-build.log" 2>&1 \
@@ -141,7 +152,10 @@ cat >"$OUT/build-report.json" <<JSON
   "python": "$("$PY" -c 'import platform;print(platform.python_version())')",
   "setuptools": "$("$PY" -c 'import setuptools;print(setuptools.__version__)')",
   "node": "$(node --version 2>/dev/null || echo unknown)",
-  "web_build": "$([ "$SKIP_WEB" = "1" ] && echo reused || echo executed)"
+  "web_build": "$([ "$SKIP_WEB" = "1" ] && echo reused || echo executed)",
+  "scrubbed_build_path": "$PLACEHOLDER",
+  "scrub_files": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('files_changed', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)",
+  "scrub_occurrences": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('occurrences', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)"
 }
 JSON
 
