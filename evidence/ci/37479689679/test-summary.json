@@ -1,0 +1,88 @@
+{
+  "recorded_at": "2026-10-06T14:49:40Z",
+  "commit": "51f72191f0ef85e36fccb4cd71bad01be76d398a",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "pytest": {
+    "passed": 8434,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 54,
+    "total": 8488,
+    "available": true
+  },
+  "ruff": {
+    "product_tree": {
+      "recorded_at": "2026-10-06T14:32:46Z",
+      "scope": "product",
+      "paths": [
+        "deeptutor",
+        "deeptutor_cli",
+        "tests",
+        "scripts"
+      ],
+      "files_seen": 1797,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1783 files already formatted"
+    },
+    "repository_wide": {
+      "recorded_at": "2026-10-06T14:32:50Z",
+      "scope": "repo",
+      "paths": [
+        "."
+      ],
+      "files_seen": 1797,
+      "clean": false,
+      "lint_exit": 1,
+      "format_exit": 1,
+      "errors": 10,
+      "unformatted": 30,
+      "lint_output_tail": "32 |\n33 | sys.path.insert(0, str(Path(__file__).resolve().parent))\n   |\nhelp: Remove definition: `sys`\n   |\n30 |\n   - import sys\n31 |\n   |\n\nFound 10 errors.\n[*] 10 fixable with the `--fix` option.",
+      "format_output_tail": "407 +         int(cfg.WATCHDOG_PID.read_text().strip()) if cfg.WATCHDOG_PID.exists() else 0\n408 +     )\n409 |     if not pid_alive(pid):\n    |\n\n30 files would be reformatted, 1929 files already formatted"
+    }
+  },
+  "static_and_import_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "51f72191f0ef85e36fccb4cd71bad01be76d398a",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "eb63c6c894e1f657",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": false,
+      "detail": "23/25 checks; failed: [\"the artifact's API reports liveness when started\", \"the artifact's API reports readiness when started\"]",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.225s",
+      "required": false
+    }
+  ]
+}
