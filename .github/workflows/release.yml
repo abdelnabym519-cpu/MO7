@@ -28,10 +28,19 @@ on:
       - main
       - dev
       - arena/01a0ff3f-mo7
-    paths-ignore:
-      - "evidence/**"
-      - "docs-for-user/**"
-      - "**/*.md"
+    # What may change without a release run: the pipeline's own evidence (which
+    # is what stops a run from triggering another run) and documentation.
+    # Everything else runs the pipeline — including the release tooling under
+    # docs-for-user/phase33-cicd/, which the first version of this filter
+    # excluded. That was a real gap: a change to the build recipe or the gates
+    # would have shipped without the pipeline ever validating it. The tooling
+    # path is re-included explicitly below.
+    paths:
+      - "**"
+      - "!evidence/**"
+      - "!**/*.md"
+      - "!docs-for-user/**"
+      - "docs-for-user/phase33-cicd/**"
   workflow_dispatch:
     inputs:
       strict:
