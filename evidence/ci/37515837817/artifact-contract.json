@@ -1,0 +1,145 @@
+{
+  "checked_at": "2026-10-06T19:12:44Z",
+  "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+  "version": "1.6.11",
+  "commit": "2dceb28f35cb1062e2b04a4932a85d0cb3f0050b",
+  "artifact_sha256": "2529961c931fb0c80d4e566dbe74fb688cdb0ccf3b193004e79210de1cc0b13b",
+  "canonical_sha256": "5d05e97c31a0e7860605810f8e709c9b78b2b81a9d92c74d7d396b7109a7c6ff",
+  "entries": 4400,
+  "checks_total": 26,
+  "checks_passed": 26,
+  "checks_failed": 0,
+  "ok": true,
+  "results": [
+    {
+      "check": "the artifact exists",
+      "ok": true,
+      "detail": "/tmp/mo7-build/out/deeptutor-1.6.11-py3-none-any.whl"
+    },
+    {
+      "check": "the artifact is a wheel",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl"
+    },
+    {
+      "check": "the filename carries the package name and version",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl version=1.6.11"
+    },
+    {
+      "check": "the wheel metadata names the package",
+      "ok": true,
+      "detail": "Name=deeptutor"
+    },
+    {
+      "check": "the wheel metadata version matches",
+      "ok": true,
+      "detail": "metadata=1.6.11 expected=1.6.11"
+    },
+    {
+      "check": "the artifact is a pure-Python wheel (no platform tag)",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl"
+    },
+    {
+      "check": "the artifact carries the application package",
+      "ok": true,
+      "detail": "deeptutor/__init__.py"
+    },
+    {
+      "check": "the artifact carries the API entry point",
+      "ok": true,
+      "detail": "deeptutor/api/main.py"
+    },
+    {
+      "check": "the artifact carries the packaged web bundle package",
+      "ok": true,
+      "detail": "deeptutor_web/__init__.py"
+    },
+    {
+      "check": "the artifact carries the packaged Next.js server",
+      "ok": true,
+      "detail": "deeptutor_web/server.js"
+    },
+    {
+      "check": "the artifact carries the packaged web build id",
+      "ok": true,
+      "detail": "deeptutor_web/.next/BUILD_ID"
+    },
+    {
+      "check": "the packaged web bundle is complete",
+      "ok": true,
+      "detail": "3188 entries under deeptutor_web/"
+    },
+    {
+      "check": "the artifact carries the assets of exactly one web build",
+      "ok": true,
+      "detail": "web build directories in the artifact: ['woVK_oBJYuBGcLTAL-6ur']"
+    },
+    {
+      "check": "the packaged web build id matches the assets it ships",
+      "ok": true,
+      "detail": "BUILD_ID=woVK_oBJYuBGcLTAL-6ur asset_directories=['woVK_oBJYuBGcLTAL-6ur']"
+    },
+    {
+      "check": "every asset referenced by the web build manifests is inside the artifact",
+      "ok": true,
+      "detail": "referenced=0 missing=[]"
+    },
+    {
+      "check": "the artifact sha256 is computable",
+      "ok": true,
+      "detail": "2529961c931fb0c80d4e566dbe74fb688cdb0ccf3b193004e79210de1cc0b13b"
+    },
+    {
+      "check": "the canonical manifest digest is computable",
+      "ok": true,
+      "detail": "build_id=woVK_oBJYuBGcLTAL-6ur entries=4400 canonical_entries=4399"
+    },
+    {
+      "check": "the artifact was built from the requested commit",
+      "ok": true,
+      "detail": "commit=2dceb28f35cb1062e2b04a4932a85d0cb3f0050b"
+    },
+    {
+      "check": "the artifact carries no forbidden material",
+      "ok": true,
+      "detail": "clean"
+    },
+    {
+      "check": "the artifact installs into a clean virtualenv with its declared dependencies",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "the artifact declares the API runtime it needs to start",
+      "ok": true,
+      "detail": "142 declared requirements, uvicorn=True fastapi=True"
+    },
+    {
+      "check": "the installed distribution reports the expected version",
+      "ok": true,
+      "detail": "installed=1.6.11 expected=1.6.11"
+    },
+    {
+      "check": "the installed package carries the web server",
+      "ok": true,
+      "detail": "/tmp/mo7-contract-r97d2i96/venv/lib/python3.11/site-packages/deeptutor_web/server.js"
+    },
+    {
+      "check": "the installed package imports",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "the artifact's API reports liveness when started",
+      "ok": true,
+      "detail": "{\"status\":\"alive\"}"
+    },
+    {
+      "check": "the artifact's API reports readiness when started",
+      "ok": true,
+      "detail": "{\"status\":\"ready\"}"
+    }
+  ]
+}
