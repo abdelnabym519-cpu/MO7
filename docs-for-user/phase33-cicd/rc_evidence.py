@@ -52,25 +52,57 @@ def read_text(path: str | None) -> str:
 
 
 def pytest_totals(xml_path: str | None) -> dict:
+    """Count the suite and name what did not pass.
+
+    A run that reports "1 failed" without saying which test cannot be diagnosed
+    from its evidence, and the evidence is the only thing that survives the run
+    (run logs are not reachable from every environment). The failing and erroring
+    cases are therefore recorded by name, with the first line of the message, so a
+    red gate can be attributed without re-running anything.
+    """
     if not xml_path or not Path(xml_path).is_file():
         return {"available": False, "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "total": 0}
     root = ET.parse(xml_path).getroot()
     suites = [root] if root.tag == "testsuite" else list(root)
     totals = {"passed": 0, "failed": 0, "errors": 0, "skipped": 0, "total": 0}
+    failures: list[dict] = []
     for suite in suites:
         if suite.tag != "testsuite":
             continue
         for case in suite.iter("testcase"):
             totals["total"] += 1
-            if case.find("failure") is not None:
+            verdict = None
+            for kind in ("failure", "error"):
+                node = case.find(kind)
+                if node is not None:
+                    verdict = kind
+                    message = (node.get("message") or node.text or "").strip().splitlines()
+                    failures.append(
+                        {
+                            "test": "::".join(
+                                part
+                                for part in (
+                                    case.get("classname"),
+                                    case.get("name"),
+                                )
+                                if part
+                            ),
+                            "kind": kind,
+                            "message": (message[0] if message else "")[:300],
+                        }
+                    )
+                    break
+            if verdict == "failure":
                 totals["failed"] += 1
-            elif case.find("error") is not None:
+            elif verdict == "error":
                 totals["errors"] += 1
             elif case.find("skipped") is not None:
                 totals["skipped"] += 1
             else:
                 totals["passed"] += 1
     totals["available"] = True
+    totals["failures"] = failures[:20]
+    totals["failures_truncated"] = max(0, len(failures) - 20)
     return totals
 
 
@@ -286,13 +318,25 @@ def main() -> int:
         bool(repro.get("reproducible")),
         f"byte_identical={repro.get('byte_identical')} classified={repro.get('classification')}",
     )
-    gate(
-        "python tests",
-        tests["available"] and tests["failed"] == 0 and tests["errors"] == 0,
+    test_failures = tests.get("failures") or []
+    test_detail = (
         f"{tests['passed']}/{tests['total']} passed, {tests['failed']} failed, "
         f"{tests['errors']} errors, {tests['skipped']} skipped"
         if tests["available"]
-        else "no pytest report was produced",
+        else "no pytest report was produced"
+    )
+    if test_failures:
+        # The gate names what failed, not only how many: a count alone cannot be
+        # diagnosed from the committed evidence.
+        test_detail += "; " + "; ".join(
+            f"{row['kind']}: {row['test']}"
+            + (f" ({row['message'][:120]})" if row["message"] else "")
+            for row in test_failures[:3]
+        )
+    gate(
+        "python tests",
+        tests["available"] and tests["failed"] == 0 and tests["errors"] == 0,
+        test_detail,
         excused_by=(exceptions.get("python tests") or {}).get("finding"),
     )
     # Every stage the pipeline executes reports itself here, so the gate table is
