@@ -22,11 +22,11 @@ report for the runbook and the alert evaluator.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import shutil
 import sqlite3
 import sys
 import time
-from pathlib import Path
 import urllib.error
 import urllib.request
 
@@ -70,7 +70,12 @@ def database_report() -> dict:
     stores, bad = [], []
     if cfg.HOME.exists():
         for path in sorted(cfg.HOME.rglob("*")):
-            if not path.is_file() or path.suffix not in DB_SUFFIXES or "-wal" in path.name or "-shm" in path.name:
+            if (
+                not path.is_file()
+                or path.suffix not in DB_SUFFIXES
+                or "-wal" in path.name
+                or "-shm" in path.name
+            ):
                 continue
             try:
                 connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
@@ -79,11 +84,22 @@ def database_report() -> dict:
                 finally:
                     connection.close()
                 ok = result == "ok"
-                stores.append({"path": str(path.relative_to(cfg.HOME)), "bytes": path.stat().st_size, "integrity": result})
+                stores.append(
+                    {
+                        "path": str(path.relative_to(cfg.HOME)),
+                        "bytes": path.stat().st_size,
+                        "integrity": result,
+                    }
+                )
                 if not ok:
                     bad.append(str(path))
             except Exception as exc:
-                stores.append({"path": str(path.relative_to(cfg.HOME)), "integrity": f"error: {type(exc).__name__}"})
+                stores.append(
+                    {
+                        "path": str(path.relative_to(cfg.HOME)),
+                        "integrity": f"error: {type(exc).__name__}",
+                    }
+                )
                 bad.append(str(path))
     return {"count": len(stores), "unhealthy": bad, "stores": stores}
 
@@ -155,9 +171,16 @@ def main() -> int:
             print(f"{name:9s} status={entry['status']:<3} latency_ms={entry.get('latency_ms')}")
         print(f"storage   writable={report['storage']['writable']}")
         if not skip_db:
-            print(f"database  stores={report['database']['count']} unhealthy={len(report['database']['unhealthy'])}")
-        print(f"disk      used={report['disk']['percent_used']}% free={report['disk']['free_gb']} GiB")
-        print(f"healthy   {report['healthy']}" + (f" (failures: {', '.join(failures)})" if failures else ""))
+            print(
+                f"database  stores={report['database']['count']} unhealthy={len(report['database']['unhealthy'])}"
+            )
+        print(
+            f"disk      used={report['disk']['percent_used']}% free={report['disk']['free_gb']} GiB"
+        )
+        print(
+            f"healthy   {report['healthy']}"
+            + (f" (failures: {', '.join(failures)})" if failures else "")
+        )
 
     if require_ready and report["ready"]["status"] != 200:
         return 1

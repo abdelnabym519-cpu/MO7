@@ -26,8 +26,8 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import prod_config as cfg  # noqa: E402
 import prod_alerts  # noqa: E402
+import prod_config as cfg  # noqa: E402
 import prod_metrics  # noqa: E402
 
 LOG = cfg.RUN / "scheduler.log"
@@ -60,8 +60,12 @@ def backup_due(interval_hours: float) -> bool:
 
 
 def run_backup(label: str) -> bool:
-    command = [str(cfg.PROD_ROOT / "ops-venv/bin/python"), str(Path(__file__).resolve().parent / "prod_backup.py"),
-               "--label", label]
+    command = [
+        str(cfg.PROD_ROOT / "ops-venv/bin/python"),
+        str(Path(__file__).resolve().parent / "prod_backup.py"),
+        "--label",
+        label,
+    ]
     result = subprocess.run(command, capture_output=True, text=True)
     for line in result.stdout.splitlines():
         log(f"backup: {line}")
@@ -90,8 +94,10 @@ def tick(skip_backups: bool) -> dict:
         if backup_due(interval):
             summary["backup_taken"] = True
             summary["backup_ok"] = run_backup("scheduled")
-    log(f"tick: programs={summary['programs']} alerts_firing={summary['alerts_firing']} "
-        f"(critical {summary['critical_firing']}) backup={summary['backup_ok']}")
+    log(
+        f"tick: programs={summary['programs']} alerts_firing={summary['alerts_firing']} "
+        f"(critical {summary['critical_firing']}) backup={summary['backup_ok']}"
+    )
     return summary
 
 
@@ -103,7 +109,9 @@ def main() -> int:
     if "--once" in sys.argv:
         tick(skip_backups)
         return 0
-    log(f"scheduler starting (interval {interval}s, backups {'disabled' if skip_backups else 'enabled'})")
+    log(
+        f"scheduler starting (interval {interval}s, backups {'disabled' if skip_backups else 'enabled'})"
+    )
     failures = 0
     while True:
         try:

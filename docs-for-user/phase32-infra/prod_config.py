@@ -56,7 +56,9 @@ def number(key: str, default: int) -> int:
     try:
         return int(raw)
     except ValueError:
-        raise SystemExit(f"FATAL: contract value {key}={raw!r} is not a number (in {CONTRACT_PATH})") from None
+        raise SystemExit(
+            f"FATAL: contract value {key}={raw!r} is not a number (in {CONTRACT_PATH})"
+        ) from None
 
 
 def secret(key: str, default: str = "") -> str:
@@ -88,7 +90,9 @@ BACKEND_PORT = number("PROD_BACKEND_PORT", 8001)
 FRONTEND_HOST = value("PROD_FRONTEND_HOST", "0.0.0.0")
 FRONTEND_PORT = number("PROD_FRONTEND_PORT", 3782)
 TLS_VALIDATION_PORT = number("PROD_TLS_VALIDATION_PORT", 8443)
-TLS_VALIDATION_ORIGIN = value("PROD_TLS_VALIDATION_ORIGIN", f"https://127.0.0.1:{TLS_VALIDATION_PORT}")
+TLS_VALIDATION_ORIGIN = value(
+    "PROD_TLS_VALIDATION_ORIGIN", f"https://127.0.0.1:{TLS_VALIDATION_PORT}"
+)
 PUBLIC_ORIGIN = value("PROD_PUBLIC_ORIGIN", f"https://{FRONTEND_PORT}-unknown.e2b.app")
 
 # The harness speaks to the frontend through the validation ingress (TLS, the
@@ -146,7 +150,10 @@ RLIMIT_NOFILE = value("PROD_RLIMIT_NOFILE", "65536")
 
 
 CREDENTIALS_PATH = Path(
-    os.environ.get("PROD_CREDENTIALS", str(Path(value("PROD_SECRETS", str(PROD_ROOT / "secrets"))) / "credentials.json"))
+    os.environ.get(
+        "PROD_CREDENTIALS",
+        str(Path(value("PROD_SECRETS", str(PROD_ROOT / "secrets"))) / "credentials.json"),
+    )
 )
 
 

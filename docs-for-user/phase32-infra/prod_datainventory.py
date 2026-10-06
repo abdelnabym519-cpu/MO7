@@ -39,9 +39,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from pathlib import Path
 import sqlite3
 import sys
-from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prod_config as cfg  # noqa: E402
@@ -65,8 +65,12 @@ def table_counts(path: Path) -> dict[str, int] | str:
     except sqlite3.Error as exc:
         return f"unreadable: {type(exc).__name__}"
     try:
-        tables = [row[0] for row in connection.execute(
-            "select name from sqlite_master where type='table' order by name")]
+        tables = [
+            row[0]
+            for row in connection.execute(
+                "select name from sqlite_master where type='table' order by name"
+            )
+        ]
         counts: dict[str, int] = {}
         for table in tables:
             counts[table] = connection.execute(f'select count(*) from "{table}"').fetchone()[0]
@@ -184,20 +188,29 @@ def main() -> int:
         changed = [key for key in changed if key not in VOLATILE_KEYS]
         print(f"digest {args.compare[0]}: {first['digest']}")
         print(f"digest {args.compare[1]}: {second['digest']}")
-        for label, keys in (("volatile", volatile), ("added", added), ("removed", removed), ("changed", changed)):
+        for label, keys in (
+            ("volatile", volatile),
+            ("added", added),
+            ("removed", removed),
+            ("changed", changed),
+        ):
             print(f"  {label}: {len(keys)}")
             for key in keys[:10]:
                 if label == "volatile":
-                    print(f"    {key}: {left.get(key)} -> {right.get(key)} "
-                          f"(append-and-prune operational counter; not a data change)")
+                    print(
+                        f"    {key}: {left.get(key)} -> {right.get(key)} "
+                        f"(append-and-prune operational counter; not a data change)"
+                    )
                     continue
                 detail = right.get(key, left.get(key))
                 print(f"    {key} = {str(detail)[:140]}")
         if removed or changed:
             print(f"FAIL: data was lost or altered across {args.compare[0]} -> {args.compare[1]}")
             return 1
-        print(f"PASS: no recorded store, table, file or document was lost or altered "
-              f"across {args.compare[0]} -> {args.compare[1]}")
+        print(
+            f"PASS: no recorded store, table, file or document was lost or altered "
+            f"across {args.compare[0]} -> {args.compare[1]}"
+        )
         return 0
 
     document = inventory()
@@ -205,16 +218,19 @@ def main() -> int:
     if args.label:
         evidence.mkdir(parents=True, exist_ok=True)
         (evidence / f"data-inventory-{args.label}.json").write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     if args.json or not args.label:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         stores = document["stores"]
         databases = sum(len(store["databases"]) for store in stores.values())
         files = sum(len(store["files"]) for store in stores.values())
-        print(f"label={args.label} digest={payload['digest']} stores={len(stores)} "
-              f"databases={databases} files={files} system_entries={len(document['system'])} "
-              f"-> {cfg.EVIDENCE_DIR / f'data-inventory-{args.label}.json'}")
+        print(
+            f"label={args.label} digest={payload['digest']} stores={len(stores)} "
+            f"databases={databases} files={files} system_entries={len(document['system'])} "
+            f"-> {cfg.EVIDENCE_DIR / f'data-inventory-{args.label}.json'}"
+        )
     return 0
 
 

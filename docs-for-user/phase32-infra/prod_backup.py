@@ -35,7 +35,16 @@ DB_SUFFIXES = {".db", ".sqlite", ".sqlite3"}
 
 def policy() -> dict:
     path = Path(cfg.value("PROD_BACKUP_POLICY", str(cfg.ETC / "backup-policy.json")))
-    defaults = {"retention": 7, "include_storage": True, "storage_paths": ["data/users"], "config_paths": ["data/user/settings", "data/system/auth/users.json", "data/system/auth/auth_secret"]}
+    defaults = {
+        "retention": 7,
+        "include_storage": True,
+        "storage_paths": ["data/users"],
+        "config_paths": [
+            "data/user/settings",
+            "data/system/auth/users.json",
+            "data/system/auth/auth_secret",
+        ],
+    }
     if path.exists():
         defaults.update(json.loads(path.read_text(encoding="utf-8")))
     return defaults
@@ -105,7 +114,13 @@ def archive_storage(paths: list[str], archive: Path) -> dict:
                 tar.add(path, arcname=str(path.relative_to(cfg.HOME)))
                 members += 1
                 raw_bytes += path.stat().st_size
-    return {"archive": archive.name, "bytes": archive.stat().st_size, "files": members, "uncompressed_bytes": raw_bytes, "sha256": sha256(archive)}
+    return {
+        "archive": archive.name,
+        "bytes": archive.stat().st_size,
+        "files": members,
+        "uncompressed_bytes": raw_bytes,
+        "sha256": sha256(archive),
+    }
 
 
 def copy_configuration(paths: list[str], target_dir: Path) -> list[dict]:
@@ -212,9 +227,7 @@ def _run_backup(label: str, include_storage: bool) -> int:
             problems.append(f"{entry.get('path', entry.get('archive'))}: hash mismatch")
     manifest["verified"] = not problems
     manifest["verification_problems"] = problems
-    manifest["bytes"] = sum(
-        path.stat().st_size for path in root.rglob("*") if path.is_file()
-    )
+    manifest["bytes"] = sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
 
     (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (root / "manifest.sha256").write_text(sha256(root / "manifest.json") + "\n", encoding="utf-8")
@@ -229,10 +242,14 @@ def _run_backup(label: str, include_storage: bool) -> int:
     }
     with (cfg.BACKUPS / "index.ndjson").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(index_entry) + "\n")
-    (cfg.EVIDENCE_DIR / f"backup-{backup_id}.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (cfg.EVIDENCE_DIR / f"backup-{backup_id}.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
 
-    print(f"backup {backup_id}: {len(databases)} databases, {len(config_files)} config files, "
-          f"{'storage ' + str(storage['files']) + ' files' if storage else 'no storage'}, {manifest['bytes']} bytes")
+    print(
+        f"backup {backup_id}: {len(databases)} databases, {len(config_files)} config files, "
+        f"{'storage ' + str(storage['files']) + ' files' if storage else 'no storage'}, {manifest['bytes']} bytes"
+    )
     for entry in databases:
         print(f"  {entry['path']:<58} {entry['bytes']:>9} bytes  integrity={entry['integrity']}")
     if problems:
@@ -287,14 +304,16 @@ def reconcile_index() -> dict:
             current = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
         except Exception:
             continue
-        kept.append({
-            "backup_id": directory.name,
-            "created_at": current.get("created_at"),
-            "verified": current.get("verified"),
-            "databases": len(current.get("databases", [])),
-            "bytes": current.get("bytes"),
-            "release_id": current.get("release_id"),
-        })
+        kept.append(
+            {
+                "backup_id": directory.name,
+                "created_at": current.get("created_at"),
+                "verified": current.get("verified"),
+                "databases": len(current.get("databases", [])),
+                "bytes": current.get("bytes"),
+                "release_id": current.get("release_id"),
+            }
+        )
     kept.sort(key=lambda entry: str(entry.get("backup_id")))
     index.write_text("".join(json.dumps(entry) + "\n" for entry in kept), encoding="utf-8")
     record = {
@@ -302,9 +321,13 @@ def reconcile_index() -> dict:
         "kept": [entry["backup_id"] for entry in kept],
         "dropped": dropped,
     }
-    (cfg.EVIDENCE_DIR / "backup-index-reconciled.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    (cfg.EVIDENCE_DIR / "backup-index-reconciled.json").write_text(
+        json.dumps(record, indent=2) + "\n", encoding="utf-8"
+    )
     if dropped:
-        print(f"  reconciled backup index: dropped {len(dropped)} entries with no backup on disk: {dropped}")
+        print(
+            f"  reconciled backup index: dropped {len(dropped)} entries with no backup on disk: {dropped}"
+        )
     return record
 
 
@@ -355,8 +378,10 @@ def list_backups(json_output: bool) -> int:
         print(json.dumps(entries, indent=2))
     else:
         for entry in entries:
-            print(f"{entry['backup_id']:<42} verified={str(entry.get('verified')):<5} "
-                  f"dbs={entry.get('databases', '?'):<3} bytes={entry.get('bytes', '?'):<10} age_h={entry.get('age_hours')}")
+            print(
+                f"{entry['backup_id']:<42} verified={str(entry.get('verified')):<5} "
+                f"dbs={entry.get('databases', '?'):<3} bytes={entry.get('bytes', '?'):<10} age_h={entry.get('age_hours')}"
+            )
     return 0
 
 
@@ -390,8 +415,10 @@ def verify_backup(directory: Path) -> int:
     expected = (directory / "manifest.sha256").read_text().strip()
     if recorded != expected:
         problems.append("manifest hash mismatch")
-    print(f"verify {directory.name}: {'OK' if not problems else 'FAILED'} "
-          f"({len(manifest.get('databases', []))} databases)")
+    print(
+        f"verify {directory.name}: {'OK' if not problems else 'FAILED'} "
+        f"({len(manifest.get('databases', []))} databases)"
+    )
     for problem in problems:
         print(f"  - {problem}")
     return 1 if problems else 0

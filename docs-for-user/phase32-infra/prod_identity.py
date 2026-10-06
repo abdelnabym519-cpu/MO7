@@ -50,7 +50,9 @@ def installed_version(python: Path) -> str:
     try:
         return subprocess.run(
             [str(python), "-c", "from deeptutor.__version__ import __version__ as v; print(v)"],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         ).stdout.strip()
     except Exception:
         return ""
@@ -64,7 +66,10 @@ def bundle_comparison(release: Path, bundle: Path) -> dict:
             packaged = candidate
             break
     if not packaged.exists():
-        return {"comparable": False, "reason": "packaged bundle not found in the release virtualenv"}
+        return {
+            "comparable": False,
+            "reason": "packaged bundle not found in the release virtualenv",
+        }
     identical = 0
     mismatched = []
     missing = []
@@ -92,22 +97,45 @@ def bundle_comparison(release: Path, bundle: Path) -> dict:
             identical += 1
         else:
             mismatched.append(str(relative))
-    return {"comparable": True, "identical": identical, "mismatched": mismatched[:10], "missing": missing[:10],
-            "packaged": str(packaged), "bundle": str(bundle)}
+    return {
+        "comparable": True,
+        "identical": identical,
+        "mismatched": mismatched[:10],
+        "missing": missing[:10],
+        "packaged": str(packaged),
+        "bundle": str(bundle),
+    }
 
 
 def process_release() -> dict:
     info: dict = {}
-    for program, marker in (("backend", "deeptutor.api.main:app"), ("frontend", "server.js"), ("scheduler", "prod_scheduler")):
+    for program, marker in (
+        ("backend", "deeptutor.api.main:app"),
+        ("frontend", "server.js"),
+        ("scheduler", "prod_scheduler"),
+    ):
         status = subprocess.run(
-            [str(cfg.PROD_ROOT / "ops-venv/bin/supervisorctl"), "-c", str(cfg.ETC / "supervisord.conf"), "pid", program],
-            capture_output=True, text=True, timeout=20,
+            [
+                str(cfg.PROD_ROOT / "ops-venv/bin/supervisorctl"),
+                "-c",
+                str(cfg.ETC / "supervisord.conf"),
+                "pid",
+                program,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
         ).stdout.strip()
         if not status.isdigit():
             info[program] = {"pid": None, "release": None}
             continue
         try:
-            cmdline = Path(f"/proc/{status}/cmdline").read_bytes().decode("utf-8", "replace").split("\x00")
+            cmdline = (
+                Path(f"/proc/{status}/cmdline")
+                .read_bytes()
+                .decode("utf-8", "replace")
+                .split("\x00")
+            )
             cwd = os.readlink(f"/proc/{status}/cwd")
         except Exception:
             info[program] = {"pid": int(status), "release": None}
@@ -126,7 +154,9 @@ def process_release() -> dict:
             "marker": marker in joined,
             "release": release or None,
             "host_tooling": str(cfg.PROD_ROOT / "harness") in joined,
-            "cmdline_release": next((part for part in joined.split() if str(cfg.RELEASES) in part), ""),
+            "cmdline_release": next(
+                (part for part in joined.split() if str(cfg.RELEASES) in part), ""
+            ),
             "started_from_current": str(cfg.CURRENT_LINK) in joined or str(cfg.RELEASES) in joined,
         }
     return info
@@ -147,50 +177,93 @@ def main() -> int:
         "current_release": str(current) if current else None,
     }
 
-    report("the deployment contract records a release identity",
-           all([document["environment"], document["release_id"], document["version"],
-                document["source_commit"], document["artifact"], document["artifact_sha256_recorded"]]))
-    report("the `current` symlink points at a release directory",
-           current is not None and current.exists() and str(current).startswith(str(cfg.RELEASES)),
-           str(current))
+    report(
+        "the deployment contract records a release identity",
+        all(
+            [
+                document["environment"],
+                document["release_id"],
+                document["version"],
+                document["source_commit"],
+                document["artifact"],
+                document["artifact_sha256_recorded"],
+            ]
+        ),
+    )
+    report(
+        "the `current` symlink points at a release directory",
+        current is not None and current.exists() and str(current).startswith(str(cfg.RELEASES)),
+        str(current),
+    )
 
     if current and current.exists():
         manifest_path = current / "manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        manifest = (
+            json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        )
         document["manifest"] = manifest
         report("the promoted release carries a manifest", bool(manifest), str(manifest_path))
-        report("the promoted release matches the contract release id",
-               manifest.get("release_id") == document["release_id"],
-               f"manifest={manifest.get('release_id')} contract={document['release_id']}")
-        report("the promoted release matches the contract source commit",
-               manifest.get("source_commit") == document["source_commit"])
+        report(
+            "the promoted release matches the contract release id",
+            manifest.get("release_id") == document["release_id"],
+            f"manifest={manifest.get('release_id')} contract={document['release_id']}",
+        )
+        report(
+            "the promoted release matches the contract source commit",
+            manifest.get("source_commit") == document["source_commit"],
+        )
 
         artifact = current / str(manifest.get("artifact"))
         actual = sha256(artifact) if artifact.exists() else ""
         document["artifact_sha256_actual"] = actual
-        report("the artifact in the release directory hashes to the recorded value",
-               actual != "" and actual == document["artifact_sha256_recorded"],
-               f"actual={actual[:16]}... recorded={str(document['artifact_sha256_recorded'])[:16]}...")
-        recorded = (current / "wheel.sha256").read_text().split()[0] if (current / "wheel.sha256").exists() else ""
-        report("wheel.sha256 agrees with the contract", recorded == document["artifact_sha256_recorded"])
+        report(
+            "the artifact in the release directory hashes to the recorded value",
+            actual != "" and actual == document["artifact_sha256_recorded"],
+            f"actual={actual[:16]}... recorded={str(document['artifact_sha256_recorded'])[:16]}...",
+        )
+        recorded = (
+            (current / "wheel.sha256").read_text().split()[0]
+            if (current / "wheel.sha256").exists()
+            else ""
+        )
+        report(
+            "wheel.sha256 agrees with the contract",
+            recorded == document["artifact_sha256_recorded"],
+        )
 
         version = installed_version(current / "venv/bin/python")
         document["installed_version"] = version
-        report("the release virtualenv has the contract version installed",
-               version == document["version"], f"installed={version} expected={document['version']}")
+        report(
+            "the release virtualenv has the contract version installed",
+            version == document["version"],
+            f"installed={version} expected={document['version']}",
+        )
 
         bundle_candidates = [current / "data/user/runtime/web", current / "web"]
         bundle = next((path for path in bundle_candidates if (path / "server.js").exists()), None)
-        report("the release carries a materialised web bundle",
-               bundle is not None and (bundle / "server.js").exists()
-               and (bundle / ".deeptutor-web-runtime.json").exists(),
-               str(bundle))
+        report(
+            "the release carries a materialised web bundle",
+            bundle is not None
+            and (bundle / "server.js").exists()
+            and (bundle / ".deeptutor-web-runtime.json").exists(),
+            str(bundle),
+        )
         if bundle is not None:
             comparison = bundle_comparison(current, bundle)
             document["web_bundle"] = comparison
-            report("the web bundle matches the artifact's packaged bundle",
-                   comparison.get("comparable") and not comparison.get("mismatched") and not comparison.get("missing"),
-                   json.dumps({k: v for k, v in comparison.items() if k in ("identical", "mismatched", "missing")}))
+            report(
+                "the web bundle matches the artifact's packaged bundle",
+                comparison.get("comparable")
+                and not comparison.get("mismatched")
+                and not comparison.get("missing"),
+                json.dumps(
+                    {
+                        k: v
+                        for k, v in comparison.items()
+                        if k in ("identical", "mismatched", "missing")
+                    }
+                ),
+            )
 
     processes = process_release()
     document["processes"] = processes
@@ -201,28 +274,37 @@ def main() -> int:
             # Host-level operational tooling, deliberately not part of a release:
             # it must run from the deployment harness, and it must outlive
             # rollbacks.
-            report("the running scheduler is the deployment's own operational tool",
-                   bool(entry.get("host_tooling")),
-                   json.dumps({k: v for k, v in entry.items() if k in ("pid", "cwd", "host_tooling")}))
+            report(
+                "the running scheduler is the deployment's own operational tool",
+                bool(entry.get("host_tooling")),
+                json.dumps({k: v for k, v in entry.items() if k in ("pid", "cwd", "host_tooling")}),
+            )
             continue
-        report(f"the running {program} belongs to the promoted release",
-               bool(expected_name) and entry.get("release") == expected_name,
-               json.dumps({k: v for k, v in entry.items() if k in ("pid", "release", "cwd")}))
+        report(
+            f"the running {program} belongs to the promoted release",
+            bool(expected_name) and entry.get("release") == expected_name,
+            json.dumps({k: v for k, v in entry.items() if k in ("pid", "release", "cwd")}),
+        )
 
     deploy_lines = []
     if cfg.DEPLOY_LOG.exists():
         deploy_lines = [line for line in cfg.DEPLOY_LOG.read_text().splitlines() if line.strip()]
     document["deploy_records"] = deploy_lines[-5:]
-    report("the deployment log records the promoted release",
-           any(f"release={document['release_id']}" in line for line in deploy_lines),
-           f"{len(deploy_lines)} records")
+    report(
+        "the deployment log records the promoted release",
+        any(f"release={document['release_id']}" in line for line in deploy_lines),
+        f"{len(deploy_lines)} records",
+    )
 
     document["failures"] = FAILURES
     document["traceable"] = not FAILURES
     print()
-    print(json.dumps(document, indent=2) if as_json else
-          f"identity: traceable={document['traceable']} release={document['release_id']} "
-          f"artifact={(document.get('artifact_sha256_actual') or '')[:16]}... failures={len(FAILURES)}")
+    print(
+        json.dumps(document, indent=2)
+        if as_json
+        else f"identity: traceable={document['traceable']} release={document['release_id']} "
+        f"artifact={(document.get('artifact_sha256_actual') or '')[:16]}... failures={len(FAILURES)}"
+    )
     return 0 if not FAILURES else 1
 
 

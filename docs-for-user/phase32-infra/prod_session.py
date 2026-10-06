@@ -9,6 +9,7 @@ against the API by ``prod_validate.py`` and ``prod_security.py``.
 Usage: prod_session.py [account]        # account defaults to ``admin``
 Writes: <production root>/harness/storage-state.json (mode 0600)
 """
+
 from __future__ import annotations
 
 import json
@@ -20,9 +21,8 @@ import sys
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "harness"))
-from prod_http import Actor, login  # noqa: E402
-
 import prod_config as cfg
+from prod_http import Actor, login  # noqa: E402
 
 STAGING = cfg.PROD_ROOT
 TLS_HOST = os.environ.get("PROD_TLS_HOST", "127.0.0.1")
@@ -32,24 +32,41 @@ def main() -> int:
     account = sys.argv[1] if len(sys.argv) > 1 else "admin"
     credentials = json.loads((STAGING / "secrets/credentials.json").read_text())
     if account not in credentials:
-        print(f"unknown account {account!r}; known: {', '.join(sorted(credentials))}", file=sys.stderr)
+        print(
+            f"unknown account {account!r}; known: {', '.join(sorted(credentials))}", file=sys.stderr
+        )
         return 2
 
     actor = Actor(account)
-    status, _, body, payload = login(actor, credentials[account]["username"], credentials[account]["password"])
+    status, _, body, payload = login(
+        actor, credentials[account]["username"], credentials[account]["password"]
+    )
     token = actor.cookies.get("dt_token")
     if status != 200 or not token:
         print(f"login failed: status={status} body={body[:200]}", file=sys.stderr)
         return 1
 
     target = STAGING / "harness/storage-state.json"
-    target.write_text(json.dumps({
-        "cookies": [{
-            "name": "dt_token", "value": token, "domain": TLS_HOST, "path": "/",
-            "expires": -1, "httpOnly": True, "secure": True, "sameSite": "Lax",
-        }],
-        "origins": [],
-    }, indent=2))
+    target.write_text(
+        json.dumps(
+            {
+                "cookies": [
+                    {
+                        "name": "dt_token",
+                        "value": token,
+                        "domain": TLS_HOST,
+                        "path": "/",
+                        "expires": -1,
+                        "httpOnly": True,
+                        "secure": True,
+                        "sameSite": "Lax",
+                    }
+                ],
+                "origins": [],
+            },
+            indent=2,
+        )
+    )
     target.chmod(stat.S_IRUSR | stat.S_IWUSR)
     print(f"wrote {target} for account {account} ({payload.get('username', account)})")
     return 0

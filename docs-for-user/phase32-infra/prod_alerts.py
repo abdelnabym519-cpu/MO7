@@ -47,7 +47,9 @@ def derived_metrics(metrics: dict) -> dict:
     now = metrics.get("sample_epoch", time.time())
     oldest = None
     if cfg.METRICS_DIR.joinpath("series.ndjson").exists():
-        for line in cfg.METRICS_DIR.joinpath("series.ndjson").read_text(errors="replace").splitlines():
+        for line in (
+            cfg.METRICS_DIR.joinpath("series.ndjson").read_text(errors="replace").splitlines()
+        ):
             try:
                 entry = json.loads(line)
             except Exception:
@@ -170,9 +172,11 @@ def write(document: dict) -> None:
 def main() -> int:
     if "--list" in sys.argv:
         for rule in rules():
-            print(f"{rule['id']:<28} {rule['severity']:<8} {rule['metric']} {rule['op']} {rule['value']}"
-                  f"\n    response  : {rule['response']}\n    owner     : {rule['owner']}"
-                  f"\n    verification: {rule['verification']}")
+            print(
+                f"{rule['id']:<28} {rule['severity']:<8} {rule['metric']} {rule['op']} {rule['value']}"
+                f"\n    response  : {rule['response']}\n    owner     : {rule['owner']}"
+                f"\n    verification: {rule['verification']}"
+            )
         return 0
 
     document = evaluate()
@@ -180,13 +184,17 @@ def main() -> int:
     if "--json" in sys.argv:
         print(json.dumps(document, indent=2))
     else:
-        print(f"alerts evaluated at {document['evaluated_at']} against metrics from {document['metrics_sampled_at']}: "
-              f"{document['rules_total']} rules, {document['firing']} firing "
-              f"({document['critical_firing']} critical)")
+        print(
+            f"alerts evaluated at {document['evaluated_at']} against metrics from {document['metrics_sampled_at']}: "
+            f"{document['rules_total']} rules, {document['firing']} firing "
+            f"({document['critical_firing']} critical)"
+        )
         for row in document["results"]:
             marker = "FIRING " if row["firing"] else "ok     "
-            print(f"  {marker} {row['severity']:<8} {row['id']:<28} {row['metric']}="
-                  f"{row['observed']} {row['op']} {row['threshold']}")
+            print(
+                f"  {marker} {row['severity']:<8} {row['id']:<28} {row['metric']}="
+                f"{row['observed']} {row['op']} {row['threshold']}"
+            )
         if document.get("stale_metrics"):
             print("  WARNING: metrics sample is older than 15 minutes")
     if "--strict" in sys.argv and document["critical_firing"]:

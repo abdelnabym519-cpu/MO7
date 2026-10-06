@@ -245,7 +245,9 @@ def start_supervisord() -> bool:
             except OSError as exc:
                 log(f"could not remove {stale}: {exc}")
     log(f"starting supervisord: {' '.join(command)}")
-    subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    subprocess.Popen(
+        command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
+    )
     for _ in range(30):
         time.sleep(1)
         if supervisor_alive():
@@ -258,7 +260,13 @@ def daemon() -> int:
         log("another watchdog already holds the deployment lock; exiting")
         return 1
     restarts = 0
-    write_state({"pid": os.getpid(), "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "restarts": 0})
+    write_state(
+        {
+            "pid": os.getpid(),
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "restarts": 0,
+        }
+    )
     log(f"watchdog started (pid {os.getpid()}, interval {INTERVAL}s)")
     while True:
         # Steady-state orphan sweep: a program that survived a supervisord
@@ -268,14 +276,23 @@ def daemon() -> int:
             try:
                 orphans = orphaned_programs()
                 if orphans:
-                    log(f"terminating {len(orphans)} program(s) not owned by the live supervisord: {orphans}")
+                    log(
+                        f"terminating {len(orphans)} program(s) not owned by the live supervisord: {orphans}"
+                    )
                     clear_orphans()
                     for program in ("backend", "frontend", "scheduler"):
                         if supervisorctl_state(program) == "FATAL":
                             log(f"retrying FATAL program after clearing orphans: {program}")
                             subprocess.run(
-                                [str(cfg.SUPERVISORCTL), "-c", str(cfg.ETC / "supervisord.conf"), "start", program],
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                [
+                                    str(cfg.SUPERVISORCTL),
+                                    "-c",
+                                    str(cfg.ETC / "supervisord.conf"),
+                                    "start",
+                                    program,
+                                ],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
                             )
             except Exception as exc:  # the sweep must never take the watchdog down
                 log(f"orphan sweep raised {type(exc).__name__}: {exc}")
@@ -308,7 +325,9 @@ def supervisorctl_state(program: str) -> str:
     try:
         completed = subprocess.run(
             [str(cfg.SUPERVISORCTL), "-c", str(cfg.ETC / "supervisord.conf"), "status", program],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         match = re.search(rf"{program}\s+(\w+)", completed.stdout)
         return match.group(1) if match else "UNKNOWN"
@@ -356,9 +375,14 @@ def start() -> int:
     # The daemon's stdout/stderr go to their own file: `log()` already writes the
     # structured log, and redirecting both to the same path duplicated every line.
     state = read_state()
-    if pid_alive(int(state.get("pid", 0))) and Path(f"/proc/{state.get('pid')}/cmdline").read_bytes().decode(
-        "utf-8", "replace"
-    ).find("prod_watchdog") >= 0:
+    if (
+        pid_alive(int(state.get("pid", 0)))
+        and Path(f"/proc/{state.get('pid')}/cmdline")
+        .read_bytes()
+        .decode("utf-8", "replace")
+        .find("prod_watchdog")
+        >= 0
+    ):
         print(f"watchdog already running (pid {state['pid']})")
         return 0
     log_file = (cfg.RUN / "watchdog.stdout").open("a", encoding="utf-8")
@@ -379,7 +403,9 @@ def start() -> int:
 
 
 def stop() -> int:
-    pid = int(read_state().get("pid", 0)) or (int(cfg.WATCHDOG_PID.read_text().strip()) if cfg.WATCHDOG_PID.exists() else 0)
+    pid = int(read_state().get("pid", 0)) or (
+        int(cfg.WATCHDOG_PID.read_text().strip()) if cfg.WATCHDOG_PID.exists() else 0
+    )
     if not pid_alive(pid):
         print("watchdog is not running")
         cfg.WATCHDOG_PID.unlink(missing_ok=True)

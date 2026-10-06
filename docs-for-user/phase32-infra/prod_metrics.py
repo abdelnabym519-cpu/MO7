@@ -42,7 +42,12 @@ PROGRAMS = ("backend", "frontend", "scheduler")
 
 
 def supervisorctl(*args: str) -> str:
-    command = [str(cfg.PROD_ROOT / "ops-venv/bin/supervisorctl"), "-c", str(cfg.ETC / "supervisord.conf"), *args]
+    command = [
+        str(cfg.PROD_ROOT / "ops-venv/bin/supervisorctl"),
+        "-c",
+        str(cfg.ETC / "supervisord.conf"),
+        *args,
+    ]
     try:
         return subprocess.run(command, capture_output=True, text=True, timeout=20).stdout
     except Exception:
@@ -178,7 +183,13 @@ def database_metrics(check_integrity: bool) -> dict:
                     unhealthy.append(str(path.relative_to(cfg.HOME)))
             except Exception:
                 unhealthy.append(str(path.relative_to(cfg.HOME)))
-    return {"stores": stores, "bytes": total, "wal_bytes": wal, "unhealthy": unhealthy, "integrity_checked": check_integrity}
+    return {
+        "stores": stores,
+        "bytes": total,
+        "wal_bytes": wal,
+        "unhealthy": unhealthy,
+        "integrity_checked": check_integrity,
+    }
 
 
 def disk_metrics() -> dict:
@@ -214,7 +225,12 @@ def load_metrics() -> dict:
         one, five, fifteen = os.getloadavg()
     except Exception:
         return {}
-    return {"load1": round(one, 2), "load5": round(five, 2), "load15": round(fifteen, 2), "cpus": os.cpu_count()}
+    return {
+        "load1": round(one, 2),
+        "load5": round(five, 2),
+        "load15": round(fifteen, 2),
+        "cpus": os.cpu_count(),
+    }
 
 
 def backup_metrics() -> dict:
@@ -263,12 +279,16 @@ def log_metrics() -> dict:
             # the marker still counts.
             for index in range(len(window) - 1, -1, -1):
                 if cfg.FAULT_LOG_MARKER in window[index]:
-                    window = window[index + 1:]
+                    window = window[index + 1 :]
                     break
             for line in window:
                 if any(marker in line for marker in ("ERROR", "CRITICAL", "Traceback", "FATAL")):
                     errors += 1
-        result[component] = {"recent_error_lines": errors, "exists": path.exists(), "bytes": path.stat().st_size if path.exists() else 0}
+        result[component] = {
+            "recent_error_lines": errors,
+            "exists": path.exists(),
+            "bytes": path.stat().st_size if path.exists() else 0,
+        }
     return result
 
 
@@ -309,7 +329,11 @@ def tls_metrics() -> dict:
             "validation_cert_subject": info.get("subject"),
         }
     except Exception as exc:
-        return {"validation_cert_present": True, "validation_cert_days": None, "error": type(exc).__name__}
+        return {
+            "validation_cert_present": True,
+            "validation_cert_days": None,
+            "error": type(exc).__name__,
+        }
 
 
 def collect(skip_db: bool = False) -> dict:
@@ -323,7 +347,9 @@ def collect(skip_db: bool = False) -> dict:
             "version": cfg.VERSION,
             "commit": cfg.SOURCE_COMMIT,
             "artifact_sha256": cfg.ARTIFACT_SHA256,
-            "current_target": os.path.realpath(cfg.CURRENT_LINK) if cfg.CURRENT_LINK.exists() else None,
+            "current_target": os.path.realpath(cfg.CURRENT_LINK)
+            if cfg.CURRENT_LINK.exists()
+            else None,
         },
         "programs": program_metrics(),
         "restarts": restart_counts(),
@@ -365,12 +391,18 @@ def watchdog_metrics() -> dict:
     if pid:
         try:
             os.kill(pid, 0)
-            running = "prod_watchdog" in Path(f"/proc/{pid}/cmdline").read_bytes().decode("utf-8", "replace")
+            running = "prod_watchdog" in Path(f"/proc/{pid}/cmdline").read_bytes().decode(
+                "utf-8", "replace"
+            )
         except Exception:
             running = False
     restarts = 0
     if cfg.WATCHDOG_LOG.exists():
-        restarts = sum(1 for line in cfg.WATCHDOG_LOG.read_text(errors="replace").splitlines() if "restart #" in line)
+        restarts = sum(
+            1
+            for line in cfg.WATCHDOG_LOG.read_text(errors="replace").splitlines()
+            if "restart #" in line
+        )
     return {"running": running, "pid": pid if running else None, "restarts": restarts}
 
 
@@ -399,12 +431,16 @@ def _write(sample: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(sample, indent=2))
     else:
-        programs = " ".join(f"{name}={data.get('state')}" for name, data in sample["programs"].items())
+        programs = " ".join(
+            f"{name}={data.get('state')}" for name, data in sample["programs"].items()
+        )
         probes = " ".join(f"{name}={data['status']}" for name, data in sample["probes"].items())
-        print(f"{sample['sampled_at']} release={sample['release']['id']} programs[{programs}] probes[{probes}] "
-              f"db={sample['database']['stores']} unhealthy={len(sample['database']['unhealthy'])} "
-              f"disk={sample['disk']['percent_used']}% backups={sample['backups']['count']} "
-              f"collection_ms={sample['collection_ms']}")
+        print(
+            f"{sample['sampled_at']} release={sample['release']['id']} programs[{programs}] probes[{probes}] "
+            f"db={sample['database']['stores']} unhealthy={len(sample['database']['unhealthy'])} "
+            f"disk={sample['disk']['percent_used']}% backups={sample['backups']['count']} "
+            f"collection_ms={sample['collection_ms']}"
+        )
 
 
 if __name__ == "__main__":

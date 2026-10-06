@@ -74,7 +74,9 @@ def http(url: str, *, data: bytes | None = None, cookie: str | None = None, time
     headers = {"Content-Type": "application/json"} if data else {}
     if cookie:
         headers["Cookie"] = cookie
-    request = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    request = urllib.request.Request(
+        url, data=data, headers=headers, method="POST" if data else "GET"
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             return response.status, response.read().decode("utf-8", "replace"), response.headers
@@ -107,9 +109,16 @@ def main() -> int:
     databases_ok = True
     for entry in manifest.get("databases", []):
         snapshot = backup_dir / entry["snapshot"]
-        ok = snapshot.exists() and sha256(snapshot) == entry["sha256"] and integrity(snapshot) == "ok"
+        ok = (
+            snapshot.exists()
+            and sha256(snapshot) == entry["sha256"]
+            and integrity(snapshot) == "ok"
+        )
         databases_ok = databases_ok and ok
-    check(f"all {len(manifest.get('databases', []))} snapshot databases verify (hash + integrity)", databases_ok)
+    check(
+        f"all {len(manifest.get('databases', []))} snapshot databases verify (hash + integrity)",
+        databases_ok,
+    )
 
     # --- 2. restore into the target root --------------------------------------
     home = target / "home"
@@ -135,29 +144,53 @@ def main() -> int:
     if storage:
         with tarfile.open(backup_dir / storage["archive"], "r:gz") as tar:
             tar.extractall(home)  # noqa: S202 - archive produced by prod_backup.py from this host
-    check(f"restored {restored_databases} databases, {len(manifest.get('config', []))} config files "
-          f"and file storage into {target}", True)
+    check(
+        f"restored {restored_databases} databases, {len(manifest.get('config', []))} config files "
+        f"and file storage into {target}",
+        True,
+    )
 
     # --- 3. integrity of the restored copies ----------------------------------
-    bad = [entry["path"] for entry in manifest.get("databases", []) if integrity(home / entry["path"]) != "ok"]
+    bad = [
+        entry["path"]
+        for entry in manifest.get("databases", [])
+        if integrity(home / entry["path"]) != "ok"
+    ]
     check("restored databases pass integrity_check", not bad, f"unhealthy: {bad}")
 
     auth_secret = home / "data/system/auth/auth_secret"
-    check("restored auth secret present and private",
-          auth_secret.exists() and (auth_secret.stat().st_mode & 0o777) == 0o600,
-          f"mode={oct(auth_secret.stat().st_mode & 0o777) if auth_secret.exists() else 'missing'}")
+    check(
+        "restored auth secret present and private",
+        auth_secret.exists() and (auth_secret.stat().st_mode & 0o777) == 0o600,
+        f"mode={oct(auth_secret.stat().st_mode & 0o777) if auth_secret.exists() else 'missing'}",
+    )
 
     # --- 4. application validation against the restored root -------------------
     if app_check:
         release_python = cfg.CURRENT_LINK / "venv/bin/python"
         port = free_port()
         log = target / "restore-rehearsal-backend.log"
-        environment = dict(os.environ, DEEPTUTOR_HOME=str(home), DEEPTUTOR_IGNORE_PROCESS_ENV_OVERRIDES="1")
+        environment = dict(
+            os.environ, DEEPTUTOR_HOME=str(home), DEEPTUTOR_IGNORE_PROCESS_ENV_OVERRIDES="1"
+        )
         process = subprocess.Popen(
-            [str(release_python), "-m", "uvicorn", "deeptutor.api.main:app",
-             "--host", cfg.BACKEND_HOST, "--port", str(port), "--no-access-log", "--no-proxy-headers"],
-            cwd=str(cfg.CURRENT_LINK), env=environment,
-            stdout=log.open("wb"), stderr=subprocess.STDOUT, start_new_session=True,
+            [
+                str(release_python),
+                "-m",
+                "uvicorn",
+                "deeptutor.api.main:app",
+                "--host",
+                cfg.BACKEND_HOST,
+                "--port",
+                str(port),
+                "--no-access-log",
+                "--no-proxy-headers",
+            ],
+            cwd=str(cfg.CURRENT_LINK),
+            env=environment,
+            stdout=log.open("wb"),
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
         )
         try:
             base = f"http://{cfg.BACKEND_HOST}:{port}"
@@ -168,14 +201,27 @@ def main() -> int:
                     ready = status
                     break
                 time.sleep(1)
-            check("scratch backend on the restored root reports ready", ready == 200, f"status={ready}")
+            check(
+                "scratch backend on the restored root reports ready",
+                ready == 200,
+                f"status={ready}",
+            )
 
             accounts = cfg.credentials()
             status, body, headers = http(
                 f"{base}/api/auth/login",
-                data=json.dumps({"username": accounts["admin"]["username"], "password": accounts["admin"]["password"]}).encode(),
+                data=json.dumps(
+                    {
+                        "username": accounts["admin"]["username"],
+                        "password": accounts["admin"]["password"],
+                    }
+                ).encode(),
             )
-            check("a restored account can authenticate against the restored data", status == 200, f"status={status} {body[:120]}")
+            check(
+                "a restored account can authenticate against the restored data",
+                status == 200,
+                f"status={status} {body[:120]}",
+            )
             cookie = ""
             if status == 200:
                 raw = headers.get("Set-Cookie", "")
@@ -188,11 +234,16 @@ def main() -> int:
                     notebooks = json.loads(body).get("notebooks")
                 except Exception:
                     notebooks = None
-            check("restored notebook data is readable", status == 200 and isinstance(notebooks, list),
-                  f"status={status} notebooks={type(notebooks).__name__}")
+            check(
+                "restored notebook data is readable",
+                status == 200 and isinstance(notebooks, list),
+                f"status={status} notebooks={type(notebooks).__name__}",
+            )
 
             status, body, _ = http(f"{base}/api/reading/workspaces/index", cookie=cookie)
-            check("restored reading data is readable", status == 200, f"status={status} {body[:80]}")
+            check(
+                "restored reading data is readable", status == 200, f"status={status} {body[:80]}"
+            )
         finally:
             process.terminate()
             try:
@@ -212,13 +263,17 @@ def main() -> int:
         "passed": len(RESULTS) - len(failed),
         "failed": len(failed),
     }
-    evidence = cfg.EVIDENCE_DIR / f"restore-{manifest.get('backup_id', 'unknown')}-{int(time.time())}.json"
+    evidence = (
+        cfg.EVIDENCE_DIR / f"restore-{manifest.get('backup_id', 'unknown')}-{int(time.time())}.json"
+    )
     evidence.parent.mkdir(parents=True, exist_ok=True)
     evidence.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if "--json" in args:
         print(json.dumps(report, indent=2))
-    print(f"\nrestore rehearsal: total={len(RESULTS)} passed={len(RESULTS) - len(failed)} failed={len(failed)} "
-          f"(evidence: {evidence})")
+    print(
+        f"\nrestore rehearsal: total={len(RESULTS)} passed={len(RESULTS) - len(failed)} failed={len(failed)} "
+        f"(evidence: {evidence})"
+    )
     return 1 if failed else 0
 
 

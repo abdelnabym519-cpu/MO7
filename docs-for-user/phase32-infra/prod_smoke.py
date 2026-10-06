@@ -83,10 +83,16 @@ def main() -> int:
     ingress_running = _listening("127.0.0.1", cfg.TLS_VALIDATION_PORT)
     if ingress_running:
         ingress, ingress_ms = get(cfg.TLS_VALIDATION_ORIGIN + "/login")
-        check("validation ingress serves /login over TLS", ingress == 200, f"status={ingress} ({ingress_ms:.1f} ms)")
+        check(
+            "validation ingress serves /login over TLS",
+            ingress == 200,
+            f"status={ingress} ({ingress_ms:.1f} ms)",
+        )
     else:
-        print(f"[note] validation ingress is not running on {cfg.TLS_VALIDATION_PORT}: "
-              "harness-only component, production TLS terminates at the platform edge")
+        print(
+            f"[note] validation ingress is not running on {cfg.TLS_VALIDATION_PORT}: "
+            "harness-only component, production TLS terminates at the platform edge"
+        )
     # The smoke authenticates against the deployment's own API address. The
     # validation ingress is a harness component that is stopped outside a
     # validation window, and a promotion must not depend on it being up; when it
@@ -101,7 +107,9 @@ def main() -> int:
         return 1
 
     admin = Actor("admin")
-    status, _, _, _ = login(admin, accounts["admin"]["username"], accounts["admin"]["password"], base=api_base)
+    status, _, _, _ = login(
+        admin, accounts["admin"]["username"], accounts["admin"]["password"], base=api_base
+    )
     check("administrator can authenticate", status == 200, f"status={status}")
     if status != 200:
         return 1
@@ -116,11 +124,16 @@ def main() -> int:
 
     status, _, _, payload = call(admin, "GET", "/api/notebooks", base=api_base)
     check("persistent data read (/api/notebooks)", status == 200, f"status={status}")
-    check("notebooks payload has the documented shape", isinstance(payload, dict) and "notebooks" in payload,
-          f"payload keys: {sorted((payload or {}).keys())[:6]}")
+    check(
+        "notebooks payload has the documented shape",
+        isinstance(payload, dict) and "notebooks" in payload,
+        f"payload keys: {sorted((payload or {}).keys())[:6]}",
+    )
 
     failed = [row for row in RESULTS if not row["ok"]]
-    print(f"\nproduction smoke: total={len(RESULTS)} passed={len(RESULTS) - len(failed)} failed={len(failed)}")
+    print(
+        f"\nproduction smoke: total={len(RESULTS)} passed={len(RESULTS) - len(failed)} failed={len(failed)}"
+    )
     return 1 if failed else 0
 
 
