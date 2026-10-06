@@ -1,0 +1,18 @@
+{
+  "recorded_at": "2026-10-06T22:44:34Z",
+  "scope": "product",
+  "paths": [
+    "deeptutor",
+    "deeptutor_cli",
+    "tests",
+    "scripts"
+  ],
+  "files_seen": 1800,
+  "clean": true,
+  "lint_exit": 0,
+  "format_exit": 0,
+  "errors": 0,
+  "unformatted": 0,
+  "lint_output_tail": "All checks passed!",
+  "format_output_tail": "1783 files already formatted"
+}
