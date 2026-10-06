@@ -21,6 +21,14 @@
     {
       "recorded_at": "2026-10-06",
       "note": "The python-tests exception was removed: the pipeline's own pytest run is green on this branch (8434 passed / 0 failed / 0 errors, run 37486103941), so the gate is required without qualification. The repository's scheduled Tests workflow on main is red (evidence: runs 37448715493, 37296467799, 37193244526 \u2014 job Python Tests on 3.11-3.14 and Web Node Tests fail there); that is a pre-existing condition of main, not of the release branch, and it must never become a reason to except the release pipeline's test gate."
+    },
+    {
+      "recorded_at": "2026-10-06",
+      "note": "The effective blocking rule is stricter than this list: rc_evidence.py blocks on every gate that fails and is not excepted or marked observed, and `required_gates` is the policy's own statement of which gates a policy may not except. Evidence for the distinction: run 37544304900, where the python-tests gate failed (8433/8488, one case) and the verdict was NOT_RELEASABLE even though 'python tests' is not in required_gates -- the run's own test gate stopped it. This file is the policy; the verdict is the pipeline's, and it fails closed."
+    },
+    {
+      "recorded_at": "2026-10-06",
+      "note": "Findings from executing this process, each fixed in the release branch (see the runbook \u00a713 and the closure report \u00a725): P33-M2 the comparison's human-readable stream aborted on a renamed class while the machine-readable document stayed green; P33-M3 the artifact contract, scan and reproducibility stages wrote their document before they could crash; P33-M4 the host contract was refreshed before the marker that defines it, so from the second promotion onward every identity-bearing check read the previous release; P33-M5 the controller could not name the release a failed post-deploy validation should return to, so rollback degraded to manual; P33-M6 a promotion took a fresh pre-deploy backup and therefore invalidated the rehearsal check it was measured against, so every promotion rolled back; P33-M7 the pipeline did not run when the deployment tooling changed; P33-M8 the evidence commit was pushed without rebasing, so a run whose gates all passed was reported failed and lost its evidence; P33-M9 a red test gate recorded the count and not the failing case."
     }
   ]
 }
