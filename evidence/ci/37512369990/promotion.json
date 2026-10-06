@@ -1,0 +1,130 @@
+{
+  "recorded_at": "2026-10-06T18:50:54Z",
+  "commit": "56e1858f87eee60bf5978a3ee2d36d3e7799a9bb",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "RELEASABLE",
+  "policy": {
+    "source": "/home/runner/work/MO7/MO7/docs-for-user/phase33-cicd/release-policy.json",
+    "required_gates": [
+      "a second build is content-identical",
+      "artifact contract passed",
+      "artifact security scan is clean",
+      "artifact sha256 is recorded",
+      "artifact was produced",
+      "code security scan has no high/high findings",
+      "source commit is a full sha",
+      "version is declared"
+    ],
+    "exceptions": []
+  },
+  "gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "56e1858f87eee60bf5978a3ee2d36d3e7799a9bb",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": true,
+      "detail": "1.6.11",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "a2eea4d52f2f9a6c",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "byte_identical=False classified={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'generated_keys_and_digests': 3, 'ordering_only_json': 0, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 0, 'ordering_only_entries': 0, 'unexplained': 0}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": true,
+      "detail": "8434/8488 passed, 0 failed, 0 errors, 54 skipped",
+      "required": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.065s",
+      "required": false
+    },
+    {
+      "stage": "the validation toolchain installs",
+      "ok": true,
+      "detail": "pass in 52.195s",
+      "required": false
+    },
+    {
+      "stage": "import, lazy-startup and worker-protocol checks",
+      "ok": true,
+      "detail": "pass in 1.676s",
+      "required": false
+    },
+    {
+      "stage": "dependency consistency (pip check)",
+      "ok": true,
+      "detail": "pass in 0.299s",
+      "required": false
+    },
+    {
+      "stage": "frontend dependencies install from the lockfile",
+      "ok": true,
+      "detail": "pass in 18.918s",
+      "required": false
+    },
+    {
+      "stage": "the frontend deterministic gate",
+      "ok": true,
+      "detail": "pass in 157.581s",
+      "required": false
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 scope=deeptutor deeptutor_cli tests scripts",
+      "required": false
+    },
+    {
+      "stage": "repository-wide ruff (observed)",
+      "ok": false,
+      "detail": "errors=0 unformatted=10 over 1800 files, all of them phase documentation tooling outside the product tree; see finding P33-L1",
+      "observed": true,
+      "required": false,
+      "finding": "P33-L1"
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": true,
+      "detail": "7 findings, 0 high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [],
+  "excepted_failures": [],
+  "artifact_sha256": "a2eea4d52f2f9a6caee661d577ce660c744f4fcb79d238051c6e997fcd91d825"
+}
