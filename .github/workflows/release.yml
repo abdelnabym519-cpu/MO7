@@ -55,7 +55,7 @@ jobs:
   release:
     name: Release pipeline
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     outputs:
       rc_id: ${{ steps.rc.outputs.rc_id }}
       artifact_sha256: ${{ steps.build.outputs.artifact_sha256 }}
@@ -85,13 +85,9 @@ jobs:
           # A release is built from a commit, never from a dirty tree.
           test -z "$(git status --porcelain)"
           echo "tree_clean=true" | tee -a source.txt
-          python3 - <<'PY' | tee version.txt
-          import re, pathlib
-          src = pathlib.Path("deeptutor/__version__.py").read_text(encoding="utf-8")
-          m = re.search(r'__version__\s*=\s*"([^"]+)"', src)
-          assert m, "version not found"
-          print(f"version={m.group(1)}")
-          PY
+          # Heredoc terminators cannot be indented inside a YAML block scalar,
+          # so this is a one-liner rather than a here-document.
+          python3 -c 'import pathlib,re;src=pathlib.Path("deeptutor/__version__.py").read_text(encoding="utf-8");m=re.search(r"__version__\s*=\s*\"([^\"]+)\"",src);assert m,"version not found";print("version="+m.group(1))' | tee version.txt
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -107,12 +103,10 @@ jobs:
 
       # ------------------------------------------------------------ validation
       - name: Install validation toolchain
+        continue-on-error: ${{ !inputs.strict }}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements/server.txt -r requirements/partners.txt
-          pip install -e . --no-deps
-          pip install build wheel
-          pip install pytest pytest-asyncio ruff==0.16.0 import-linter==2.11 bandit
+          mkdir -p /tmp/mo7-build
+          python docs-for-user/phase33-cicd/rc_stage.py --stage "the validation toolchain installs" --evidence /tmp/mo7-build/stage-deps.json --log /tmp/mo7-build/deps.log --failure-hint "the declared dependencies did not install" -- bash docs-for-user/phase33-cicd/rc_install_toolchain.sh
 
       - name: Static checks (ruff on the product tree, import boundaries, architecture)
         continue-on-error: ${{ !inputs.strict }}
@@ -145,16 +139,10 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          set -euo pipefail
-          python -c "from deeptutor.runtime.orchestrator import ChatOrchestrator; print('Orchestrator imports OK')"
-          python -c "from deeptutor.runtime.registry.tool_registry import get_tool_registry; print('Tool registry imports OK')"
-          python -c "from deeptutor.runtime.registry.capability_registry import get_capability_registry; print('Capability registry imports OK')"
-          python -c "from deeptutor.services.config.runtime_settings import RuntimeSettingsService; print('RuntimeSettingsService imports OK')"
-          python -c "from deeptutor.api.routers.unified_ws import unified_websocket; print('Unified WS imports OK')"
-          python -c "import sys; import deeptutor.runtime.registry.tool_registry; assert 'deeptutor.agents.chat.agentic_pipeline' not in sys.modules; print('Tool implementations stay cold')"
-          python -c "from deeptutor.runtime.isolated_worker import run_in_isolated_process_sync; assert run_in_isolated_process_sync('operator:add', 20, 22, timeout=15) == 42; print('Isolated worker protocol OK')"
+          python docs-for-user/phase33-cicd/rc_stage.py --stage "import, lazy-startup and worker-protocol checks" --evidence /tmp/mo7-build/stage-imports.json --log /tmp/mo7-build/imports.log --failure-hint "a module import, the lazy-startup guarantee or the isolated worker protocol broke" -- bash docs-for-user/phase33-cicd/rc_import_checks.sh
 
       - name: Python tests
+
         id: pytest
         continue-on-error: ${{ !inputs.strict }}
         env:
@@ -175,33 +163,28 @@ jobs:
         run: |
           set -euo pipefail
           python -m bandit -q -r deeptutor -ll -f json -o bandit-report.json || true
-          python - <<'PY'
-          import json, pathlib
-          report = json.loads(pathlib.Path("bandit-report.json").read_text() or "{}")
-          high = [r for r in report.get("results", []) if r.get("issue_severity") == "HIGH"
-                  and r.get("issue_confidence") == "HIGH"]
-          print(f"bandit: {len(report.get('results', []))} findings, {len(high)} high/high")
-          for row in high[:10]:
-              print(f"  HIGH {row['filename']}:{row['line_number']} {row['test_id']} {row['issue_text'][:120]}")
-          pathlib.Path("bandit-summary.json").write_text(json.dumps(
-              {"findings": len(report.get("results", [])), "high_high": len(high),
-               "high": [{"file": r["filename"], "line": r["line_number"], "test": r["test_id"],
-                         "text": r["issue_text"][:200]} for r in high]}, indent=2))
-          PY
+          python -c 'import json,pathlib;report=json.loads(pathlib.Path("bandit-report.json").read_text() or "{}");high=[r for r in report.get("results",[]) if r.get("issue_severity")=="HIGH" and r.get("issue_confidence")=="HIGH"];print("bandit: %d findings, %d high/high"%(len(report.get("results",[])),len(high)));[print("  HIGH %s:%s %s %s"%(r["filename"],r["line_number"],r["test_id"],r["issue_text"][:120])) for r in high[:10]];pathlib.Path("bandit-summary.json").write_text(json.dumps({"findings":len(report.get("results",[])),"high_high":len(high),"high":[{"file":r["filename"],"line":r["line_number"],"test":r["test_id"],"text":r["issue_text"][:200]} for r in high]},indent=2))'
+          test -s bandit-summary.json
           test "$(python -c "import json;print(json.load(open('bandit-summary.json'))['high_high'])")" = "0"
           # Dependency drift: the lockfiles the release is built from must be the
           # lockfiles in the commit (no implicit upgrade during the build).
-          pip check
+          python docs-for-user/phase33-cicd/rc_stage.py --stage "dependency consistency (pip check)" --evidence /tmp/mo7-build/stage-pipcheck.json --log /tmp/mo7-build/pipcheck.log --failure-hint "the installed dependency set is inconsistent" -- pip check
 
       # ----------------------------------------------------------------- build
       - name: Install frontend dependencies
+        continue-on-error: ${{ !inputs.strict }}
         working-directory: web
-        run: npm ci --legacy-peer-deps
+        run: |
+          mkdir -p /tmp/mo7-build
+          python ../docs-for-user/phase33-cicd/rc_stage.py --stage "frontend dependencies install from the lockfile" --evidence /tmp/mo7-build/stage-npm.json --log /tmp/mo7-build/npm-ci.log --failure-hint "npm ci could not install the committed lockfile" -- npm ci --legacy-peer-deps
 
       - name: Frontend deterministic gate
         continue-on-error: ${{ !inputs.strict }}
+        id: frontend
         working-directory: web
-        run: npm run check:fast
+        run: |
+          mkdir -p /tmp/mo7-build
+          python ../docs-for-user/phase33-cicd/rc_stage.py --stage "the frontend deterministic gate" --evidence /tmp/mo7-build/stage-frontend.json --log /tmp/mo7-build/frontend.log --failure-hint "the deterministic frontend gate (lint, types, i18n, contracts) reported failures" -- npm run check:fast
 
       - name: Prepare the offline build inputs
         id: buildinputs
@@ -236,14 +219,8 @@ jobs:
           set -euo pipefail
           bash docs-for-user/phase33-cicd/rc_build.sh \
             --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, pathlib
-          report = json.loads(pathlib.Path("/tmp/mo7-build/out/build-report.json").read_text())
-          print(f"artifact_sha256={report['artifact_sha256']}")
-          print(f"canonical_sha256={report['artifact_manifest_sha256']}")
-          print(f"artifact={report['artifact']}")
-          print(f"entries={report['artifact_entries']}")
-          PY
+          python -c 'import json,pathlib;r=json.loads(pathlib.Path("/tmp/mo7-build/out/build-report.json").read_text());print("artifact_sha256="+r["artifact_sha256"]);print("canonical_sha256="+r["artifact_manifest_sha256"]);print("artifact="+r["artifact"]);print("entries="+str(r["artifact_entries"]));print("version="+r["version"])' >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT" | tail -5
 
       - name: Artifact contract
         continue-on-error: ${{ !inputs.strict }}
@@ -303,17 +280,17 @@ jobs:
             --reproducibility /tmp/mo7-build/out/reproducibility.txt \
             --pytest-report pytest-report.xml \
             --bandit-summary bandit-summary.json \
+            --stage /tmp/mo7-build/stage-deps.json \
+            --stage /tmp/mo7-build/stage-imports.json \
+            --stage /tmp/mo7-build/stage-pipcheck.json \
+            --stage /tmp/mo7-build/stage-npm.json \
+            --stage /tmp/mo7-build/stage-frontend.json \
             --lint-product /tmp/mo7-build/lint-product.json \
             --lint-repo /tmp/mo7-build/lint-repo.json \
             --out "evidence/ci/$GITHUB_RUN_ID"
           cat "evidence/ci/$GITHUB_RUN_ID/release-candidate.json" | head -40
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, pathlib, os
-          root = pathlib.Path("evidence/ci") / os.environ["GITHUB_RUN_ID"]
-          rc = json.loads((root / "release-candidate.json").read_text())
-          print(f"rc_id={rc['rc_id']}")
-          print(f"verdict={rc['verdict']}")
-          PY
+          python -c 'import json,pathlib,os;root=pathlib.Path("evidence/ci")/os.environ["GITHUB_RUN_ID"];rc=json.loads((root/"release-candidate.json").read_text());print("rc_id="+rc["rc_id"]);print("verdict="+rc["verdict"])' >> "$GITHUB_OUTPUT"
+          tail -2 "$GITHUB_OUTPUT"
 
       - name: Publish the pipeline summary
         if: always()

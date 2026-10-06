@@ -141,6 +141,9 @@ def main() -> int:
     parser.add_argument("--reproducibility")
     parser.add_argument("--pytest-report")
     parser.add_argument("--bandit-summary")
+    parser.add_argument(
+        "--stage", action="append", default=[], help="stage result document (repeatable)"
+    )
     parser.add_argument("--lint-product", help="product-tree ruff result (JSON)")
     parser.add_argument("--lint-repo", help="repository-wide ruff result (JSON)")
     parser.add_argument("--out", required=True)
@@ -233,6 +236,21 @@ def main() -> int:
         else "no pytest report was produced",
         excused_by=(exceptions.get("python tests") or {}).get("finding"),
     )
+    # Every stage the pipeline executes reports itself here, so the gate table is
+    # a record of what ran rather than a restatement of what the YAML says.
+    for stage_path in args.stage:
+        stage = read_json(stage_path)
+        if not stage:
+            gate(f"a stage result is missing ({stage_path})", False, "no result document")
+            continue
+        gate(
+            stage["stage"],
+            stage.get("ok", False),
+            f"{stage.get('result')} in {stage.get('duration_seconds')}s"
+            + (f"; {stage['failure_reason']}" if not stage.get("ok") else ""),
+            excused_by=(exceptions.get(stage["stage"]) or {}).get("finding"),
+        )
+
     lint_product = read_json(args.lint_product)
     lint_repo = read_json(args.lint_repo)
     gate(
