@@ -119,8 +119,7 @@ class LoopbackCallback:
         async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             status = "404 Not Found"
             body = (
-                "<!doctype html><title>MO7 Codex</title>"
-                "<p>This callback path is not available.</p>"
+                "<!doctype html><title>MO7 Codex</title><p>This callback path is not available.</p>"
             )
             try:
                 request = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=2)

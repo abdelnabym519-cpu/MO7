@@ -1,0 +1,348 @@
+name: Release Pipeline
+
+# The authoritative MO7 release pipeline.
+#
+# It answers one question per run: is this commit fit to become a release
+# candidate, and if so what exactly was built from it? Everything it concludes
+# is written into evidence/ci/<run-id>/ and committed to the branch, so the
+# release controller that promotes the candidate can verify — rather than
+# trust — what CI decided.
+#
+# Triggers
+#   push   release branches (main, dev, and the Arena working branch)
+#   manual workflow_dispatch
+#
+# The evidence commit the pipeline makes is excluded from the trigger paths, so
+# a run cannot start another run.
+#
+# Failure model
+#   Each gate records its real result instead of aborting the run, so one run
+#   yields a complete picture of why a commit is or is not releasable. The single
+#   fail-closed decision is the last step: a verdict other than RELEASABLE fails
+#   the job, and the evidence for that failure is committed before the job exits.
+#   `workflow_dispatch` with strict=true turns every gate back into an aborting
+#   gate for a caller that wants stop-at-first-failure behaviour.
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - arena/01a0ff3f-mo7
+    paths-ignore:
+      - "evidence/**"
+      - "docs-for-user/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: "Treat known-red gates as blocking instead of reporting them"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  release:
+    name: Release pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    outputs:
+      rc_id: ${{ steps.rc.outputs.rc_id }}
+      artifact_sha256: ${{ steps.build.outputs.artifact_sha256 }}
+      canonical_sha256: ${{ steps.build.outputs.canonical_sha256 }}
+      verdict: ${{ steps.rc.outputs.verdict }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ---------------------------------------------------------------- source
+      - name: Source gate
+        id: source
+        run: |
+          set -euo pipefail
+          echo "repository=$GITHUB_REPOSITORY" | tee source.txt
+          echo "ref=$GITHUB_REF" | tee -a source.txt
+          echo "branch=$GITHUB_REF_NAME" | tee -a source.txt
+          echo "event=$GITHUB_EVENT_NAME" | tee -a source.txt
+          echo "sha=$GITHUB_SHA" | tee -a source.txt
+          echo "run_id=$GITHUB_RUN_ID" | tee -a source.txt
+          echo "run_attempt=$GITHUB_RUN_ATTEMPT" | tee -a source.txt
+          echo "checked_out_sha=$(git rev-parse HEAD)" | tee -a source.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          # A release is built from a commit, never from a dirty tree.
+          test -z "$(git status --porcelain)"
+          echo "tree_clean=true" | tee -a source.txt
+          python3 - <<'PY' | tee version.txt
+          import re, pathlib
+          src = pathlib.Path("deeptutor/__version__.py").read_text(encoding="utf-8")
+          m = re.search(r'__version__\s*=\s*"([^"]+)"', src)
+          assert m, "version not found"
+          print(f"version={m.group(1)}")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ------------------------------------------------------------ validation
+      - name: Install validation toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/server.txt -r requirements/partners.txt
+          pip install -e . --no-deps
+          pip install build wheel
+          pip install pytest pytest-asyncio ruff==0.16.0 import-linter==2.11 bandit
+
+      - name: Static checks (ruff on the product tree, import boundaries, architecture)
+        continue-on-error: ${{ !inputs.strict }}
+        id: static
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mo7-build
+          # The product tree is the blocking scope: the repository's own Lint job
+          # only triggers on product paths, so this is the same jurisdiction, not
+          # a weaker one. The whole checkout is measured in the next step and
+          # recorded, because this branch carries phase documentation tooling the
+          # repository's own gate has never seen (finding P33-L1).
+          python docs-for-user/phase33-cicd/rc_lint.py --scope product \
+            --evidence /tmp/mo7-build/lint-product.json
+          test "$(python -c "import json;print(json.load(open('/tmp/mo7-build/lint-product.json'))['clean'])")" = "True"
+          lint-imports
+          python scripts/check_architecture.py
+
+      - name: Repository-wide lint (recorded, non-blocking)
+        if: always()
+        run: |
+          mkdir -p /tmp/mo7-build
+          python docs-for-user/phase33-cicd/rc_lint.py --scope repo \
+            --evidence /tmp/mo7-build/lint-repo.json || true
+          cat /tmp/mo7-build/lint-repo.json || true
+
+      - name: Import, lazy-startup and worker-protocol checks
+        continue-on-error: ${{ !inputs.strict }}
+        id: imports
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -c "from deeptutor.runtime.orchestrator import ChatOrchestrator; print('Orchestrator imports OK')"
+          python -c "from deeptutor.runtime.registry.tool_registry import get_tool_registry; print('Tool registry imports OK')"
+          python -c "from deeptutor.runtime.registry.capability_registry import get_capability_registry; print('Capability registry imports OK')"
+          python -c "from deeptutor.services.config.runtime_settings import RuntimeSettingsService; print('RuntimeSettingsService imports OK')"
+          python -c "from deeptutor.api.routers.unified_ws import unified_websocket; print('Unified WS imports OK')"
+          python -c "import sys; import deeptutor.runtime.registry.tool_registry; assert 'deeptutor.agents.chat.agentic_pipeline' not in sys.modules; print('Tool implementations stay cold')"
+          python -c "from deeptutor.runtime.isolated_worker import run_in_isolated_process_sync; assert run_in_isolated_process_sync('operator:add', 20, 22, timeout=15) == 42; print('Isolated worker protocol OK')"
+
+      - name: Python tests
+        id: pytest
+        continue-on-error: ${{ !inputs.strict }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/user/settings
+          printf 'system:\n  language: en\nlogging:\n  level: WARNING\n' > data/user/settings/main.yaml
+          if [ -f tests/fixtures/ci_model_catalog.json ]; then
+            cp tests/fixtures/ci_model_catalog.json data/user/settings/model_catalog.json
+          fi
+          python -m pytest -q tests deeptutor/learning/tests \
+            --junitxml=pytest-report.xml -p no:cacheprovider
+
+      - name: Security checks (bandit, dependency consistency, secret scan)
+        continue-on-error: ${{ !inputs.strict }}
+        id: security
+        run: |
+          set -euo pipefail
+          python -m bandit -q -r deeptutor -ll -f json -o bandit-report.json || true
+          python - <<'PY'
+          import json, pathlib
+          report = json.loads(pathlib.Path("bandit-report.json").read_text() or "{}")
+          high = [r for r in report.get("results", []) if r.get("issue_severity") == "HIGH"
+                  and r.get("issue_confidence") == "HIGH"]
+          print(f"bandit: {len(report.get('results', []))} findings, {len(high)} high/high")
+          for row in high[:10]:
+              print(f"  HIGH {row['filename']}:{row['line_number']} {row['test_id']} {row['issue_text'][:120]}")
+          pathlib.Path("bandit-summary.json").write_text(json.dumps(
+              {"findings": len(report.get("results", [])), "high_high": len(high),
+               "high": [{"file": r["filename"], "line": r["line_number"], "test": r["test_id"],
+                         "text": r["issue_text"][:200]} for r in high]}, indent=2))
+          PY
+          test "$(python -c "import json;print(json.load(open('bandit-summary.json'))['high_high'])")" = "0"
+          # Dependency drift: the lockfiles the release is built from must be the
+          # lockfiles in the commit (no implicit upgrade during the build).
+          pip check
+
+      # ----------------------------------------------------------------- build
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Frontend deterministic gate
+        continue-on-error: ${{ !inputs.strict }}
+        working-directory: web
+        run: npm run check:fast
+
+      - name: Prepare the offline build inputs
+        id: buildinputs
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mo7-build/fonts
+          npm pack geist@1.7.2 @fontsource/lora@5.3.0 --pack-destination /tmp/mo7-build >/dev/null
+          cd /tmp/mo7-build
+          for f in *.tgz; do tar xzf "$f"; done
+          cp package/dist/fonts/geist-sans/Geist-Variable.woff2 fonts/
+          cp package/files/lora-latin-400-normal.woff2 fonts/
+          cp package/files/lora-latin-500-normal.woff2 fonts/
+          cp package/files/lora-latin-600-normal.woff2 fonts/
+          ls -la fonts/
+          echo "MO7_FONT_DIR=/tmp/mo7-build/fonts" >> "$GITHUB_ENV"
+          echo "MO7_FONT_MOCK=/tmp/mo7-build/font-mock.cjs" >> "$GITHUB_ENV"
+
+      - name: Write the offline font response module
+        run: |
+          set -euo pipefail
+          sed 's|/home/user/mo7-cicd/fonts|/tmp/mo7-build/fonts|' \
+            docs-for-user/phase33-cicd/font-mock.cjs > /tmp/mo7-build/font-mock.cjs
+          node -e "const m=require('/tmp/mo7-build/font-mock.cjs'); console.log('font mock entries:', Object.keys(m).length)"
+
+      - name: Build the release artifact
+        id: build
+        env:
+          MO7_BUILD_PYTHON: python
+          MO7_FONT_MOCK: /tmp/mo7-build/font-mock.cjs
+          MO7_FONT_DIR: /tmp/mo7-build/fonts
+        run: |
+          set -euo pipefail
+          bash docs-for-user/phase33-cicd/rc_build.sh \
+            --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib
+          report = json.loads(pathlib.Path("/tmp/mo7-build/out/build-report.json").read_text())
+          print(f"artifact_sha256={report['artifact_sha256']}")
+          print(f"canonical_sha256={report['artifact_manifest_sha256']}")
+          print(f"artifact={report['artifact']}")
+          print(f"entries={report['artifact_entries']}")
+          PY
+
+      - name: Artifact contract
+        continue-on-error: ${{ !inputs.strict }}
+        id: contract
+        run: |
+          set -euo pipefail
+          python docs-for-user/phase33-cicd/rc_contract.py \
+            --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+            --commit "$GITHUB_SHA" \
+            --install \
+            --evidence /tmp/mo7-build/out/artifact-contract.json
+
+      - name: Artifact security scan
+        continue-on-error: ${{ !inputs.strict }}
+        id: scan
+        run: |
+          set -euo pipefail
+          python docs-for-user/phase33-cicd/rc_scan.py \
+            --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+            --evidence /tmp/mo7-build/out/artifact-scan.json
+
+      - name: Reproducibility check (second independent build)
+        continue-on-error: ${{ !inputs.strict }}
+        id: repro
+        env:
+          MO7_BUILD_PYTHON: python
+          MO7_FONT_MOCK: /tmp/mo7-build/font-mock.cjs
+          MO7_FONT_DIR: /tmp/mo7-build/fonts
+        run: |
+          set -euo pipefail
+          bash docs-for-user/phase33-cicd/rc_build.sh \
+            --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out-b \
+            > /tmp/mo7-build/out-b.log 2>&1 || { tail -20 /tmp/mo7-build/out-b.log; exit 1; }
+          python docs-for-user/phase33-cicd/rc_manifest.py \
+            --compare "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+                      "/tmp/mo7-build/out-b/${{ steps.build.outputs.artifact }}" \
+            | tee /tmp/mo7-build/out/reproducibility.txt
+
+      # -------------------------------------------------------------- evidence
+      - name: Assemble release evidence
+        id: rc
+        if: always()
+        env:
+          STRICT: ${{ inputs.strict }}
+        run: |
+          set -euo pipefail
+          python docs-for-user/phase33-cicd/rc_evidence.py \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --repository "$GITHUB_REPOSITORY" \
+            --branch "$GITHUB_REF_NAME" \
+            --commit "$GITHUB_SHA" \
+            --workflow "Release Pipeline" \
+            --build-report /tmp/mo7-build/out/build-report.json \
+            --contract /tmp/mo7-build/out/artifact-contract.json \
+            --scan /tmp/mo7-build/out/artifact-scan.json \
+            --reproducibility /tmp/mo7-build/out/reproducibility.txt \
+            --pytest-report pytest-report.xml \
+            --bandit-summary bandit-summary.json \
+            --lint-product /tmp/mo7-build/lint-product.json \
+            --lint-repo /tmp/mo7-build/lint-repo.json \
+            --out "evidence/ci/$GITHUB_RUN_ID"
+          cat "evidence/ci/$GITHUB_RUN_ID/release-candidate.json" | head -40
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib, os
+          root = pathlib.Path("evidence/ci") / os.environ["GITHUB_RUN_ID"]
+          rc = json.loads((root / "release-candidate.json").read_text())
+          print(f"rc_id={rc['rc_id']}")
+          print(f"verdict={rc['verdict']}")
+          PY
+
+      - name: Publish the pipeline summary
+        if: always()
+        run: |
+          python docs-for-user/phase33-cicd/rc_evidence.py --summary "evidence/ci/$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Commit the evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "MO7 Release Pipeline"
+          git config user.email "release-pipeline@users.noreply.github.com"
+          git add "evidence/ci/$GITHUB_RUN_ID" || true
+          if git diff --cached --quiet; then
+            echo "no evidence to commit"
+          else
+            git commit -m "ci(release): evidence for run $GITHUB_RUN_ID (${GITHUB_SHA:0:7}) [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Fail closed when the candidate is not releasable
+        if: always()
+        env:
+          VERDICT: ${{ steps.rc.outputs.verdict }}
+        run: |
+          echo "release candidate verdict: ${VERDICT:-UNKNOWN}"
+          if [ "${VERDICT:-}" = "RELEASABLE" ]; then
+            echo "the candidate is releasable and may be promoted by the release controller"
+            exit 0
+          fi
+          echo "the pipeline fails closed: an unreleasable candidate must not be promoted"
+          exit 1

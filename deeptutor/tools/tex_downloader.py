@@ -169,6 +169,7 @@ class TexDownloader:
     def _extract_tar(self, tar_path: Path, extract_dir: Path):
         """Extract regular tar members without allowing path or link escapes."""
         with tarfile.open(tar_path, "r:*") as tar:
+
             def safe_members(members):
                 for member in members:
                     if self._safe_archive_target(extract_dir, member.name) is None:

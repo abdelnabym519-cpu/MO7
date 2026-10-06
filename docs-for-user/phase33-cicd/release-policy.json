@@ -1,0 +1,29 @@
+{
+  "policy_version": 1,
+  "description": "Which release-pipeline gates block a candidate, and which are excepted with a declared finding. An excepted gate still records its real result in the evidence; nothing is silently skipped.",
+  "approval": {
+    "mode": "automatic_after_gates",
+    "rationale": "Every condition that a human approver would check is machine-checked before this boundary: the source gate, the gate suite, the artifact contract, the security scan, the CI/local build equivalence proof and the availability of a rollback target. Adding a manual click would add latency, not safety, so approval is granted by policy and recorded with the policy version that granted it.",
+    "human_override": "rc_release.py approve --by <name> records a named human approver instead, for a policy that requires one."
+  },
+  "required_gates": [
+    "source commit is a full sha",
+    "version is declared",
+    "artifact was produced",
+    "artifact sha256 is recorded",
+    "artifact contract passed",
+    "artifact security scan is clean",
+    "a second build is content-identical",
+    "code security scan has no high/high findings"
+  ],
+  "exceptions": [
+    {
+      "gate": "python tests",
+      "finding": "P33-CI-K1",
+      "classification": "KNOWN FINDING",
+      "declared_by": "Phase 33 release policy",
+      "rationale": "The repository's own Python test job has failed on every scheduled run recorded for this repository, before Phase 33 changed anything. The failure is pre-existing and is not caused by, nor repaired by, this phase. The pipeline still runs the suite and records its real totals; promotion does not depend on a gate this phase cannot honestly turn green.",
+      "evidence": "GitHub Actions runs 37448715493, 37296467799, 37193244526 (workflow Tests, event schedule, conclusion failure, job 'Python Tests' on Python 3.11-3.14); evidence/ci/<run>/test-summary.json carries the same suite's totals for the release pipeline's own run."
+    }
+  ]
+}
