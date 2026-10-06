@@ -1,0 +1,148 @@
+{
+  "recorded_at": "2026-10-06T21:24:09Z",
+  "commit": "06d9235c2dc8b5e594fe77f9c655e5ea07531b63",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "RELEASABLE",
+  "policy": {
+    "source": "/home/runner/work/MO7/MO7/docs-for-user/phase33-cicd/release-policy.json",
+    "required_gates": [
+      "a second build is content-identical",
+      "artifact contract passed",
+      "artifact security scan is clean",
+      "artifact sha256 is recorded",
+      "artifact was produced",
+      "code security scan has no high/high findings",
+      "source commit is a full sha",
+      "version is declared"
+    ],
+    "exceptions": []
+  },
+  "gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "06d9235c2dc8b5e594fe77f9c655e5ea07531b63",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": true,
+      "detail": "1.6.11",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "95e5da9c9967dd3c",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "byte_identical=False classified={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'derived_and_generated_values': 3, 'derived_entry_index': 0, 'ordering_only_json': 2, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 62, 'ordering_only_entries': 0, 'unexplained': 0}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": true,
+      "detail": "8434/8488 passed, 0 failed, 0 errors, 54 skipped",
+      "required": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.173s",
+      "required": false
+    },
+    {
+      "stage": "the validation toolchain installs",
+      "ok": true,
+      "detail": "pass in 62.345s",
+      "required": false
+    },
+    {
+      "stage": "import, lazy-startup and worker-protocol checks",
+      "ok": true,
+      "detail": "pass in 1.905s",
+      "required": false
+    },
+    {
+      "stage": "dependency consistency (pip check)",
+      "ok": true,
+      "detail": "pass in 0.391s",
+      "required": false
+    },
+    {
+      "stage": "frontend dependencies install from the lockfile",
+      "ok": true,
+      "detail": "pass in 22.325s",
+      "required": false
+    },
+    {
+      "stage": "the frontend deterministic gate",
+      "ok": true,
+      "detail": "pass in 193.278s",
+      "required": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 98.721s",
+      "required": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 13.569s",
+      "required": false
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "pass in 186.87s",
+      "required": true
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 scope=deeptutor deeptutor_cli tests scripts",
+      "required": false
+    },
+    {
+      "stage": "repository-wide ruff (observed)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 over 1800 files, all of them phase documentation tooling outside the product tree; see finding P33-L1",
+      "observed": true,
+      "required": false,
+      "finding": "P33-L1"
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": true,
+      "detail": "7 findings, 0 high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [],
+  "excepted_failures": [],
+  "artifact_sha256": "95e5da9c9967dd3c925567c825037a95767e8fe15dfaf88dcc26cbc36b03d3d9"
+}
