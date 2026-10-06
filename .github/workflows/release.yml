@@ -234,21 +234,34 @@ jobs:
         continue-on-error: ${{ !inputs.strict }}
         id: contract
         run: |
+          # Wrapped in rc_stage.py so the stage's own exit status becomes evidence:
+          # the contract document is written before the script prints its summary,
+          # and a crash in between must not leave a green document behind.
           set -euo pipefail
-          python docs-for-user/phase33-cicd/rc_contract.py \
-            --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
-            --commit "$GITHUB_SHA" \
-            --install \
-            --evidence /tmp/mo7-build/out/artifact-contract.json
+          python docs-for-user/phase33-cicd/rc_stage.py \
+            --stage "the artifact contract holds" \
+            --evidence /tmp/mo7-build/stage-contract.json \
+            --log /tmp/mo7-build/contract.log \
+            --failure-hint "the artifact does not meet the contract: a required file is missing, a forbidden file is present, or it does not install and start" \
+            -- python docs-for-user/phase33-cicd/rc_contract.py \
+              --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+              --commit "$GITHUB_SHA" \
+              --install \
+              --evidence /tmp/mo7-build/out/artifact-contract.json
 
       - name: Artifact security scan
         continue-on-error: ${{ !inputs.strict }}
         id: scan
         run: |
           set -euo pipefail
-          python docs-for-user/phase33-cicd/rc_scan.py \
-            --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
-            --evidence /tmp/mo7-build/out/artifact-scan.json
+          python docs-for-user/phase33-cicd/rc_stage.py \
+            --stage "the artifact scan is clean" \
+            --evidence /tmp/mo7-build/stage-scan.json \
+            --log /tmp/mo7-build/scan.log \
+            --failure-hint "the artifact carries forbidden material, or the scan itself could not run" \
+            -- python docs-for-user/phase33-cicd/rc_scan.py \
+              --artifact "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+              --evidence /tmp/mo7-build/out/artifact-scan.json
 
       - name: Reproducibility check (second independent build)
         continue-on-error: ${{ !inputs.strict }}
@@ -258,15 +271,27 @@ jobs:
           MO7_FONT_MOCK: /tmp/mo7-build/font-mock.cjs
           MO7_FONT_DIR: /tmp/mo7-build/fonts
         run: |
+          # Wrapped in rc_stage.py: this stage writes its result document before it
+          # prints, so a crash in that window would leave a green document and a red
+          # step, and the run would still be called releasable. The wrapper records
+          # the exit status itself, and the assembler gates on that document.
           set -euo pipefail
-          bash docs-for-user/phase33-cicd/rc_build.sh \
-            --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out-b \
-            > /tmp/mo7-build/out-b.log 2>&1 || { tail -20 /tmp/mo7-build/out-b.log; exit 1; }
-          python docs-for-user/phase33-cicd/rc_manifest.py \
-            --compare "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
-                      "/tmp/mo7-build/out-b/${{ steps.build.outputs.artifact }}" \
-            --json-out /tmp/mo7-build/out/reproducibility.json \
-            | tee /tmp/mo7-build/out/reproducibility.txt
+          python docs-for-user/phase33-cicd/rc_stage.py \
+            --stage "a second build is content-identical" \
+            --evidence /tmp/mo7-build/stage-repro.json \
+            --log /tmp/mo7-build/repro.log \
+            --failure-hint "a second build of the same commit differed in a way the comparison could not explain, or the comparison itself failed" \
+            -- bash -c '
+                 set -euo pipefail
+                 bash docs-for-user/phase33-cicd/rc_build.sh \
+                   --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out-b \
+                   > /tmp/mo7-build/out-b.log 2>&1 || { tail -20 /tmp/mo7-build/out-b.log; exit 1; }
+                 python docs-for-user/phase33-cicd/rc_manifest.py \
+                   --compare "/tmp/mo7-build/out/${{ steps.build.outputs.artifact }}" \
+                             "/tmp/mo7-build/out-b/${{ steps.build.outputs.artifact }}" \
+                   --json-out /tmp/mo7-build/out/reproducibility.json \
+                   | tee /tmp/mo7-build/out/reproducibility.txt
+               '
 
       # -------------------------------------------------------------- evidence
       - name: Assemble release evidence
@@ -307,6 +332,9 @@ jobs:
             --stage /tmp/mo7-build/stage-pipcheck.json \
             --stage /tmp/mo7-build/stage-npm.json \
             --stage /tmp/mo7-build/stage-frontend.json \
+            --stage /tmp/mo7-build/stage-contract.json \
+            --stage /tmp/mo7-build/stage-scan.json \
+            --stage /tmp/mo7-build/stage-repro.json \
             --lint-product /tmp/mo7-build/lint-product.json \
             --lint-repo /tmp/mo7-build/lint-repo.json \
             --out "evidence/ci/$GITHUB_RUN_ID" || assembler_exit=$?

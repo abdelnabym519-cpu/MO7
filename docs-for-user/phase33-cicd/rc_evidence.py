@@ -128,6 +128,7 @@ def reproducibility(text: str) -> dict:
             "names_differ_only_by_build_id": grab("names differing only by the build id"),
             "content_differs_only_by_build_id": grab("content differing only by the build id"),
             "derived_and_generated_values": grab("derived and generated values"),
+            "derived_entry_index": grab("the artifact's own index of entry digests"),
             "ordering_only_json": grab("ordering only, JSON keys sorted"),
             "ordering_only_embedded_json": grab("ordering only, embedded JSON keys sorted"),
             "unexplained": grab("unexplained differences"),

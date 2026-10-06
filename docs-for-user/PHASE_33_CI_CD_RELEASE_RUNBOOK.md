@@ -358,7 +358,9 @@ The claim is deliberately narrow, and every part of it has a measurement:
 | Property | Verdict | Measurement |
 | --- | --- | --- |
 | Two builds of one commit, one toolchain, **different directories** | content-identical: `reproducible: True`, `unexplained: 0`, **3 entries differ** (Next's generated secrets and the `RECORD` that digests them) | §13.3 |
-| Two builds of one commit, **different toolchains** (CI runner vs this host) | same rule, same verdict | §13.4 |
+| Two builds of one commit, **different machines and toolchains** (CI runner vs this host) | `reproducible: True`, `unexplained: 0`: 4 entries carry generated or builder-derived values, 64 differ only in the order their JSON was written, and the wheel's `RECORD` is accounted for by those 68 entries it indexes | §13.3, §13.7 |
+| The wheel's own index of entry digests (`RECORD`) | explained **by entailment**, never by blindfold: only when the entry sets match and every other difference is already named | §13.7, verified against the frozen CI evidence and by a negative test |
+| A gate that crashes **after** writing its result document | **fixed**: the contract, scan and reproducibility stages now run under `rc_stage.py`, whose document records the exit status itself | §13.8, verified by injection (§11) |
 | The artifact carries no builder path | verified | `path-scrub.json`: every occurrence rewritten, every file the same size |
 | The artifact carries no random build id and no random tsconfig name | verified | `build-metadata.json`: both derived from commit + `SOURCE_DATE_EPOCH` + version, every occurrence rewritten |
 | Per-build generated **secrets** differ between builds | **true, by design, and not derived** | `prerender-manifest.json` (`preview.previewModeId`, `preview.previewModeSigningKey`), `server-reference-manifest.json` (`encryptionKey`) |
@@ -371,12 +373,13 @@ The claim is deliberately narrow, and every part of it has a measurement:
 digest of the file with the build id masked). `rc_manifest.compare` then walks the
 two manifests and puts every difference into a named class:
 `names_differ_only_by_build_id`, `content_differs_only_by_build_id`,
-`derived_and_generated_values`, `ordering_only_lines`, `ordering_only_json`,
-`ordering_only_embedded_json`, `ordering_only_entries`, and `unexplained`.
+`derived_and_generated_values`, `derived_entry_index`, `ordering_only_lines`,
+`ordering_only_json`, `ordering_only_embedded_json`, `ordering_only_entries`, and
+`unexplained`.
 `reproducible` is true only when `unexplained == 0` and the entry sets match.
 Nothing is ever excused silently: an entry that cannot be explained is a refusal.
 
-### 13.2 The two defects this found, and what fixed them
+### 13.2 The defects this found, and what fixed them
 
 **P33-R1 — the build leaked the builder's directory into the artifact.** Two
 builds of `e344c17` on this host, in two different directories, compared as
@@ -388,7 +391,7 @@ building at a **canonical build root** — `rc_build.sh` mirrors the checkout in
 `/tmp/mo7-build/src` and builds there, so every builder builds at the same
 absolute path. Identity is still read from the real checkout.
 
-**P33-R3 — the artifact recorded the builder's machine.** Two values in the
+**P33-R3 — the artifact recorded the builder's machine.** (its network addresses, and — the second half of the same defect — its CPU count, P33-R4) Two values in the
 generated Next.js configuration come from the machine that builds it:
 `allowedDevOrigins` (this machine's non-loopback IPv4 addresses, from
 `web/next.config.js`) and `experimental.cpus` (`Math.max(1, os.cpus().length - 1)`
@@ -417,13 +420,52 @@ length-preserving; the tsconfig rewrite is length-preserving whenever the
 generated name was five digits and shifts no offsets either way, because it is
 applied before the bundle is packaged and both builders apply the same rewrite.
 
+**P33-R4 — the artifact recorded the builder's CPU count.** Next derives
+`experimental.cpus` from the machine it runs on (`os.cpus().length - 1`) and writes
+it into the generated configuration, so a release artifact said how many cores the
+builder had. See the P33-R3 note below and §13.6: the value is now a declared build
+input.
+
+**P33-M2 — the comparison could fail without the run noticing.** `rc_manifest.py`
+has two output paths: the machine-readable document (`--json-out`, written first)
+and the human-readable stream the pipeline tees into `reproducibility.txt`. The
+stream read a class key that had been renamed (`build_id_derived_digests`), so it
+aborted with a `KeyError` after four lines: the document was complete and green,
+the step exited non-zero, and the run was still called releasable — the step was
+tolerated (`continue-on-error` on a non-strict run) and the assembler only read
+documents. Fixed: the stream prints every class with the labels
+`rc_evidence.py` parses, and a class that is renamed now fails loudly with exit
+`2` instead of shortening the evidence. Verified: the CLI exits `0` on the pair
+that used to crash it, all nine classes print, and `rc_evidence.reproducibility`
+still parses the stream.
+
+**P33-M3 — a stage could crash after writing its result document.** The artifact
+contract, the artifact scan and the reproducibility comparison write their result
+document before printing their summary. A crash in that window left a green
+document behind, and the assembler gates on documents, so the failure would not
+have reached the verdict. Fixed: those three stages now run under `rc_stage.py`,
+which records the command's own exit status into a stage document, and the
+assembler reads those documents. Verified by injection against the real evidence
+inputs: every stage document green → `RELEASABLE`, zero blocking rows; the
+reproducibility stage's document recording a failed exit → `NOT_RELEASABLE`, with
+that stage named in `blocking_failures` and the assembler exiting `1`.
+
 ### 13.3 What two builds of one commit actually produce
 
-Measured after all three fixes, one toolchain, two different build directories:
-**4400 entries, identical entry sets, 3 entries differing** — `server.js`,
-`required-server-files.json` and the wheel `RECORD` that digests them. The
-classification is `derived_and_generated_values: 3`, everything else `0`,
-`unexplained: 0`.
+Measured after all fixes, one toolchain, two different build directories:
+**4400 entries, identical entry sets, 3 entries differing** — the two generated
+secrets (`prerender-manifest.json`, `server-reference-manifest.json`) and the wheel
+`RECORD` that digests every entry. `derived_and_generated_values: 3`, everything
+else `0`, `unexplained: 0`.
+
+Measured across machines — the CI artifact of run `37527513491` against a rebuild
+of the same commit (`8add754`) on this host: **4400 entries, identical entry sets,
+69 entries differing**, and every one of them named:
+`derived_and_generated_values: 4` (`required-server-files.json` and `server.js`
+carrying the builder's addresses, the two generated secrets),
+`ordering_only_embedded_json: 62` and `ordering_only_json: 2` (Next writes those
+JSON maps in a different order per build), and `derived_entry_index: 1` (the wheel
+`RECORD`, accounted for by the 68 entries it indexes — §13.7). `unexplained: 0`.
 Byte identity is therefore **not** claimed, and the reason is not a leftover build
 input: it is Next.js generating random secrets per build (see §13.5). The
 comparison masks those fields **by name** and then requires byte identity of the
@@ -442,7 +484,7 @@ toolchain recorded in `build-report.json` (`python`, `node`, `setuptools`,
 tool hashes differ from the ones CI recorded. A rebuild that cannot reproduce the
 content is a refusal.
 
-### 13.5 Why the last three entries differ, and why they were not "fixed"
+### 13.5 Why the generated secrets differ, and why they were not "fixed"
 
 `preview.previewModeId` and `preview.previewModeSigningKey` sign preview-mode
 cookies; `encryptionKey` encrypts Server Action payloads. They are secrets, and
@@ -488,3 +530,44 @@ running. Every link is a file in this repository or on the deployment host.
   signal.
 * `workflow_dispatch` cannot be used to start a run in this environment; a push is
   the trigger.
+
+### 13.7 The index the artifact keeps of itself
+
+Every wheel carries `<dist-info>/RECORD`: one line per entry, giving the path, the
+digest of that entry's bytes and its size. It is the one entry whose content
+cannot be independent evidence — each line is a function of another entry, all of
+which are compared where they belong, and more precisely than a digest of the
+index could. This was the last remaining difference the promotion gate refused
+(run `37527513491`, entry `deeptutor-1.6.11.dist-info/RECORD`), and the refusal was
+correct: the index genuinely differs when the files it indexes differ.
+
+The rule that explains it is entailment, not masking (`rc_manifest.compare`,
+class `derived_entry_index`). It fires only when both conditions hold:
+
+* the two builds contain exactly the same entries — nothing added, nothing
+  removed; and
+* every other entry whose content differs has already been named by a rule.
+
+If any other difference is left unexplained the index stays unexplained with it,
+so the rule can never cover a real change: the change itself is still reported, and
+the release is still refused. The result records the arithmetic
+(`index_entailment`): the number of differing entries the index covers, how many
+of them were named by other rules, and that nothing was added or removed.
+
+Measured against the frozen CI evidence for run `37527513491`: the index covers 68
+differing entries, all 68 named, `unexplained: 0`, `reproducible: True`. Negative
+test: with one entry's digests perturbed so that no rule can explain it, the result
+is `unexplained: ['deeptutor-1.6.11.dist-info/RECORD',
+'deeptutor_web/.next/server/middleware-manifest.json']` and `reproducible: False`
+— the index is refused together with the change.
+
+### 13.8 What the pipeline records about its own stages
+
+A gate whose document is written before it prints can crash in between and leave a
+green document behind; a stage whose exit status nobody records can fail while the
+run still reports `RELEASABLE`. Both were observed here (P33-M2, P33-M3) and both
+are now closed: the contract, scan and reproducibility stages execute under
+`rc_stage.py`, which writes a stage document containing the command's own exit
+status, and the assembler turns each stage document into a required gate. A
+document that is missing is itself a blocking gate, so a stage cannot disappear
+from the record. The failure injection for this is in §11.

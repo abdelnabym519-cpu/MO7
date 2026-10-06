@@ -47,6 +47,8 @@ def normalised(payload: bytes, build_id: str) -> bytes:
     return payload.replace(build_id.encode(), BUILD_ID_PLACEHOLDER.encode())
 
 
+#: The wheel's index of its own entries: path, digest of the bytes, size in bytes.
+ENTRY_INDEX_SUFFIX = "/RECORD"
 #: Wheel RECORD files carry urlsafe-base64 sha256 digests, not hex.
 RECORD_DIGEST = re.compile(rb"sha256=[A-Za-z0-9_-]{43}")
 #: Generated per-build tokens. Next.js writes the standalone bundle with a
@@ -364,6 +366,32 @@ def compare(first: dict, second: dict) -> dict:
         if not explained:
             unexplained.append(name)
 
+    # The index a wheel keeps of its own entries (`<dist-info>/RECORD`) is the one
+    # entry whose content cannot be independent evidence: every line of it is a
+    # (path, digest of the bytes, size) triple of another entry, and all three are
+    # already compared where they belong. It is therefore explained by entailment,
+    # and only under two conditions that are both checked here: the two builds
+    # contain exactly the same entries (nothing added, nothing removed), and every
+    # other entry that differs has already been named by a rule above. If any other
+    # difference is left unexplained the index stays unexplained with it, so the
+    # rule can never cover a real change -- the change itself is still reported.
+    index_entailment: dict[str, dict] = {}
+    if not c_added and not c_removed:
+        for name in list(unexplained):
+            if not name.endswith(ENTRY_INDEX_SUFFIX):
+                continue
+            covered = [other for other in c_changed if not other.endswith(ENTRY_INDEX_SUFFIX)]
+            if all(other in residual_rules for other in covered):
+                residual_rules[name] = "derived_entry_index"
+                index_entailment[name] = {
+                    "differing_entries_the_index_covers": len(covered),
+                    "of_which_named_by_other_rules": sum(
+                        1 for other in covered if other in residual_rules
+                    ),
+                    "entries_added_or_removed": 0,
+                }
+                unexplained.remove(name)
+
     build_ids = [i for i in (first.get("build_id"), second.get("build_id")) if i]
     return {
         "classification": {
@@ -376,6 +404,9 @@ def compare(first: dict, second: dict) -> dict:
             "content_differs_only_by_build_id": len(same_after_id),
             "derived_and_generated_values": sum(
                 1 for rule in residual_rules.values() if rule == "derived_and_generated_values"
+            ),
+            "derived_entry_index": sum(
+                1 for rule in residual_rules.values() if rule == "derived_entry_index"
             ),
             "ordering_only_json": sum(
                 1 for rule in residual_rules.values() if rule == "json_sorted_keys"
@@ -392,6 +423,7 @@ def compare(first: dict, second: dict) -> dict:
             "unexplained": len(unexplained),
         },
         "residual_rules": residual_rules,
+        "index_entailment": index_entailment,
         "unexplained": unexplained[:20],
         "build_id_records": sorted(
             set(first.get("build_id_records", [])) | set(second.get("build_id_records", []))
@@ -402,8 +434,11 @@ def compare(first: dict, second: dict) -> dict:
             "Next.js generates a random build id per build and cannot be told to pin it without a "
             "product configuration change, so the shipped bytes differ. This comparison therefore "
             "accounts for every difference by checking it: names that differ only by the build id, "
-            "content that differs only by the build id, entries that record build-id-derived "
-            "digests, and anything left over. Nothing left over is the result."
+            "content that differs only by the build id, entries that record generated or "
+            "builder-derived values, entries whose content differs only in the order it was "
+            "written in, and the wheel's own index of its entries -- which is accounted for by the "
+            "entries it indexes, once every one of those is named. Anything left over is the "
+            "result, and nothing left over is the outcome a releasable artifact must produce."
         ),
         "first": {
             "artifact": first["artifact"],
@@ -480,24 +515,26 @@ def main() -> int:
                 f"changed={len(result['canonical_changed'])})"
             )
             classes = result["classification"]
+            # These labels are a contract: rc_evidence.py parses this stream, and
+            # the pipeline reads what it writes. A class that is renamed must fail
+            # here, loudly, instead of quietly shortening the evidence.
+            labels = (
+                ("names_differ_only_by_build_id", "names differing only by the build id"),
+                ("content_differs_only_by_build_id", "content differing only by the build id"),
+                ("derived_and_generated_values", "derived and generated values"),
+                ("derived_entry_index", "the artifact's own index of entry digests"),
+                ("ordering_only_json", "ordering only, JSON keys sorted"),
+                ("ordering_only_lines", "ordering only, lines sorted"),
+                ("ordering_only_embedded_json", "ordering only, embedded JSON keys sorted"),
+                ("ordering_only_entries", "ordering only, sorted entries"),
+            )
+            missing = [key for key, _ in labels if key not in classes]
+            if missing:
+                print(f"ERROR: the comparison has no class named {', '.join(missing)}")
+                return 2
             print(f"unexplained differences: {classes['unexplained']}")
-            print(
-                f"  names differing only by the build id     : {classes['names_differ_only_by_build_id']}"
-            )
-            print(
-                f"  content differing only by the build id   : {classes['content_differs_only_by_build_id']}"
-            )
-            print(
-                f"  build-id derived digests                 : {classes['build_id_derived_digests']}"
-            )
-            print(f"  ordering only, JSON keys sorted          : {classes['ordering_only_json']}")
-            print(f"  ordering only, lines sorted              : {classes['ordering_only_lines']}")
-            print(
-                f"  ordering only, embedded JSON keys sorted : {classes['ordering_only_embedded_json']}"
-            )
-            print(
-                f"  ordering only, sorted entries            : {classes['ordering_only_entries']}"
-            )
+            for key, label in labels:
+                print(f"  {label:<40} : {classes[key]}")
             print(f"reproducible (every difference explained): {result['reproducible']}")
             for label in ("canonical_added", "canonical_removed", "canonical_changed"):
                 for name in result[label][:10]:
