@@ -248,6 +248,13 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
     put the previous release back. Whether that happened without a human step is
     recorded rather than assumed — the phase documents rollback as manual when a
     human step is what recovered it.
+
+    The case deliberately does *not* tell the controller which release to return
+    to. It did, and that made it blind to a real defect: the controller resolved
+    the target from a marker the promotion had already overwritten, so every real
+    post-deploy failure ended in "manual action required" while this case passed
+    on the argument it was handed. The recovery under test is the production
+    path's own — including finding its target (P33-M5).
     """
     before = current_release()
     rc_id = os.environ.get("MO7_FAULT_RC_ID", "")
@@ -282,8 +289,7 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
                 "promote",
                 "--rc",
                 rc_id,
-                "--previous",
-                before,
+                # No --previous: the promotion must know what it is replacing.
                 "--no-push",
             ],
             timeout=5400,
