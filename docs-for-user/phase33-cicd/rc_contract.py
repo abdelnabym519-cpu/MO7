@@ -266,18 +266,38 @@ def check_install(artifact: Path, version: str) -> None:
             [sys.executable, "-m", "venv", str(venv)], check=True, capture_output=True, text=True
         )
         pip = venv / "bin/pip"
+        # The artifact is installed the way the deployment installs it: with the
+        # dependencies its metadata declares. Installing with --no-deps measured
+        # an environment no deployment creates and left the release's API
+        # unstartable, so the runtime check could never pass. Finding P33-P2.
         install = subprocess.run(
-            [str(pip), "install", "--no-deps", "--quiet", str(artifact)],
+            [str(pip), "install", "--quiet", str(artifact)],
             capture_output=True,
             text=True,
         )
         check(
-            "the artifact installs into a clean virtualenv",
+            "the artifact installs into a clean virtualenv with its declared dependencies",
             install.returncode == 0,
             (install.stderr or install.stdout).strip()[-300:],
         )
         if install.returncode != 0:
             return
+        declared = subprocess.run(
+            [
+                str(venv / "bin/python"),
+                "-c",
+                "import importlib.metadata as m; print('\\n'.join(m.requires('deeptutor') or []))",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        requirements = declared.stdout.lower()
+        check(
+            "the artifact declares the API runtime it needs to start",
+            "uvicorn" in requirements and "fastapi" in requirements,
+            f"{len(requirements.splitlines())} declared requirements, "
+            f"uvicorn={'uvicorn' in requirements} fastapi={'fastapi' in requirements}",
+        )
         listing = subprocess.run(
             [
                 str(venv / "bin/python"),
@@ -346,8 +366,33 @@ def check_install(artifact: Path, version: str) -> None:
             stderr=subprocess.STDOUT,
             text=True,
         )
+        live = readiness = ""
+        startup_log = ""
+
+        def stop_process() -> None:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=15)
+
+        def read_startup_log() -> str:
+            """The release's own startup output.
+
+            A contract failure has to explain itself: "no liveness answer" sends
+            the reader to a CI log that may not be reachable. The process was
+            captured, so its last words belong in the evidence.
+            """
+            if process.stdout is None:
+                return ""
+            try:
+                return (process.stdout.read() or "").strip()[-800:]
+            except Exception:  # noqa: BLE001 - the log detail is best effort
+                return ""
+
         try:
-            live = readiness = ""
             for _ in range(120):
                 if process.poll() is not None:
                     break
@@ -363,22 +408,22 @@ def check_install(artifact: Path, version: str) -> None:
                     break
                 except Exception:
                     time.sleep(1)
+            if "alive" not in live or "ready" not in readiness:
+                stop_process()
+                startup_log = read_startup_log()
             check(
                 "the artifact's API reports liveness when started",
                 "alive" in live,
-                live or f"process exited: {process.poll()}",
+                live or f"process exit={process.poll()}; startup log: {startup_log or '(none)'}",
             )
             check(
                 "the artifact's API reports readiness when started",
                 "ready" in readiness,
-                readiness or "no readiness answer",
+                readiness
+                or f"process exit={process.poll()}; startup log: {startup_log or '(none)'}",
             )
         finally:
-            process.terminate()
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
+            stop_process()
     except Exception as exc:  # noqa: BLE001 - a failed install is a result, not a crash
         check(
             "the artifact install and startup sequence ran", False, f"{type(exc).__name__}: {exc}"

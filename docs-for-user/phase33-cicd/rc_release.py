@@ -421,6 +421,41 @@ def verb_approve(args) -> int:
     return 0
 
 
+def post_deploy_validation(state: dict) -> dict:
+    """Probe what the host is actually serving, not what the deploy script said."""
+    steps = [
+        ("infrastructure verification", [str(PROD_ROOT / "bin/prod.sh"), "verify", "--quick"]),
+        (
+            "liveness, readiness, frontend and ingress",
+            [str(PROD_ROOT / "bin/prod.sh"), "health", "--json"],
+        ),
+        ("release identity", [str(PROD_ROOT / "bin/prod.sh"), "identity"]),
+        ("raw artifact probe", [str(PROD_ROOT / "bin/prod.sh"), "artifact"]),
+    ]
+    results = []
+    for name, cmd in steps:
+        proc = run(cmd, capture_output=True, timeout=1800)
+        results.append(
+            {
+                "step": name,
+                "command": " ".join(cmd[1:]),
+                "ok": proc.returncode == 0,
+                "exit_code": proc.returncode,
+                "output_tail": "\n".join((proc.stdout or "").strip().splitlines()[-12:]),
+            }
+        )
+    return {"validated_at": now(), "ok": all(row["ok"] for row in results), "steps": results}
+
+
+def write_document(state: dict, name: str, document: dict) -> Path:
+    """Every release artefact of the decision lands next to the candidate."""
+    directory = RC_DIR / state["rc_id"] / "evidence"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text(json.dumps(document, indent=2) + "\n")
+    return path
+
+
 def verb_promote(args) -> int:
     """Deploy the approved candidate through the Phase 32 deployment pipeline."""
     state = load_state(args.rc)
@@ -462,20 +497,121 @@ def verb_promote(args) -> int:
     for line in (result.stdout or "").strip().splitlines()[-12:]:
         print("    " + line)
     deployed = deployed_release()
-    ok = result.returncode == 0 and deployed.get("release_id") == release_id
-    state["deployment"] = {
+    deployed_ok = result.returncode == 0 and deployed.get("release_id") == release_id
+    deployment_doc = {
+        "recorded_at": now(),
+        "kind": "deployment",
+        "environment": "production",
         "release_id": release_id,
-        "deployed_at": now(),
-        "returncode": result.returncode,
-        "log": str(logfile),
+        "commit": state["commit"],
+        "version": state["version"],
+        "artifact": state["artifact"]["name"],
+        "artifact_sha256": state["artifact_frozen_sha256"],
+        "pipeline_run": state.get("pipeline_run"),
+        "rc_id": state["rc_id"],
+        "result": "deployed" if deployed_ok else "failed",
+        "deploy_exit_code": result.returncode,
+        "deploy_log": str(logfile),
         "current_release": deployed,
     }
-    transition(
-        state,
-        "PROMOTED" if ok else "DEPLOY_FAILED",
-        {"summary": f"deploy rc={result.returncode} release={deployed.get('release_id')}"},
+    write_document(state, "deployment.json", deployment_doc)
+    state["deployment"] = deployment_doc
+
+    if not deployed_ok:
+        transition(
+            state,
+            "DEPLOY_FAILED",
+            {"summary": f"deploy rc={result.returncode} release={deployed.get('release_id')}"},
+        )
+        return 1
+
+    validation = post_deploy_validation(state)
+    post_doc = {
+        "recorded_at": now(),
+        "kind": "post-deploy-validation",
+        "environment": "production",
+        "release_id": release_id,
+        "commit": state["commit"],
+        "artifact_sha256": state["artifact_frozen_sha256"],
+        "result": "pass" if validation["ok"] else "fail",
+        "steps": validation["steps"],
+    }
+    write_document(state, "post-deploy.json", post_doc)
+    state["post_deploy"] = post_doc
+    log(f"post-deploy validation: {'pass' if validation['ok'] else 'FAIL'}")
+
+    if not validation["ok"]:
+        # A release that does not serve is not a release. Roll back to the release
+        # that was current before this promotion and record both facts.
+        previous = (
+            args.previous or state.get("previous_release") or deployed.get("previous_release")
+        )
+        rollback = None
+        if previous:
+            rollback = run(
+                [str(PROD_ROOT / "bin/prod.sh"), "rollback", "--to", str(previous)],
+                capture_output=True,
+                timeout=3600,
+            )
+        rollback_doc = {
+            "recorded_at": now(),
+            "kind": "rollback",
+            "trigger": "post-deploy validation failed",
+            "from_release": release_id,
+            "to_release": previous,
+            "invoked": rollback is not None,
+            "exit_code": rollback.returncode if rollback else None,
+            "output_tail": "\n".join((rollback.stdout or "").strip().splitlines()[-10:])
+            if rollback
+            else "",
+            "result": "rolled back"
+            if rollback is not None and rollback.returncode == 0
+            else "manual action required",
+        }
+        write_document(state, "rollback.json", rollback_doc)
+        transition(
+            state,
+            "ROLLED_BACK" if rollback_doc["result"] == "rolled back" else "ROLLBACK_REQUIRED",
+            {"summary": f"post-deploy validation failed; rollback to {previous}"},
+        )
+        return 1
+
+    # The release is real: give the commit a name that identifies it.
+    tag = args.tag or f"mo7-release-{state['rc_id']}"
+    tagged = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(CHECKOUT),
+            "tag",
+            "-a",
+            tag,
+            "-m",
+            f"Release {state['version']} rc {state['rc_id']} "
+            f"artifact {state['artifact_frozen_sha256']}",
+        ],
+        capture_output=True,
+        text=True,
     )
-    return 0 if ok else 1
+    pushed = None
+    if tagged.returncode == 0 and not args.no_push:
+        pushed = subprocess.run(
+            ["git", "-C", str(CHECKOUT), "push", "origin", tag], capture_output=True, text=True
+        )
+    tag_doc = {
+        "recorded_at": now(),
+        "kind": "release-tag",
+        "tag": tag,
+        "commit": state["commit"],
+        "created": tagged.returncode == 0,
+        "pushed": bool(pushed and pushed.returncode == 0),
+        "detail": ((pushed.stderr if pushed else tagged.stderr) or "").strip()[:300],
+    }
+    write_document(state, "tag.json", tag_doc)
+    state["tag"] = tag_doc
+
+    transition(state, "PROMOTED", {"summary": f"release={release_id} post-deploy=pass tag={tag}"})
+    return 0
 
 
 def verb_deployed(args) -> int:
@@ -496,11 +632,30 @@ def verb_rollback(args) -> int:
     for line in (result.stdout or "").strip().splitlines()[-10:]:
         print("    " + line)
     ok = result.returncode == 0
+    verification = (
+        post_deploy_validation(state) if (state is not None and ok) else {"ok": None, "steps": []}
+    )
     if state is not None:
+        document = {
+            "recorded_at": now(),
+            "kind": "rollback",
+            "environment": "production",
+            "from_release": str(state.get("deployment", {}).get("release_id", "")),
+            "to_release": target,
+            "invoked": True,
+            "exit_code": result.returncode,
+            "output_tail": "\n".join((result.stdout or "").strip().splitlines()[-10:]),
+            "result": "rolled back" if ok else "failed",
+            "verified_after_rollback": verification["ok"],
+            "verification_steps": verification["steps"],
+        }
+        write_document(state, "rollback.json", document)
         transition(
             state,
             "ROLLED_BACK" if ok else "ROLLBACK_FAILED",
-            {"summary": f"rollback to {target} rc={result.returncode}"},
+            {
+                "summary": f"rollback to {target} rc={result.returncode} verified={verification['ok']}"
+            },
         )
     print(f"\nrollback to {target}: {'complete' if ok else 'FAILED'}")
     return 0 if ok else 1
@@ -554,6 +709,9 @@ def main() -> int:
     p = sub.add_parser("promote", help="deploy an approved candidate")
     p.add_argument("--rc", required=True)
     p.add_argument("--release-id")
+    p.add_argument("--previous", help="release to roll back to if post-deploy validation fails")
+    p.add_argument("--tag", help="release tag name (default mo7-release-<rc id>)")
+    p.add_argument("--no-push", action="store_true", help="create the tag without pushing it")
     p.set_defaults(fn=verb_promote)
 
     p = sub.add_parser("rollback", help="roll the production host back and re-validate")

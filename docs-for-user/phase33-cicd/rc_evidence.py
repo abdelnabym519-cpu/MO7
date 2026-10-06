@@ -28,6 +28,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -73,17 +74,50 @@ def pytest_totals(xml_path: str | None) -> dict:
     return totals
 
 
+def reproducibility_from_json(path: str | None) -> dict:
+    """Read the comparison document `rc_manifest.py --compare --json-out` wrote.
+
+    This is the authoritative path: the gate is decided by the numbers the
+    comparison computed, not by a regular expression over its console output.
+    (It was: the text parser read indented labels as empty and the parentheses in
+    the "reproducible (every difference explained)" label were unescaped, so a
+    clean comparison was recorded as a failed gate. Finding P33-P1.)
+    """
+    document = read_json(path)
+    if not document:
+        return {}
+    return {
+        "raw_output": "",
+        "byte_identical": bool(document.get("byte_identical")),
+        "reproducible": bool(document.get("reproducible")),
+        "classification": document.get("classification", {}),
+        "raw_difference": document.get("raw_difference", {}),
+        "build_ids": document.get("build_id_records", []),
+        "canonical_difference": {
+            "content_identical": document.get("content_identical"),
+            "added": len(document.get("canonical_added", [])),
+            "removed": len(document.get("canonical_removed", [])),
+            "changed": len(document.get("canonical_changed", [])),
+        },
+        "unexplained": document.get("unexplained", []),
+        "source": "comparison document",
+    }
+
+
 def reproducibility(text: str) -> dict:
-    """Read the second-build comparison.
+    """Read the second-build comparison from its console output (fallback).
 
     `reproducible` is the claim the release rests on: two builds were compared
     entry by entry, every difference was classified, and nothing was left
     unexplained. `byte_identical` is reported as the fact it is (false, because
     Next.js generates a random build id per build) rather than as a defect.
+
+    Labels are matched with re.escape and allowed to be indented: the report
+    indents sub-rows, and a label's parentheses are punctuation, not a group.
     """
 
     def grab(label: str) -> str:
-        m = re.search(rf"^{label}:\s*(.+)$", text, re.MULTILINE)
+        m = re.search(rf"^\s*{re.escape(label)}\s*:\s*(.+)$", text, re.MULTILINE)
         return m.group(1).strip() if m else ""
 
     return {
@@ -101,6 +135,8 @@ def reproducibility(text: str) -> dict:
         "raw_difference": grab("raw difference"),
         "build_ids": grab("build ids"),
         "canonical_difference": grab("content-identical (canonical form)"),
+        "unexplained": grab("unexplained differences"),
+        "source": "console output",
     }
 
 
@@ -141,12 +177,25 @@ def main() -> int:
     parser.add_argument("--contract")
     parser.add_argument("--scan")
     parser.add_argument("--reproducibility")
+    parser.add_argument(
+        "--reproducibility-json",
+        help="the comparison document written by rc_manifest.py --compare --json-out "
+        "(preferred over --reproducibility: numbers are read, not prose)",
+    )
     parser.add_argument("--pytest-report")
     parser.add_argument("--bandit-summary")
     parser.add_argument(
         "--stage", action="append", default=[], help="stage result document (repeatable)"
     )
     parser.add_argument("--lint-product", help="product-tree ruff result (JSON)")
+    parser.add_argument(
+        "--raw",
+        action="append",
+        metavar="PATH",
+        help="copy a stage's own report into the evidence directory (repeatable); the "
+        "release evidence keeps the measurements it was decided from, not only the "
+        "verdict, so a failed gate can be diagnosed from the committed evidence",
+    )
     parser.add_argument("--lint-repo", help="repository-wide ruff result (JSON)")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
@@ -157,7 +206,9 @@ def main() -> int:
     scan = read_json(args.scan)
     tests = pytest_totals(args.pytest_report)
     bandit = read_json(args.bandit_summary)
-    repro = reproducibility(read_text(args.reproducibility))
+    repro = reproducibility_from_json(args.reproducibility_json) or reproducibility(
+        read_text(args.reproducibility)
+    )
 
     policy = read_json(args.policy)
     required = set(policy.get("required_gates", []))
@@ -212,7 +263,12 @@ def main() -> int:
         bool(contract.get("ok")),
         f"{contract.get('checks_passed')}/{contract.get('checks_total')} checks"
         + (
-            f"; failed: {[r['check'] for r in contract.get('results', []) if not r['ok']][:3]}"
+            "; failed: "
+            + "; ".join(
+                f"{row['check']} ({str(row.get('detail', ''))[:160]})"
+                for row in contract.get("results", [])
+                if not row["ok"]
+            )[:900]
             if contract and not contract.get("ok")
             else ""
         ),
@@ -412,10 +468,20 @@ def main() -> int:
     for name, doc in documents.items():
         (out / name).write_text(json.dumps(doc, indent=2, sort_keys=False) + "\n")
 
-    # The digest covers every document including the candidate, so a later edit
-    # to any of them is detectable.
+    # Raw stage reports are kept next to the verdict they produced.
+    raw_copies: list[str] = []
+    for source in args.raw or []:
+        candidate = Path(source)
+        if not candidate.is_file():
+            continue
+        target = out / candidate.name
+        shutil.copyfile(candidate, target)
+        raw_copies.append(candidate.name)
+
+    # The digest covers every document including the candidate and the raw stage
+    # reports, so a later edit to any of them is detectable.
     digest = hashlib.sha256()
-    for name in sorted([*documents, "release-candidate.json"]):
+    for name in sorted([*documents, "release-candidate.json", *raw_copies]):
         path = out / name
         if path.is_file():
             digest.update(name.encode() + b"\0" + path.read_bytes() + b"\0")
@@ -428,7 +494,7 @@ def main() -> int:
     (out / "release-candidate.json").write_text(json.dumps(rc_doc, indent=2) + "\n")
     (out / "evidence-digest.txt").write_text(
         f"evidence_digest {provisional}\n"
-        f"files {', '.join(sorted(documents) + ['release-candidate.json'])}\n"
+        f"files {', '.join(sorted(documents) + ['release-candidate.json'] + sorted(raw_copies))}\n"
     )
 
     print(f"rc_id: {rc_id}")

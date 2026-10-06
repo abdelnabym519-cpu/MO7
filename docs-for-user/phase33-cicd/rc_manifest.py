@@ -407,6 +407,12 @@ def main() -> int:
     parser.add_argument("--dir")
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"))
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--json-out",
+        metavar="PATH",
+        help="write the comparison document to PATH as well (the machine-readable input "
+        "for the release evidence, so a gate is never decided by parsing prose)",
+    )
     args = parser.parse_args()
 
     def load(target: str) -> dict:
@@ -415,6 +421,8 @@ def main() -> int:
 
     if args.compare:
         result = compare(load(args.compare[0]), load(args.compare[1]))
+        if args.json_out:
+            Path(args.json_out).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if args.json:
             print(json.dumps(result, indent=2))
         else:

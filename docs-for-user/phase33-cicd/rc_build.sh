@@ -155,9 +155,22 @@ cat >"$OUT/build-report.json" <<JSON
   "web_build": "$([ "$SKIP_WEB" = "1" ] && echo reused || echo executed)",
   "scrubbed_build_path": "$PLACEHOLDER",
   "scrub_files": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('files_changed', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)",
-  "scrub_occurrences": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('occurrences', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)"
+  "scrub_occurrences": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('occurrences', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)",
+  "recipe_sha256": "$(sha256sum "$0" | awk '{print $1}')",
+  "tool_hashes": {
+    "rc_manifest": "$(sha256sum "$HERE/rc_manifest.py" | awk '{print $1}')",
+    "rc_scrub_paths": "$(sha256sum "$HERE/rc_scrub_paths.py" | awk '{print $1}')",
+    "prepare_web_package": "$(sha256sum "$CHECKOUT/scripts/prepare_web_package.py" | awk '{print $1}')"
+  }
 }
 JSON
+
+# The report is release metadata: a consumer that cannot parse it cannot verify
+# the artifact. (It has been wrong before — a trailing comma shipped an invalid
+# build report.) Validate what was just written, and fail the build if it does
+# not parse.
+"$PY" -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT/build-report.json" \
+  || die "the build report is not valid JSON"
 
 log "artifact $WHEEL_NAME"
 log "  sha256   $SHA"
