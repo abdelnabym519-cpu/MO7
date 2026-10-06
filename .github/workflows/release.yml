@@ -41,6 +41,13 @@ on:
       - "!**/*.md"
       - "!docs-for-user/**"
       - "docs-for-user/phase33-cicd/**"
+      # The deployment tooling the release process runs through is release
+      # tooling: prod.sh, the promote/deploy/rollback scripts and the harness the
+      # post-deploy validation uses. Excluding it was a real gap -- a change to
+      # the promotion path shipped without the pipeline ever running. Observed:
+      # the commit that fixed prod_promote.sh's contract ordering triggered
+      # nothing, and the run had to be produced by a later commit.
+      - "docs-for-user/phase32-infra/**"
   workflow_dispatch:
     inputs:
       strict:
