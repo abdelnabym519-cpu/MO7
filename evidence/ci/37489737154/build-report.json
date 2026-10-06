@@ -1,0 +1,28 @@
+{
+  "built_at": "2026-10-06T15:54:09Z",
+  "repository": "https://github.com/abdelnabym519-cpu/MO7",
+  "checkout": "/home/runner/work/MO7/MO7",
+  "branch": "arena/01a0ff3f-mo7",
+  "commit": "e344c17cefdf8071ae73ddf4c30b0a9098971fa0",
+  "commit_short": "e344c17",
+  "version": "1.6.11",
+  "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+  "artifact_bytes": 38651882,
+  "artifact_sha256": "5069bca1e60dc2c462df9a620f8ef1a296f880bc6a7f42acadc539a75d9b4a26",
+  "artifact_entries": 4400,
+  "artifact_manifest_sha256": "9c6a58a0e1a3c8ac6b89a45490b016ed159009cb01487c049194066e6de9bdc9",
+  "source_date_epoch": 1791301331,
+  "python": "3.11.16",
+  "setuptools": "84.0.0",
+  "node": "v22.23.3",
+  "web_build": "executed",
+  "scrubbed_build_path": "/srv/mo7-build",
+  "scrub_files": "371",
+  "scrub_occurrences": "14398",
+  "recipe_sha256": "0948be4b3039bd8a89f77b33f003993627ba33dacce2daad87956b90ee32eed5",
+  "tool_hashes": {
+    "rc_manifest": "41ab819b991acba5ca666c2a7b55803f2b23c0ba66377d8b408b27fefbf6e114",
+    "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+    "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+  }
+}

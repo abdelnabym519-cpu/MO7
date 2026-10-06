@@ -1,0 +1,379 @@
+{
+  "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+  "artifact_sha256": "5069bca1e60dc2c462df9a620f8ef1a296f880bc6a7f42acadc539a75d9b4a26",
+  "entries_scanned": 4400,
+  "clean": true,
+  "violation_total": 0,
+  "by_rule": {},
+  "violations": [],
+  "recorded_total": 233,
+  "recorded_by_rule": {
+    "entropy_review": 190,
+    "home_path_review": 17,
+    "in_package_tests": 25,
+    "generated_key_material": 1
+  },
+  "recorded": [
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor-1.6.11.dist-info/RECORD",
+      "detail": "high-entropy token (65 chars)"
+    },
+    {
+      "rule": "home_path_review",
+      "finding": "P33-S5",
+      "path": "deeptutor/api/routers/knowledge.py",
+      "detail": "/Users/name/ (server-side)"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/__init__.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_api_endpoints.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_assessment.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_event_hub.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_grading.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_guided_mastery_updates.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_build_shapes.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_choices.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_mode.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_navigation.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_state_integrity.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_mastery_tools.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_models.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_objective_relations.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_policy.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_prompt_language_fallback.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_scheduler.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_service_replace_merge.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_storage.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_topic_coverage.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_topic_generation.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_topic_materials.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_topic_naming.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/learning/tests/test_v2_migration.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor/services/cli_apps/vendor/catalog.json",
+      "detail": "high-entropy token (81 chars)"
+    },
+    {
+      "rule": "in_package_tests",
+      "finding": "P33-S2",
+      "path": "deeptutor/services/config/test_runner.py",
+      "detail": "test material shipped inside the package"
+    },
+    {
+      "rule": "home_path_review",
+      "finding": "P33-S5",
+      "path": "deeptutor/services/rag/pipelines/llamaindex/vector_store.py",
+      "detail": "C:\\\\Users\\\\ (server-side)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(admin)/admin/users/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(auth)/login/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(auth)/register/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(settings)/settings/[section]/page.js",
+      "detail": "high-entropy token (69 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(settings)/settings/[section]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(settings)/settings/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "home_path_review",
+      "finding": "P33-S5",
+      "path": "deeptutor_web/.next/server/app/(utility)/agents/page.js",
+      "detail": "/Users/you/ (server-side)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/agents/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/avatar-preview/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/courses/[courseId]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/courses/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/knowledge-bases/[kbName]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/knowledge-bases/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/graph/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/l1/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/l2/[surface]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/l2/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/l3/[slot]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/l3/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/memory/resolve/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/notebooks/[notebookId]/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/notebooks/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/profile/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/session-handoff/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/settings/progress/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/space/chat-history/page.js",
+      "detail": "high-entropy token (65 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/space/chat-history/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/space/cli-apps/page.js",
+      "detail": "high-entropy token (64 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/space/cli-apps/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    },
+    {
+      "rule": "entropy_review",
+      "finding": "P33-S3",
+      "path": "deeptutor_web/.next/server/app/(utility)/space/mcp/page_client-reference-manifest.js",
+      "detail": "high-entropy token (91 chars)"
+    }
+  ],
+  "recorded_at": "2026-10-06T15:55:35Z"
+}
