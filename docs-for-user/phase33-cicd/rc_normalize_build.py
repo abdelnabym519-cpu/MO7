@@ -10,10 +10,12 @@ Two values that Next.js generates per build end up inside the shipped bundle:
   build-id-derived digests and one ordering difference — all of it this one random
   value.
 * **The temporary tsconfig name.** The build rewrites the project's TypeScript
-  configuration through a generated file whose name carries a random number
-  (`tsconfig.deeptutor-build-79448.json` versus `…-91189.json` on two consecutive
-  builds), and that name is recorded in `required-server-files.json` and in the
-  standalone `server.js`. The file itself is not packaged; the name is.
+  configuration through a generated file whose name carries a random number *and a
+  random width* (`tsconfig.deeptutor-build-4867.json`, `…-60173.json` in two builds
+  of one commit), and that name is recorded in `required-server-files.json` and in
+  the standalone `server.js`. The file itself is not packaged; the name is. The
+  rewritten name is always five digits, derived from the release identity: a width
+  inherited from a random value is still a random value.
 
 Both are rewritten to values derived from the release identity — commit, pinned
 `SOURCE_DATE_EPOCH` and version — so a rebuild of a commit produces the same
@@ -70,13 +72,20 @@ def derive_build_id(commit: str, source_date_epoch: str, version: str) -> str:
 
 
 TSCONFIG_RE = re.compile(r"tsconfig\.deeptutor-build-(\d+)\.json")
+#: The rewritten name is always this wide, whatever width Next.js generated. The
+#: first version preserved the generated width, which meant the derived name still
+#: depended on a random value: Next.js picks a number of four, five or six digits
+#: (measured: 4867 and 60173 in two builds on one host), so two builders derived
+#: different-width names from the same commit and CI's artifact and the rebuild
+#: differed in three entries with nothing to explain them. The width is fixed.
+TSCONFIG_DIGITS = 5
 
 
-def derive_tsconfig_number(commit: str, version: str, digits: int) -> str:
-    """A number of the same width as the one Next.js generated, derived from the release."""
+def derive_tsconfig_number(commit: str, version: str) -> str:
+    """A fixed-width number derived from the release identity."""
     material = f"mo7-tsconfig\n{commit}\n{version}\n".encode()
     value = int.from_bytes(hashlib.sha256(material).digest(), "big")
-    return str(value)[-digits:]
+    return f"{value % 10**TSCONFIG_DIGITS:0{TSCONFIG_DIGITS}d}"
 
 
 def normalize_tsconfig(
@@ -204,10 +213,9 @@ def main() -> int:
     ts_needle = re.compile(rb"tsconfig\.deeptutor-build-(\d+)\.json")
 
     def _substitute(match: "re.Match[bytes]") -> bytes:
-        digits = len(match.group(1))
         return (
             b"tsconfig.deeptutor-build-"
-            + derive_tsconfig_number(args.commit, args.version, digits).encode()
+            + derive_tsconfig_number(args.commit, args.version).encode()
             + b".json"
         )
 
@@ -230,13 +238,12 @@ def main() -> int:
             """
             if needle in payload:
                 return True
+            expected = (
+                b"tsconfig.deeptutor-build-"
+                + derive_tsconfig_number(args.commit, args.version).encode()
+                + b".json"
+            )
             for match in ts_needle.finditer(payload):
-                digits = len(match.group(1))
-                expected = (
-                    b"tsconfig.deeptutor-build-"
-                    + derive_tsconfig_number(args.commit, args.version, digits).encode()
-                    + b".json"
-                )
                 if match.group(0) != expected:
                     return True
             return False

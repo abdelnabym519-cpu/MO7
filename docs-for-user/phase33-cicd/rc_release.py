@@ -330,21 +330,30 @@ def verb_validate(args) -> int:
     )
     if added.returncode != 0:
         return finish_validation(state, checks, 1)
-    # The build needs the frontend's installed dependencies. They are not part of
-    # the repository (they come from the lockfile), so the worktree borrows the
-    # checkout's — and the build only reads them.
-    node_modules = CHECKOUT / "web/node_modules"
-    linked = False
-    if node_modules.is_dir():
-        target = worktree / "web/node_modules"
-        if not target.exists():
-            target.symlink_to(node_modules)
-            linked = True
-    check(
-        "the rebuild has the frontend dependencies it needs",
-        linked or (worktree / "web/node_modules").exists(),
-        str(worktree / "web/node_modules"),
+    # The build needs the frontend's installed dependencies, and they are not part
+    # of the repository: the pipeline installs them from the committed lockfile.
+    # The rebuild does the same thing the pipeline does — `npm ci` in the worktree
+    # — rather than borrowing the checkout's node_modules. Borrowing by symlink
+    # was tried and is wrong: Next's standalone tracing follows the symlink out of
+    # the project and ships the entire dependency tree, which produced a 336 MB
+    # wheel instead of 38 MB.
+    npm_ci = run(
+        ["npm", "ci", "--legacy-peer-deps"],
+        cwd=worktree / "web",
+        capture_output=True,
+        timeout=1800,
     )
+    check(
+        "the frontend dependencies install from the committed lockfile",
+        npm_ci.returncode == 0,
+        ((npm_ci.stderr or "") + (npm_ci.stdout or ""))[-200:],
+    )
+    if npm_ci.returncode != 0:
+        run(
+            ["git", "-C", str(CHECKOUT), "worktree", "remove", "--force", str(worktree)],
+            capture_output=True,
+        )
+        return finish_validation(state, checks, 1)
     try:
         build = run(
             ["bash", str(HERE / "rc_build.sh"), "--checkout", str(worktree), "--out", str(out)],

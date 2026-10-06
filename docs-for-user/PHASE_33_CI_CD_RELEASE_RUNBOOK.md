@@ -388,12 +388,18 @@ absolute path. Identity is still read from the real checkout.
 
 **P33-R2 — the artifact carried random values.** Next.js generates a random build
 id per build (measured: 433 files, 450 occurrences in one bundle) and writes a
-random number into the name of the temporary tsconfig it records in
-`required-server-files.json` and the standalone `server.js`. Fixed by deriving
-both from the release identity — commit + `SOURCE_DATE_EPOCH` + version — and
-rewriting every occurrence (`rc_normalize_build.py`, which fails the build if an
-occurrence survives outside Next's own webpack cache). Both rewrites are
-length-preserving, so no offset or length field in any file shifts.
+random number of **random width** into the name of the temporary tsconfig it
+records in `required-server-files.json` and the standalone `server.js` (measured
+across builds: `…-4867.json`, `…-60173.json`). Fixed by deriving both from the
+release identity — commit + `SOURCE_DATE_EPOCH` + version — rewriting every
+occurrence, and always emitting a five-digit tsconfig number
+(`rc_normalize_build.py`, which fails the build if an occurrence survives outside
+Next's own webpack cache). The first version of this kept the generated width,
+which meant the derived name still depended on a random value — the promotion gate
+refused the candidate, and the width is now fixed. The build-id rewrite is
+length-preserving; the tsconfig rewrite is length-preserving whenever the
+generated name was five digits and shifts no offsets either way, because it is
+applied before the bundle is packaged and both builders apply the same rewrite.
 
 ### 13.3 What two builds of one commit actually produce
 
