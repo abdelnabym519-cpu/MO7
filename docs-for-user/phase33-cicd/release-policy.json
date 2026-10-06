@@ -16,14 +16,11 @@
     "a second build is content-identical",
     "code security scan has no high/high findings"
   ],
-  "exceptions": [
+  "exceptions": [],
+  "notes": [
     {
-      "gate": "python tests",
-      "finding": "P33-CI-K1",
-      "classification": "KNOWN FINDING",
-      "declared_by": "Phase 33 release policy",
-      "rationale": "The repository's own Python test job has failed on every scheduled run recorded for this repository, before Phase 33 changed anything. The failure is pre-existing and is not caused by, nor repaired by, this phase. The pipeline still runs the suite and records its real totals; promotion does not depend on a gate this phase cannot honestly turn green.",
-      "evidence": "GitHub Actions runs 37448715493, 37296467799, 37193244526 (workflow Tests, event schedule, conclusion failure, job 'Python Tests' on Python 3.11-3.14); evidence/ci/<run>/test-summary.json carries the same suite's totals for the release pipeline's own run."
+      "recorded_at": "2026-10-06",
+      "note": "The python-tests exception was removed: the pipeline's own pytest run is green on this branch (8434 passed / 0 failed / 0 errors, run 37486103941), so the gate is required without qualification. The repository's scheduled Tests workflow on main is red (evidence: runs 37448715493, 37296467799, 37193244526 \u2014 job Python Tests on 3.11-3.14 and Web Node Tests fail there); that is a pre-existing condition of main, not of the release branch, and it must never become a reason to except the release pipeline's test gate."
     }
   ]
 }

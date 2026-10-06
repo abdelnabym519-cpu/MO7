@@ -240,7 +240,15 @@ def case_rollback_to_unknown_release(artifact: Path, workdir: Path, commit: str)
 
 def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: str) -> dict:
     """The promotion path's own recovery: make post-deployment validation fail,
-    and require the deployment to come back to the release that was serving."""
+    and require the deployment to come back to the release that was serving.
+
+    The fault is injected in the deployment contract (the public origin the
+    post-deploy probes measure through), not in the release: the promotion must
+    fail because the deployment cannot be *validated*, and the recovery path must
+    put the previous release back. Whether that happened without a human step is
+    recorded rather than assumed — the phase documents rollback as manual when a
+    human step is what recovered it.
+    """
     before = current_release()
     rc_id = os.environ.get("MO7_FAULT_RC_ID", "")
     if not rc_id:
@@ -256,19 +264,16 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
 
     import rc_release  # noqa: PLC0415  - host-layer only
 
-    state = rc_release.load_state(rc_id)
     contract = PROD_ROOT / "etc/production.env"
     original = contract.read_text()
-    # Point the public origin at a port nothing listens on: every post-deploy
-    # probe that measures the deployment externally must fail, while the
-    # deployment itself is untouched.
-    broken = []
+    broken_lines = []
     for line in original.splitlines():
-        if line.startswith("PROD_PUBLIC_ORIGIN=") or line.startswith("PROD_TLS_VALIDATION_ORIGIN="):
-            broken.append(f"{line.split('=')[0]}=https://127.0.0.1:9")
+        if line.startswith(("PROD_PUBLIC_ORIGIN=", "PROD_TLS_VALIDATION_ORIGIN=")):
+            broken_lines.append(f"{line.split('=')[0]}=https://127.0.0.1:9")
         else:
-            broken.append(line)
-    contract.write_text("\n".join(broken) + "\n")
+            broken_lines.append(line)
+    contract.write_text("\n".join(broken_lines) + "\n")
+    manual = None
     try:
         result = run(
             [
@@ -286,30 +291,35 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
         text = (result.stdout or "") + (result.stderr or "")
         rollback_file = rc_release.RC_DIR / rc_id / "evidence/rollback.json"
         rollback = json.loads(rollback_file.read_text()) if rollback_file.is_file() else {}
-        after_injection = rc_release.load_state(rc_id)
-        back = current_release() == before
-        automatic = back and after_injection["state"] in ("ROLLED_BACK", "ROLLED_BACK")
-        if not back:
-            # The controller could not restore the previous release by itself:
-            # the documented operator rollback is what recovery means then, and
-            # the case records that it was needed.
-            manual = prod("rollback", "--to", before)
-            back = current_release() == before
-            text += f"\nmanual rollback exit={manual.returncode}"
-        return {
-            "case": "a promotion whose post-deployment validation fails",
-            "injected": "PROD_PUBLIC_ORIGIN pointed at a dead port for the promoted release",
-            "detected": result.returncode != 0 and bool(rollback),
-            "blocked": after_injection["state"] in ("ROLLED_BACK", "ROLLBACK_REQUIRED"),
-            "recovered": back,
-            "validated": automatic and back,
-            "detail": f"promote exit={result.returncode} state={after_injection['state']} "
-            f"rollback={rollback.get('result')} automatic={automatic} "
-            f"release={current_release()} {tail(result)}",
-        }
+        state_after = rc_release.load_state(rc_id)
+        automatic = current_release() == before
     finally:
+        # Remove the injected fault whether or not the promotion did anything.
         contract.write_text(original)
         prod("restart")
+
+    if current_release() != before:
+        # The controller could not restore the previous release while the fault
+        # was active. The documented operator rollback is then the recovery path,
+        # and the case records that a human step was required.
+        manual = prod("rollback", "--to", before)
+    restored = current_release() == before
+    intact, detail = deployment_intact(before)
+    return {
+        "case": "a promotion whose post-deployment validation fails",
+        "injected": "PROD_PUBLIC_ORIGIN pointed at a dead port for the promoted release",
+        "detected": result.returncode != 0 and bool(rollback),
+        "blocked": state_after["state"] in ("ROLLED_BACK", "ROLLBACK_REQUIRED")
+        and current_release() != rc_id,
+        "recovered": restored,
+        "validated": intact,
+        "automatic": automatic,
+        "rollback_result": rollback.get("result", "not recorded"),
+        "detail": f"promote exit={result.returncode} state={state_after['state']} "
+        f"rollback={rollback.get('result')} automatic={automatic} "
+        f"operator_rollback_exit={manual.returncode if manual else None} "
+        f"release={current_release()}; {detail}",
+    }
 
 
 CASES = {

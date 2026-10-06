@@ -127,7 +127,7 @@ def reproducibility(text: str) -> dict:
         "classification": {
             "names_differ_only_by_build_id": grab("names differing only by the build id"),
             "content_differs_only_by_build_id": grab("content differing only by the build id"),
-            "build_id_derived_digests": grab("build-id derived digests"),
+            "generated_keys_and_digests": grab("generated keys and digests"),
             "ordering_only_json": grab("ordering only, JSON keys sorted"),
             "ordering_only_embedded_json": grab("ordering only, embedded JSON keys sorted"),
             "unexplained": grab("unexplained differences"),

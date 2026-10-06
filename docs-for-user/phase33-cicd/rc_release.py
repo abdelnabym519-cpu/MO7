@@ -214,6 +214,22 @@ def verb_ingest(args) -> int:
     return 0 if rc.get("verdict") == "RELEASABLE" else 1
 
 
+def ci_build_report(state: dict) -> dict:
+    """The build report the pipeline recorded for this candidate."""
+    path = Path(state.get("ci_evidence_frozen", "")) / "build-report.json"
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+#: Kept as a name the validation body reads naturally.
+def ci_manifest_of(state: dict) -> dict:
+    return ci_build_report(state)
+
+
 def verb_validate(args) -> int:
     """Rebuild the same commit, prove equivalence with what CI built, and check
     the artifact this host would deploy. This is what turns CI's word into a
@@ -231,20 +247,50 @@ def verb_validate(args) -> int:
     ).stdout.strip()
     checks: list[dict] = []
 
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(CHECKOUT), *args], capture_output=True, text=True
+        ).stdout.strip()
+
     def check(name: str, ok: bool, detail: str = "") -> bool:
         checks.append({"check": name, "ok": bool(ok), "detail": str(detail)[:300]})
         print(f"[{'PASS' if ok else 'FAIL'}] {name}" + ("" if ok else f" -- {detail}"))
         return bool(ok)
 
-    # 1. the checkout is the commit CI validated, and it is clean
-    check(
-        "the checkout is at the CI-validated commit",
-        head == state["commit"],
-        f"checkout={head[:12]} ci={state['commit'][:12]}",
+    # 1. the checkout carries the commit CI validated, and nothing that feeds the
+    # build has moved since. The pipeline commits its evidence after the build,
+    # so branch head is normally one commit *ahead* of the validated commit —
+    # requiring equality would make the process unrunnable. What matters is that
+    # the difference between them is evidence and nothing else, and that the tree
+    # is clean.
+    ci_commit = state["commit"]
+    contains_ci = head == ci_commit or (
+        subprocess.run(
+            ["git", "-C", str(CHECKOUT), "merge-base", "--is-ancestor", ci_commit, head]
+        ).returncode
+        == 0
     )
-    dirty = subprocess.run(
-        ["git", "-C", str(CHECKOUT), "status", "--porcelain"], capture_output=True, text=True
-    ).stdout.strip()
+    check(
+        "the checkout contains the CI-validated commit",
+        contains_ci,
+        f"checkout={head[:12]} ci={ci_commit[:12]}",
+    )
+    changed = git("diff", "--name-only", ci_commit, head).splitlines() if contains_ci else ["?"]
+    # Two kinds of path may legitimately differ after the pipeline ran: its own
+    # evidence commit, and the release/host tooling itself (the controller that
+    # is running this check lives there). Everything else — the product, the web
+    # source, the tests, the build recipe's inputs — must be exactly what CI
+    # built. The build recipe and its tools are additionally verified by hash
+    # below, so "the tooling moved" cannot hide a changed build input.
+    product_changed = [
+        path for path in changed if not path.startswith(("evidence/", "docs-for-user/"))
+    ]
+    check(
+        "no product source changed since CI validated the commit",
+        contains_ci and not product_changed,
+        f"{len(changed)} path(s) differ, product={product_changed[:3]}",
+    )
+    dirty = git("status", "--porcelain")
     check("the checkout is clean", not dirty, dirty.splitlines()[0] if dirty else "")
 
     # 2. the CI evidence still hashes to what was ingested (immutability)
@@ -281,8 +327,25 @@ def verb_validate(args) -> int:
     )
     check(
         "the rebuild records the same commit",
-        report["commit"] == state["commit"],
+        report["commit"] == ci_commit,
         report["commit"][:12],
+    )
+    ci_report = ci_build_report(state)
+    check(
+        "the rebuild was made by the same build recipe CI recorded",
+        bool(report.get("recipe_sha256"))
+        and report.get("recipe_sha256") == ci_report.get("recipe_sha256"),
+        f"local={str(report.get('recipe_sha256'))[:16]} ci={str(ci_report.get('recipe_sha256'))[:16]}",
+    )
+    ci_tools = ci_report.get("tool_hashes") or {}
+    local_tools = report.get("tool_hashes") or {}
+    differing_tools = sorted(
+        key for key in set(ci_tools) | set(local_tools) if ci_tools.get(key) != local_tools.get(key)
+    )
+    check(
+        "the rebuild used the same manifest, scrub and packaging tools CI recorded",
+        bool(ci_tools) and not differing_tools,
+        f"differing tools={differing_tools or 'none'}",
     )
 
     # 4. the two builds must be the same content (the equivalence proof)
@@ -385,6 +448,17 @@ def verb_validate(args) -> int:
         "build_report": report,
         "manifest_sha256": local_manifest["manifest_sha256"],
         "canonical_sha256": local_manifest["canonical_sha256"],
+        "checkout": {
+            "head": head,
+            "ci_commit": ci_commit,
+            "changed_since_ci": changed[:50],
+            "product_source_changed": product_changed,
+            "recipe_sha256": {
+                "ci": ci_report.get("recipe_sha256"),
+                "local": report.get("recipe_sha256"),
+            },
+            "tool_hashes": {"ci": ci_tools, "local": local_tools},
+        },
         "equivalence": {
             "method": "entry-by-entry comparison of the two artifacts' build manifests",
             "ci_artifact_sha256": ci_manifest.get("artifact_sha256"),

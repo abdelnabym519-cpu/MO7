@@ -55,12 +55,24 @@ RECORD_DIGEST = re.compile(rb"sha256=[A-Za-z0-9_-]{43}")
 #: not the code, so it is neutralised like the build id itself.
 GENERATED_TOKEN = re.compile(rb"deeptutor-build-\d+")
 GENERATED_TOKEN_PLACEHOLDER = b"deeptutor-build-<token>"
-#: Generated key material. Next.js generates a random 32-byte encryption key for
-#: Server Actions on every build and records it in the server reference manifest.
-#: It is generated material like the build id — and it is *correct* for it to
-#: differ between builds, so the comparison neutralises it rather than treating
-#: two different random keys as an unreproducible build.
-GENERATED_KEY = re.compile(rb'("encryptionKey"\s*:\s*)"[^"]*"')
+#: Generated key material. Next.js generates random secrets on every build and
+#: ships them inside the bundle: a 32-byte encryption key for Server Actions
+#: (`encryptionKey`, in the server reference manifest) and the preview-mode id and
+#: signing key (`preview.previewModeId`, `preview.previewModeSigningKey`, in the
+#: prerender manifest). They are generated material like the build id, and it is
+#: *correct* for them to differ between builds, so the comparison neutralises the
+#: fields **by name** rather than treating two different random keys as an
+#: unreproducible build.
+#:
+#: They are deliberately NOT derived from the release identity the way the build
+#: id is: these values are secrets (they sign preview cookies and encrypt Server
+#: Action payloads), so a value computable from the commit would weaken the
+#: deployment. Their presence is why two builds are content-identical rather than
+#: byte-identical, and the promotion gate compares content, not bytes, for exactly
+#: this reason.
+GENERATED_KEY = re.compile(
+    rb'("(?:encryptionKey|previewModeId|previewModeSigningKey)"\s*:\s*)"[^"]*"'
+)
 
 
 def neutralise_generated_tokens(payload: bytes) -> bytes:
@@ -315,7 +327,7 @@ def compare(first: dict, second: dict) -> dict:
     unexplained: list[str] = []
     for name in c_changed:
         if name in da and name in db and da[name] == db[name]:
-            residual_rules[name] = "build_id_derived_digests"
+            residual_rules[name] = "generated_keys_and_digests"
             continue
         explained = False
         for rule in (
@@ -341,8 +353,8 @@ def compare(first: dict, second: dict) -> dict:
             if (c_added or c_removed)
             else len(added) + len(removed),
             "content_differs_only_by_build_id": len(same_after_id),
-            "build_id_derived_digests": sum(
-                1 for rule in residual_rules.values() if rule == "build_id_derived_digests"
+            "generated_keys_and_digests": sum(
+                1 for rule in residual_rules.values() if rule == "generated_keys_and_digests"
             ),
             "ordering_only_json": sum(
                 1 for rule in residual_rules.values() if rule == "json_sorted_keys"

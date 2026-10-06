@@ -38,7 +38,7 @@ Two facts shape the design:
 
 | Capability | Classification | Evidence |
 | --- | --- | --- |
-| GitHub Actions pipeline execution on push | **AVAILABLE** | runs `37477425697`, `37477864727`, `37479689679` (`push`, head `arena/01a0ff3f-mo7`) |
+| GitHub Actions pipeline execution on push | **AVAILABLE** | runs `37477425697`, `37477864727`, `37479689679` (refused candidates) and `37486103941` (`RELEASABLE`), all `push` on `arena/01a0ff3f-mo7` |
 | Pipeline triggering by `workflow_dispatch` | **UNAVAILABLE** | `gh workflow run` → HTTP 403 `Resource not accessible by integration`; the integration token has no `actions: write` |
 | Reading run logs | **EXTERNALLY BLOCKED** | TLS EOF to `results-receiver.actions.githubusercontent.com`; evidence is published in-repository instead |
 | Reading run/job/step metadata and check-runs | AVAILABLE | `api.github.com` `actions/runs`, `actions/runs/<id>/jobs`, `commits/<sha>/check-runs` |
@@ -47,7 +47,9 @@ Two facts shape the design:
 | Action secrets (`secrets.*`) | UNAVAILABLE | `403` on the secrets API; the pipeline therefore requires no secrets |
 | Runner registration / self-hosted runner | UNAVAILABLE | `403` on runner registration endpoints |
 | Google Fonts during the build | EXTERNALLY BLOCKED | `fonts.googleapis.com` / `fonts.gstatic.com` TLS EOF; the build uses the committed offline font mock (`font-mock.cjs`) with upstream `woff2` payloads |
-| Playwright browser download | EXTERNALLY BLOCKED | `cdn.playwright.dev` TLS EOF; the browser suite uses the `@sparticuz/chromium` build when a Chromium is required |
+| Playwright browser download | EXTERNALLY BLOCKED | `cdn.playwright.dev` TLS EOF |
+| Browser binary | **AVAILABLE** (via npm) | `@sparticuz/chromium@143.0.4` from the npm registry (the registry itself is reachable), inflated with brotli and laid out where Playwright looks for it; the bundled AL2023 NSS libraries are put on `LD_LIBRARY_PATH` by `prod_browser.sh`. `chromium.launch({channel: "chromium"})` reports `Chromium 143.0.7499.0` |
+| Running the browser suite against a deployment | **AVAILABLE** | `bin/prod.sh session <account>` then `MO7_CHROMIUM_HOME=<extracted> bin/prod.sh browser --project=<p>` |
 | npm registry | AVAILABLE | used for `npm ci`, `npm pack geist@1.7.2 @fontsource/lora@5.3.0`, `@sparticuz/chromium` |
 | PyPI | AVAILABLE | `pypi.org` and `files.pythonhosted.org` |
 | Deployment host (Phase 32) | AVAILABLE | `/home/user/mo7-prod` — supervisord-managed release tree with the deployment pipeline |
@@ -97,9 +99,15 @@ SOURCE ──▶ VALIDATION ──▶ BUILD ──▶ ARTIFACT ──▶ ARTIFAC
   `build-report.json`.
 * **ARTIFACT + VERIFICATION** — `rc_manifest.py` (entry manifest, canonical form,
   second-build comparison), `rc_contract.py` (structure, metadata, required and
-  forbidden files, digest identity, and — with `--install` — a clean-venv install,
-  import, process start and `/health/live` + `/health/ready` probe), `rc_scan.py`
-  (forbidden material), `rc_evidence.py` (the documents and the verdict).
+  forbidden files, digest identity, and — with `--install` — a clean-venv install
+  with the artifact's declared dependencies, import, process start and
+  `/health/live` + `/health/ready` probe), `rc_scan.py` (forbidden material),
+  `rc_evidence.py` (the documents and the verdict — and its exit status).
+  The run publishes its own **build manifest** (`artifact-manifest.json.gz`, a
+  digest map of the 4400 entries) with the evidence. That file is what lets
+  another host verify that its rebuild is the same content as the artifact CI
+  built: the wheel itself cannot be fetched from this sandbox, and a digest of
+  digests would not be verifiable.
 * **RC** — a release candidate is identified by `(version, commit, pipeline run)`:
   `<version>-<commit7>-ci<run_id>`. It is immutable: new evidence, a new commit or
   a new artifact means a new RC.
@@ -120,7 +128,8 @@ One strategy, applied everywhere:
 | Commit identity | full 40-character sha, recorded in every document | `51f72191f0ef85e36fccb4cd71bad01be76d398a` |
 | Artifact version | wheel metadata `Version` (must equal the application version) | `1.6.11` |
 | Artifact identity | `sha256` of the wheel — the bytes that shipped | 64 hex characters |
-| Content identity | canonical manifest digest — the same content under a different build id | 64 hex characters |
+| Content identity | the entry-by-entry comparison of two build manifests, every difference explained by a checked rule — **not** a canonical digest. A canonical digest that embeds the build id only tells you two builds are the same once you already know they are the same; the comparison says *which* entries differ and why, and `unexplained` is the number that has to be zero | `reproducible: True`, `unexplained: 0` |
+| Byte identity | the wheel's SHA-256, which is equal when the two builds ran in the same toolchain (Python/Node). Proven inside this toolchain; a cross-toolchain difference (Python 3.11.16/Node 22.23.3 in CI vs 3.11.2/22.22.3 here) is declared and classified rather than assumed away — see §13 | equal, or every difference classified |
 | Pre-release identifiers | `-rc.<n>` suffix reserved for a candidate that is not promoted | `1.6.12-rc.1` |
 | Downstream publication | not part of this phase: `pypi-release.yml` and `docker-release.yml` trigger on a *published GitHub Release* with a `v<version>` tag, and both need external configuration (PyPI trusted publishing, GHCR credentials) that cannot be verified from here. The release tag deliberately carries the candidate identity instead, so a Phase 33 promotion cannot silently attempt an unverifiable publication. | — |
 | Build identity | `SOURCE_DATE_EPOCH` = the commit timestamp | `1791297088` |
@@ -147,9 +156,10 @@ result — not the existence of a file.
 | 9 | `rc_negative.py` | Invalid candidates are refused by the real tooling: a planted private key, a missing required file, two builds in one artifact, a version disagreement, and a red required gate |
 | 10 | `rc_release.py` | The candidate lifecycle: ingest → validate (rebuild + equivalence + contract + scan) → approve → promote → post-deploy validation → rollback, with a frozen artifact that cannot change unnoticed |
 
-`rc_stage.py` and `rc_faults.py` are supporting instruments: the first records each
-pipeline stage, the second injects faults and requires detect → block → recover →
-validate.
+`rc_stage.py`, `rc_faults.py` and `rc_faults_host.py` are supporting instruments:
+the first records each pipeline stage, the second injects faults and requires
+detect → block → recover → validate (local layer), and the third does the same on
+the deployment host through `prod.sh` and `rc_release.py`.
 
 ## 6. Running the release pipeline
 
@@ -189,6 +199,8 @@ Every run writes, and commits, these files under `evidence/ci/<run-id>/`:
 | `security-summary.json` | artifact scan result and counts, code scan (Bandit) counts, dependency check |
 | `promotion.json` | the gate table, policy and exceptions, blocking failures, verdict |
 | `release-candidate.json` | the candidate: id, identity, verdict, stages, reproducibility, immutability rule and digest |
+| `artifact-manifest.json.gz` | the build's entry manifest (names, digests, canonical and digest-blind forms, per-entry variants), so another host can verify its own rebuild is the same content |
+| `artifact-contract.json`, `artifact-scan.json`, `build-report.json`, `reproducibility.json`, `lint-product.json`, `lint-repo.json` | the stage reports the verdict was computed from, committed with it: a failed gate can be diagnosed from the evidence rather than from a log that is not reachable here |
 | `evidence-digest.txt` | one digest over all of the above, so a later edit is detectable |
 
 All documents carry `recorded_at`, `commit`, `version`, `environment`, `result`,
@@ -199,9 +211,16 @@ and the artifact sha256 where it applies.
 `release-policy.json` (committed) declares:
 
 * `required_gates` — the gates whose failure makes a candidate `NOT_RELEASABLE`;
-* `exceptions` — a gate that is allowed to be red **only** with a named finding, a
-  classification and the evidence for it. An excepted gate still appears in the
-  gate table as red, with its finding id: nothing is silently downgraded;
+* `exceptions` — **empty**. A gate that may be red with a named finding is a way
+  for a red required gate to pass the table, and there is no longer a gate here
+  that needs it: the pipeline's pytest run is green on this branch (8434 passed,
+  0 failed, 0 errors), so `python tests` is required without qualification. (The
+  repository's *scheduled* `Tests` workflow on `main` is red — runs
+  `37448715493`, `37296467799`, `37193244526` — but that is a pre-existing
+  condition of `main`, not of the release branch, and it is recorded as a finding
+  rather than used to excuse the release gate.) An excepted gate, if policy ever
+  declares one, still appears in the table as red with its finding id: nothing is
+  silently downgraded;
 * `approval` — the approval model. It is automatic after the gates, because every
   condition a human approver would check is machine-checked first
   (source, gates, contract, scan, equivalence, rollback target). `rc_release.py
@@ -220,9 +239,20 @@ python rc_release.py promote  --rc <rc-id>        # deploy through the Phase 32 
 python rc_release.py deployed                     # what the host is running now
 ```
 
-`validate` refuses when the checkout is not the commit CI validated, when the
-frozen CI evidence has changed, when the rebuild is not content-identical to what
-CI built, when the contract or scan fails, or when there is no rollback target.
+`validate` refuses when the checkout does not contain the commit CI validated,
+when product source (anything outside `evidence/` and `docs-for-user/`) changed
+since that commit, when the tree is dirty, when the frozen CI evidence has
+changed, when the rebuild was made by a different recipe or a different
+`rc_manifest`/`rc_scrub_paths`/`prepare_web_package` than CI recorded, when the
+rebuild is not the same content as the CI artifact, when the contract or scan
+fails, or when there is no rollback target. The pipeline commits its evidence
+*after* the build, so branch head is normally one commit ahead of the validated
+commit; that is why the rule is "contains, and nothing outside evidence/tooling
+changed" rather than "is exactly".
+
+`ingest` returns non-zero when the candidate's CI verdict is not `RELEASABLE`,
+and `rc_evidence.py`'s own exit status carries its verdict, so a shell that only
+checks exit codes still refuses an unreleasable candidate.
 
 ## 9. Deployment, post-deploy validation and rollback
 
@@ -254,10 +284,20 @@ python rc_release.py rollback --to <release-id> --rc <rc-id>   # controller + st
 python rc_release.py verify --rc <rc-id>  # the frozen candidate has not moved
 ```
 
-Rollback is automated only where no human step is required: the deployment
-pipeline's health-check rollback is automatic; a deliberate rollback to an older
-release is a single command whose verification is automated, and it is documented
-as an operator action rather than as an unattended one.
+The controller writes the promotion's evidence next to the candidate:
+`deployment.json` (what was deployed, the deploy log, the resulting release),
+`post-deploy.json` (each probe, its exit code and its output tail),
+`rollback.json` (whether a rollback was invoked, its result, and what the
+deployment was serving after it) and `tag.json` (the annotated
+`mo7-release-<rc id>` tag on the promoted commit, with the version, rc id and
+artifact sha256 in its message).
+
+Rollback is automated only where no human step is required. The deployment
+pipeline's health-check rollback is automatic. A promotion whose post-deployment
+validation fails triggers the controller's rollback automatically, and the host
+fault-injection case measures whether recovery actually completed without a
+human step: `faults-host.json` records `automatic` alongside `recovered`, so the
+documentation says "manual" whenever a person was needed.
 
 ## 10. Failure handling
 
@@ -278,10 +318,16 @@ python rc_faults.py --layer host  --artifact <wheel> --workdir /tmp/faults --evi
 ```
 
 Local cases: a red required gate, a failing build, a failing artifact contract,
-and a substitution of the validated artifact. Host cases: a deployment failure
-(wrong declared hash), a pre-promote smoke failure, a post-deploy validation
-failure, and a rollback invocation. Each case must be detected, blocked, recovered
-from, and the recovered state validated.
+and a substitution of the validated artifact. Host cases (need a built
+deployment and `PROD_ROOT`): a wrong declared hash, an undeclared commit, an
+artifact without the packaged web server (a pre-promote failure), a hand-edited
+release directory, a rollback to a release that was never staged, and a promotion
+whose post-deploy validation fails — the last one needs `MO7_FAULT_RC_ID` set to
+an `APPROVED` candidate and is the rollback test, not a simulation of it: it
+breaks the origin the post-deploy probes measure through, runs the real
+promotion, and requires the previous release to be serving again afterwards.
+Each case must be detected, blocked, recovered from, and the recovered state
+validated; the host layer is loaded lazily so the local layer runs anywhere.
 
 ## 12. Known limits (stated, not implied)
 
@@ -294,6 +340,106 @@ from, and the recovered state validated.
   differences** — and the released bytes are pinned by the artifact sha256.
 * The build requires the offline font mock, because Google Fonts is TLS-blocked
   from this environment.
+* Reproducibility is verified **within a toolchain and between toolchains by
+  classification**: the pipeline's runner (Python 3.11.16, Node v22.23.3) and this
+  host (Python 3.11.2, Node v22.22.3) cannot be made identical here (python.org,
+  nodejs.org and the OS package sources are TLS-blocked), so what is verified is
+  that the two builds' entry sets and contents agree once the generated build id
+  and the entries that record it are accounted for — every difference classified,
+  none unexplained. A difference that the rules cannot explain is a refusal, not a
+  note: it is the promotion gate. See §13 for how far that has been pushed.
+
+---
+
+## 13. Build reproducibility (measured)
+
+The claim is deliberately narrow, and every part of it has a measurement:
+
+| Property | Verdict | Measurement |
+| --- | --- | --- |
+| Two builds of one commit, one toolchain, **different directories** | content-identical: `reproducible: True`, `unexplained: 0`, **3 entries differ** (Next's generated secrets and the `RECORD` that digests them) | §13.3 |
+| Two builds of one commit, **different toolchains** (CI runner vs this host) | same rule, same verdict | §13.4 |
+| The artifact carries no builder path | verified | `path-scrub.json`: every occurrence rewritten, every file the same size |
+| The artifact carries no random build id and no random tsconfig name | verified | `build-metadata.json`: both derived from commit + `SOURCE_DATE_EPOCH` + version, every occurrence rewritten |
+| Per-build generated **secrets** differ between builds | **true, by design, and not derived** | `prerender-manifest.json` (`preview.previewModeId`, `preview.previewModeSigningKey`), `server-reference-manifest.json` (`encryptionKey`) |
+
+### 13.1 What the comparison is
+
+`rc_manifest.py` records every entry of the wheel (name, digest, size, and the
+digest of the file with the build id masked). `rc_manifest.compare` then walks the
+two manifests and puts every difference into a named class:
+`names_differ_only_by_build_id`, `content_differs_only_by_build_id`,
+`generated_keys_and_digests`, `ordering_only_lines`, `ordering_only_json`,
+`ordering_only_embedded_json`, `ordering_only_entries`, and `unexplained`.
+`reproducible` is true only when `unexplained == 0` and the entry sets match.
+Nothing is ever excused silently: an entry that cannot be explained is a refusal.
+
+### 13.2 The two defects this found, and what fixed them
+
+**P33-R1 — the build leaked the builder's directory into the artifact.** Two
+builds of `e344c17` on this host, in two different directories, compared as
+`98` renamed entries and `381` unexplained content differences (CI's artifact
+compared against a local one: `376` unexplained). Webpack derives module and
+chunk ids from module identifiers, which are absolute paths; scrubbing the path
+out of the files afterwards cannot repair an id that was already hashed. Fixed by
+building at a **canonical build root** — `rc_build.sh` mirrors the checkout into
+`/tmp/mo7-build/src` and builds there, so every builder builds at the same
+absolute path. Identity is still read from the real checkout.
+
+**P33-R2 — the artifact carried random values.** Next.js generates a random build
+id per build (measured: 433 files, 450 occurrences in one bundle) and writes a
+random number into the name of the temporary tsconfig it records in
+`required-server-files.json` and the standalone `server.js`. Fixed by deriving
+both from the release identity — commit + `SOURCE_DATE_EPOCH` + version — and
+rewriting every occurrence (`rc_normalize_build.py`, which fails the build if an
+occurrence survives outside Next's own webpack cache). Both rewrites are
+length-preserving, so no offset or length field in any file shifts.
+
+### 13.3 What two builds of one commit actually produce
+
+Measured after both fixes, with one toolchain and two different build
+directories: **4400 entries, identical entry sets, 3 entries differing** —
+`prerender-manifest.json`, `server-reference-manifest.json` and the wheel
+`RECORD` that digests them. The classification is
+`generated_keys_and_digests: 3`, everything else `0`, `unexplained: 0`.
+Byte identity is therefore **not** claimed, and the reason is not a leftover build
+input: it is Next.js generating random secrets per build (see §13.5). The
+comparison masks those fields **by name** and then requires byte identity of the
+rest, so the claim is checkable: if any other byte in any other entry moved, the
+rule does not apply and the difference is `unexplained`.
+
+### 13.4 Across toolchains
+
+The CI runner and this host cannot be made byte-identical environments here
+(Python 3.11.16/Node 22.23.3 vs 3.11.2/22.22.3; the toolchain downloads are
+TLS-blocked), so the cross-toolchain claim is the same comparison: the same
+entries, the same content, zero unexplained differences — which is what the
+promotion gate requires. The artifact's digest is meaningful together with the
+toolchain recorded in `build-report.json` (`python`, `node`, `setuptools`,
+`recipe_sha256`, `tool_hashes`), and the gate refuses a rebuild whose recipe or
+tool hashes differ from the ones CI recorded. A rebuild that cannot reproduce the
+content is a refusal.
+
+### 13.5 Why the last three entries differ, and why they were not "fixed"
+
+`preview.previewModeId` and `preview.previewModeSigningKey` sign preview-mode
+cookies; `encryptionKey` encrypts Server Action payloads. They are secrets, and
+Next.js randomises them on every build. Deriving them from the commit — the trick
+used for the build id and the tsconfig name — would make them **computable by
+anyone with the repository**, which is a real weakening: a forgeable preview
+cookie and craftable Server Action payloads. They are left random, and the
+comparison says so instead of pretending otherwise.
+
+This is the deliberate line in this phase: non-determinism that is *identity*
+(the build id, the temporary tsconfig name, the builder's path) is removed;
+non-determinism that is *secret material* is documented, and the promotion gate
+compares content with those fields masked by name.
+
+If a release were ever disputed, the verifiable chain is: commit → the manifest
+published with the CI evidence (`artifact-manifest.json.gz`) → this host's rebuild
+compared against it entry by entry → the artifact SHA-256 recorded in the release
+candidate → the deployment contract's `artifact_sha256` → the release tree that is
+running. Every link is a file in this repository or on the deployment host.
 * Workflow logs and uploaded artifacts cannot be read from here; the in-repository
   evidence is the channel, and the API's run/job/step conclusions are the live
   signal.
