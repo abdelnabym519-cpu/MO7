@@ -1,0 +1,61 @@
+{
+  "classification": {
+    "names_differ_only_by_build_id": 0,
+    "content_differs_only_by_build_id": 0,
+    "derived_and_generated_values": 3,
+    "ordering_only_json": 0,
+    "ordering_only_lines": 0,
+    "ordering_only_embedded_json": 0,
+    "ordering_only_entries": 0,
+    "unexplained": 0
+  },
+  "residual_rules": {
+    "deeptutor-1.6.11.dist-info/RECORD": "derived_and_generated_values",
+    "deeptutor_web/.next/prerender-manifest.json": "derived_and_generated_values",
+    "deeptutor_web/.next/server/server-reference-manifest.json": "derived_and_generated_values"
+  },
+  "unexplained": [],
+  "build_id_records": [
+    "deeptutor_web/.next/BUILD_ID"
+  ],
+  "reproducible": true,
+  "reproducibility_note": "Two builds of one commit are byte-identical only if the toolchain is deterministic. Next.js generates a random build id per build and cannot be told to pin it without a product configuration change, so the shipped bytes differ. This comparison therefore accounts for every difference by checking it: names that differ only by the build id, content that differs only by the build id, entries that record build-id-derived digests, and anything left over. Nothing left over is the result.",
+  "first": {
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "sha256": "25bc99af0e81cd011c83bf33f84c8385e8c15eaf1b782287ae4a6b7689792e1e",
+    "entries": 4400,
+    "manifest_sha256": "4d849ddf0a2a7aae5ef1d8230b0cf387ec91516f74cb1f8372dbdb8758793ae0",
+    "build_id": "g9Wepy8gjTqmSv19SD1VP",
+    "canonical_sha256": "df34f16905339222f274a2ff29deffb37149513938cc44f5dab024ae0f8c4b7c"
+  },
+  "second": {
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "sha256": "66afee3bc159b136c50e1fdb33fb52ce49b162c3f4315a375a7f793be9aff846",
+    "entries": 4400,
+    "manifest_sha256": "f08e08e718f84bf7687aad207bffe0278126330a8be74c662afe172d433fe765",
+    "build_id": "g9Wepy8gjTqmSv19SD1VP",
+    "canonical_sha256": "dda11f5919f162df1a7bca490108aaaa02845f55e31ea76f76d30b7d9d52a61e"
+  },
+  "byte_identical": false,
+  "raw_difference": {
+    "added": [],
+    "removed": [],
+    "changed": [
+      "deeptutor-1.6.11.dist-info/RECORD",
+      "deeptutor_web/.next/prerender-manifest.json",
+      "deeptutor_web/.next/server/server-reference-manifest.json"
+    ]
+  },
+  "content_identical": false,
+  "canonical_added": [],
+  "canonical_removed": [],
+  "canonical_changed": [
+    "deeptutor-1.6.11.dist-info/RECORD",
+    "deeptutor_web/.next/prerender-manifest.json",
+    "deeptutor_web/.next/server/server-reference-manifest.json"
+  ],
+  "build_ids": [
+    "g9Wepy8gjTqmSv19SD1VP",
+    "g9Wepy8gjTqmSv19SD1VP"
+  ]
+}
