@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-10-06T14:18:46Z",
+  "commit": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+  "version": "",
+  "environment": "ci",
+  "result": "fail",
+  "artifact_scan": {},
+  "artifact_scan_violations": [],
+  "code_scan": {},
+  "dependency_check": {
+    "tool": "pip check",
+    "result": "recorded in the pipeline log"
+  },
+  "artifact_sha256": null
+}

@@ -1,0 +1,2 @@
+evidence_digest fd44f6f90199f329e6756b76e98c6f1ad8a7893a1daefe60f8e93cc6d088703f
+files artifact.json, promotion.json, release.json, security-summary.json, test-summary.json, release-candidate.json

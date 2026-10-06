@@ -1,0 +1,146 @@
+{
+  "recorded_at": "2026-10-06T14:18:46Z",
+  "commit": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+  "version": "",
+  "environment": "ci",
+  "result": "NOT_RELEASABLE",
+  "policy": {
+    "source": "/home/runner/work/MO7/MO7/docs-for-user/phase33-cicd/release-policy.json",
+    "required_gates": [
+      "a second build is content-identical",
+      "artifact contract passed",
+      "artifact security scan is clean",
+      "artifact sha256 is recorded",
+      "artifact was produced",
+      "code security scan has no high/high findings",
+      "source commit is a full sha",
+      "version is declared"
+    ],
+    "exceptions": [
+      {
+        "gate": "python tests",
+        "finding": "P33-CI-K1",
+        "classification": "KNOWN FINDING",
+        "declared_by": "Phase 33 release policy",
+        "rationale": "The repository's own Python test job has failed on every scheduled run recorded for this repository, before Phase 33 changed anything. The failure is pre-existing and is not caused by, nor repaired by, this phase. The pipeline still runs the suite and records its real totals; promotion does not depend on a gate this phase cannot honestly turn green.",
+        "evidence": "GitHub Actions runs 37448715493, 37296467799, 37193244526 (workflow Tests, event schedule, conclusion failure, job 'Python Tests' on Python 3.11-3.14); evidence/ci/<run>/test-summary.json carries the same suite's totals for the release pipeline's own run."
+      }
+    ]
+  },
+  "gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": false,
+      "detail": "None/None checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": false,
+      "detail": "violations=None {}",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": false,
+      "detail": "byte_identical=False classified={'build_id_in_path': '', 'build_id_in_content': '', 'build_id_digest': '', 'unexplained': ''}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": false,
+      "detail": "no pytest report was produced",
+      "excepted": true,
+      "finding": "P33-CI-K1",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-deps.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-imports.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-pipcheck.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-npm.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-frontend.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": false,
+      "detail": "errors=n/a unformatted=n/a scope=n/a",
+      "required": false
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": false,
+      "detail": "n/a findings, n/a high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [
+    "version is declared",
+    "artifact was produced",
+    "artifact sha256 is recorded",
+    "artifact contract passed",
+    "artifact security scan is clean",
+    "a second build is content-identical",
+    "a stage result is missing (/tmp/mo7-build/stage-deps.json)",
+    "a stage result is missing (/tmp/mo7-build/stage-imports.json)",
+    "a stage result is missing (/tmp/mo7-build/stage-pipcheck.json)",
+    "a stage result is missing (/tmp/mo7-build/stage-npm.json)",
+    "a stage result is missing (/tmp/mo7-build/stage-frontend.json)",
+    "the product tree passes ruff (lint and format)",
+    "code security scan has no high/high findings"
+  ],
+  "excepted_failures": [
+    {
+      "stage": "python tests",
+      "finding": "P33-CI-K1"
+    }
+  ],
+  "artifact_sha256": null
+}

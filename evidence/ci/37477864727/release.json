@@ -1,0 +1,111 @@
+{
+  "recorded_at": "2026-10-06T14:18:46Z",
+  "kind": "ci-pipeline-run",
+  "repository": "abdelnabym519-cpu/MO7",
+  "branch": "arena/01a0ff3f-mo7",
+  "commit": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+  "version": "",
+  "artifact": "",
+  "artifact_sha256": null,
+  "environment": "ci",
+  "pipeline": {
+    "workflow": "Release Pipeline",
+    "run_id": "37477864727",
+    "run_attempt": "1"
+  },
+  "result": "NOT_RELEASABLE",
+  "stages": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": false,
+      "detail": "",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": false,
+      "detail": "None/None checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": false,
+      "detail": "violations=None {}",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": false,
+      "detail": "byte_identical=False classified={'build_id_in_path': '', 'build_id_in_content': '', 'build_id_digest': '', 'unexplained': ''}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": false,
+      "detail": "no pytest report was produced",
+      "excepted": true,
+      "finding": "P33-CI-K1",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-deps.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-imports.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-pipcheck.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-npm.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "a stage result is missing (/tmp/mo7-build/stage-frontend.json)",
+      "ok": false,
+      "detail": "no result document",
+      "required": false
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": false,
+      "detail": "errors=n/a unformatted=n/a scope=n/a",
+      "required": false
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": false,
+      "detail": "n/a findings, n/a high/high",
+      "required": true
+    }
+  ]
+}

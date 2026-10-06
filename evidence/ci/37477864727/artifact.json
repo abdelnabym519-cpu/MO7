@@ -1,0 +1,22 @@
+{
+  "recorded_at": "2026-10-06T14:18:46Z",
+  "commit": "532cfff5220e8cf766e081d0cd963b6d0602e057",
+  "version": "",
+  "environment": "ci",
+  "result": "fail",
+  "name": "",
+  "bytes": null,
+  "sha256": null,
+  "entries": null,
+  "manifest_sha256": null,
+  "canonical_sha256": null,
+  "source_date_epoch": null,
+  "build_environment": {
+    "python": null,
+    "setuptools": null,
+    "node": null,
+    "web_build": null,
+    "runner_os": null
+  },
+  "build_report": {}
+}
