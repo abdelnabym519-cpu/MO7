@@ -48,7 +48,7 @@ Two facts shape the design:
 | Runner registration / self-hosted runner | UNAVAILABLE | `403` on runner registration endpoints |
 | Google Fonts during the build | EXTERNALLY BLOCKED | `fonts.googleapis.com` / `fonts.gstatic.com` TLS EOF; the build uses the committed offline font mock (`font-mock.cjs`) with upstream `woff2` payloads |
 | Playwright browser download | EXTERNALLY BLOCKED | `cdn.playwright.dev` TLS EOF |
-| Browser binary | **AVAILABLE** (via npm) | `@sparticuz/chromium@143.0.4` from the npm registry (the registry itself is reachable), inflated with brotli and laid out where Playwright looks for it; the bundled AL2023 NSS libraries are put on `LD_LIBRARY_PATH` by `prod_browser.sh`. `chromium.launch({channel: "chromium"})` reports `Chromium 143.0.7499.0` |
+| Browser binary | **AVAILABLE** (via npm) | `@sparticuz/chromium@153.0.0` from the npm registry (`npm install`, not `npm pack` — the packed tarball's build tree is not runnable), laid out where Playwright 1.57 expects it (`~/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome` + `INSTALLATION_COMPLETE`); the package's `bin/al2023.tar.br` is inflated explicitly because it is only auto-inflated on Amazon Linux, and the resulting libraries are put on `LD_LIBRARY_PATH` by `prod_browser.sh`. `chrome --version` reports `Chromium 153.0.8010.0`; the full matrix reports 64 passed / 9 skipped |
 | Running the browser suite against a deployment | **AVAILABLE** | `bin/prod.sh session <account>` then `MO7_CHROMIUM_HOME=<extracted> bin/prod.sh browser --project=<p>` |
 | npm registry | AVAILABLE | used for `npm ci`, `npm pack geist@1.7.2 @fontsource/lora@5.3.0`, `@sparticuz/chromium` |
 | PyPI | AVAILABLE | `pypi.org` and `files.pythonhosted.org` |
@@ -156,7 +156,11 @@ result — not the existence of a file.
 | 9 | `rc_negative.py` | Invalid candidates are refused by the real tooling: a planted private key, a missing required file, two builds in one artifact, a version disagreement, and a red required gate |
 | 10 | `rc_release.py` | The candidate lifecycle: ingest → validate (rebuild + equivalence + contract + scan) → approve → promote → post-deploy validation → rollback, with a frozen artifact that cannot change unnoticed |
 
-`rc_stage.py`, `rc_faults.py` and `rc_faults_host.py` are supporting instruments:
+`rc_stage.py`, `rc_faults.py` and `rc_faults_host.py` are supporting
+instruments, and `bin/prod.sh ws` (`docs-for-user/phase32-infra/prod_ws.py`) is the
+deployment-side one: it opens real WebSocket sockets against the host under test,
+which is the only way to see an admission decision made before `accept()`. They are
+listed here as instruments rather than as pipeline stages because they are:
 the first records each pipeline stage, the second injects faults and requires
 detect → block → recover → validate (local layer), and the third does the same on
 the deployment host through `prod.sh` and `rc_release.py`.
@@ -272,8 +276,17 @@ VERIFY ─▶ STAGE ─▶ PRE-PROMOTE SMOKE ─▶ BACKUP ─▶ PROMOTE ─▶
 * BACKUP is the pre-migration control.
 * PROMOTE is an atomic symlink flip; a failed health check rolls the symlink back
   automatically and re-verifies the previous release.
-* POST-DEPLOY VALIDATION: `bin/prod.sh verify`, `health`, `artifact`, `security`,
-  `validate`, plus the browser suite where Chromium is available.
+* POST-DEPLOY VALIDATION: `bin/prod.sh verify`, `health`, `artifact`, `ws`
+  (the streaming surfaces), `security`, `validate`, plus the browser suite where
+  Chromium is available. `bin/prod.sh ws` opens real WebSocket connections
+  through the deployment's own ingress and asserts admission (a session is
+  admitted, an anonymous or forged one is refused), the subscription contract
+  (an unknown book is refused by name and the socket stays open) and
+  cross-account behaviour (another account's subscription is refused without
+  revealing whether the book exists). It is also part of the pre-promote smoke:
+  HTTP probes cannot see the difference between a refused upgrade and one that
+  was silently degraded into a plain GET, which is exactly the failure the
+  certification ingress had.
 
 Rollback:
 
@@ -571,3 +584,123 @@ are now closed: the contract, scan and reproducibility stages execute under
 status, and the assembler turns each stage document into a required gate. A
 document that is missing is itself a blocking gate, so a stage cannot disappear
 from the record. The failure injection for this is in §11.
+
+## 14. Operating the release cycle
+
+The whole cycle, in the order it is run (controller invocation in §6):
+
+```bash
+W=/home/user/mo7-cicd          # the release work directory
+R=docs-for-user/phase33-cicd   # the tooling, from the checkout
+
+python3 $R/rc_release.py ingest   --evidence evidence/ci/<run-id>   # CI evidence -> candidate
+python3 $R/rc_release.py validate --rc <rc-id>                      # rebuild + verify + gate
+python3 $R/rc_release.py approve  --rc <rc-id>                      # a VALIDATED candidate only
+python3 $R/rc_release.py promote  --rc <rc-id> [--previous <id>]     # deploy + post-deploy gate
+python3 $R/rc_release.py rollback --rc <rc-id> --to <release-id>     # restore + record
+python3 $R/rc_release.py verify   --rc <rc-id>                      # the frozen candidate has not moved
+```
+
+State is a file, not a memory: `<workdir>/state/<rc-id>.json` carries the current
+state (`CREATED` → `VALIDATED` → `APPROVED` → `PROMOTED`, or `REJECTED`,
+`ROLLBACK_REQUIRED`, `ROLLED_BACK`) and the history of who moved it and why. Two
+rules matter operationally:
+
+* **A verdict is immutable.** A `REJECTED` candidate cannot be re-validated, and
+  an `APPROVED` one cannot be re-approved: the fix belongs in a new commit, which
+  means a new CI run and a new candidate. This is what keeps "which artifact was
+  approved" answerable months later.
+* **A promotion is what the post-deploy gate says it is.** The deploy script
+  reporting success is not the end of the transition; the controller only records
+  `PROMOTED` after `verify`, `health`, `identity`, `artifact` and `ws` all pass on
+  the host that is now serving it. A failed gate leaves the candidate in
+  `ROLLBACK_REQUIRED` with the failing probe named in `post-deploy.json`, and the
+  release that is running is whatever the host's own manifest says — never
+  assume the old one came back by itself.
+
+Promotion takes a fresh pre-deploy backup and **rehearses it** (restore into a
+scratch root, ten checks) before the symlink flips, because the deployment
+verification requires the newest backup to have been rehearsed and taking a new
+one would otherwise invalidate the check the promotion is measured against.
+
+## 15. Refusals (the negative cycle)
+
+The negative cycle is executed, not inspected:
+
+```bash
+python3 docs-for-user/phase33-cicd/rc_negative.py     --artifact <a real wheel> [--case <name>] [--evidence <path>]
+```
+
+It builds five invalid candidates from a valid one in a scratch directory (never
+in the checkout) and requires the real tooling to refuse each: a planted private
+key, an artifact missing a required file, an artifact carrying two builds, a
+version that disagrees with the metadata, and a candidate whose required gates
+are red. A case that is *not* refused fails the suite, so a scanner that stopped
+working, a contract check that was weakened, or a verdict that stopped failing
+closed all show up as a negative-test failure rather than as silence.
+
+The CI side of the same property is the pipeline's own fail-closed stage: a run
+whose required gate fails ends `NOT_RELEASABLE`, and the job exits non-zero.
+
+## 16. Failure injection on the deployment host
+
+```bash
+python3 docs-for-user/phase33-cicd/rc_faults_host.py --layer host --rc <APPROVED rc-id> --case <name>
+bin/prod.sh faults --list            # the host's own eleven cases
+bin/prod.sh faults --phase inject --case <name>
+```
+
+A case is only recorded when all five steps happen: the fault is **injected**
+into the running deployment, the host **detects** it (an alert, a failed probe),
+the release process **blocks** on it, the deployment **recovers**, and the
+recovery is **validated** afterwards. A case that is detected but does not block,
+or that blocks but leaves the host unhealthy, is not a pass. The release
+controller's own `MO7_FAULT_RC_ID` must name an `APPROVED` candidate — a
+candidate that is already the current release cannot be the target of the
+rollback case, because a rollback refuses to "return" to where it already is.
+
+## 17. Rebuilding the release environment after a recycle
+
+This sandbox is recycled periodically; the workspace is snapshotted, `/tmp` and
+the home-directory browser caches are not, and the plumbing that lives outside
+the checkout (`/home/user/mo7-cicd`, `/home/user/mo7-prod`) can disappear. The
+checkout is the source of truth, so recovery is a rebuild, in this order:
+
+1. **Check the repository first.** `git fetch origin` then compare the working
+   tree with the recorded head *by content* (every tracked path hashed), because a
+   recycle can leave the refs older than the disk while the tree looks merely
+   dirty. Recover with `git stash push -u` (a named stash is the safety net) and a
+   fast-forward merge — never a reset.
+2. **Controller**: `/home/user/mo7-cicd` with `venv` (build, wheel, setuptools),
+   `gate-venv` (ruff + pyyaml), `fonts/` + `font-mock.cjs` (`npm pack geist@1.7.2
+   @fontsource/lora@5.3.0`, then the mock serves those files), and a baseline wheel
+   from a worktree of the current commit (`rc_build.sh`).
+3. **Chromium**: `npm install @sparticuz/chromium` (153.0.0), inflate
+   `bin/al2023.tar.br` with the package's own `build/cjs/lambdafs.cjs`, and lay
+   the result out for Playwright (`chromium-1200/chrome-linux64/` plus
+   `INSTALLATION_COMPLETE`). `prod_browser.sh` finds it through
+   `MO7_CHROMIUM_HOME`; `--version` must print before the matrix is trusted.
+4. **Deployment host**: `prod_bootstrap.sh <wheel> --release-id <id> --commit
+   <sha>`, then `init-config`, `provision`, `ingress start`, `backup`, `verify`.
+   The bootstrap installs the harness from the checkout — so a host rebuilt from
+   a stale checkout runs stale instruments. That is not cosmetic: a host whose
+   `prod_promote.sh` predates the marker-ordering fix will promote a release and
+   leave the contract naming the previous one, which fails every identity check.
+   Re-copy the harness (`prod_*.py`, `prod_*.sh`, `ingress_tls_proxy.js`,
+   `playwright.production.config.ts`) after any recycle or checkout update.
+
+## 18. Claim → instrument → evidence
+
+| Claim | Instrument | Evidence |
+| --- | --- | --- |
+| The commit builds a valid artifact | `.github/workflows/release.yml` | `evidence/ci/<run-id>/{release,artifact,test-summary,security-summary}.json` |
+| The artifact is what it says it is | `rc_contract.py`, `rc_scan.py` | `artifact-contract.json`, `artifact-scan.json` in the same directory |
+| Two builds of one commit agree | `rc_manifest.py` | `build-report.json` → `reproducibility` (`unexplained: []`) |
+| The candidate may be promoted | `rc_evidence.py` | `promotion.json` → `verdict`, `blocking` |
+| The frozen candidate did not move | `rc_release.py verify` | `state/<rc-id>.json` → `verify` |
+| What is deployed, and from what | Phase 32 host | `<prod>/run/current-release.json`, `bin/prod.sh identity` |
+| The release was healthy after promotion | `bin/prod.sh verify`, `health`, `identity`, `artifact`, `ws` | `rc/<rc-id>/evidence/post-deploy.json` |
+| A rollback worked without a human | `rc_release.py rollback`, host faults | `rc/<rc-id>/evidence/rollback.json`, `faults-host.json` |
+| No browser regression | `prod_browser.sh` | `web/test-results/` plus the reporter summary (64 passed / 9 skipped) |
+| The pipeline refuses invalid input | `rc_negative.py`, the CI fail-closed stage | `negative/` in the work directory, the run's own verdict |
+
