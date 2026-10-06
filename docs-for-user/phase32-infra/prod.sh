@@ -206,6 +206,12 @@ PYEOF
   security)
     "$PY" "$HARNESS/prod_security.py" "$@"
     ;;
+  ws)
+    # The streaming surfaces. Opening a real WebSocket is the only way to see
+    # admission decisions made before accept(): an upgrade that is refused and
+    # one that is silently degraded both look fine to an HTTP probe.
+    "$PY" "$HARNESS/prod_ws.py" "$@"
+    ;;
   session)
     "$PY" "$HARNESS/prod_session.py" "$@"
     ;;

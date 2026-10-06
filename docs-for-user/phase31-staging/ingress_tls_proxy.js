@@ -106,6 +106,17 @@ const server = https.createServer(
 server.on("upgrade", (req, socket, head) => {
   const upstream = net.connect(TARGET, "127.0.0.1", () => {
     const headers = forwardRequestHeaders(req.headers);
+    // `upgrade` and `connection` are hop-by-hop for ordinary messages, so
+    // `forwardRequestHeaders` strips them — correct for a request that is only
+    // travelling, fatal for a handshake, which *is* that pair. Without them the
+    // upstream reads a plain GET, its own proxy rewrites it to the app, and the
+    // app answers 404 because no GET route exists at /ws/...: the client sees a
+    // refused upgrade on a route that works perfectly when reached directly.
+    // Observed exactly that on this deployment's certification ingress. The
+    // response side needs no equivalent fix: the upstream's 101 is piped back
+    // untouched.
+    headers.upgrade = req.headers.upgrade || "websocket";
+    headers.connection = "Upgrade";
     headers["x-forwarded-for"] = headers["x-forwarded-for"] || req.socket.remoteAddress || "";
     const lines = [`GET ${req.url} HTTP/1.1`, ...Object.entries(headers).map(([k, v]) => `${k}: ${v}`)];
     upstream.write(lines.join("\r\n") + "\r\n\r\n");

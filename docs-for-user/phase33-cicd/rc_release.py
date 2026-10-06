@@ -606,6 +606,7 @@ def post_deploy_validation(state: dict) -> dict:
         ),
         ("release identity", [str(PROD_ROOT / "bin/prod.sh"), "identity"]),
         ("raw artifact probe", [str(PROD_ROOT / "bin/prod.sh"), "artifact"]),
+        ("streaming surfaces", [str(PROD_ROOT / "bin/prod.sh"), "ws"]),
     ]
     results = []
     for name, cmd in steps:

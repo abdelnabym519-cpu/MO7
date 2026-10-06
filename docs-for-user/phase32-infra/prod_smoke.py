@@ -130,6 +130,25 @@ def main() -> int:
         f"payload keys: {sorted((payload or {}).keys())[:6]}",
     )
 
+    # The streaming surfaces belong to this smoke: the pre-promote pass is the
+    # last chance to see them before a release is declared live, and an upgrade
+    # that is refused (or degraded into a plain GET) looks identical to a
+    # healthy one over plain HTTP.
+    import subprocess
+
+    ws = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "prod_ws.py")],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    tail = (ws.stdout or "").strip().splitlines()[-1:] or [""]
+    check(
+        "streaming surfaces admit a session and refuse an anonymous upgrade",
+        ws.returncode == 0,
+        tail[0] or f"exit={ws.returncode}",
+    )
+
     failed = [row for row in RESULTS if not row["ok"]]
     print(
         f"\nproduction smoke: total={len(RESULTS)} passed={len(RESULTS) - len(failed)} failed={len(failed)}"
