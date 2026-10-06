@@ -1,0 +1,100 @@
+{
+  "recorded_at": "2026-10-06T22:12:13Z",
+  "commit": "95eb26abc5f23f9cab6db62776e76412a24bd6b9",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "pytest": {
+    "passed": 8434,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 54,
+    "total": 8488,
+    "available": true
+  },
+  "ruff": {
+    "product_tree": {
+      "recorded_at": "2026-10-06T21:54:58Z",
+      "scope": "product",
+      "paths": [
+        "deeptutor",
+        "deeptutor_cli",
+        "tests",
+        "scripts"
+      ],
+      "files_seen": 1800,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1783 files already formatted"
+    },
+    "repository_wide": {
+      "recorded_at": "2026-10-06T21:55:01Z",
+      "scope": "repo",
+      "paths": [
+        "."
+      ],
+      "files_seen": 1800,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1963 files already formatted"
+    }
+  },
+  "static_and_import_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "95eb26abc5f23f9cab6db62776e76412a24bd6b9",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "11fc3b1ed0b26d90",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.29s",
+      "required": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 100.182s",
+      "required": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 13.766s",
+      "required": false
+    }
+  ]
+}
