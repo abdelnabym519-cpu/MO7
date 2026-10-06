@@ -364,10 +364,30 @@ jobs:
           git add "evidence/ci/$GITHUB_RUN_ID" || true
           if git diff --cached --quiet; then
             echo "no evidence to commit"
-          else
-            git commit -m "ci(release): evidence for run $GITHUB_RUN_ID (${GITHUB_SHA:0:7}) [skip ci]"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            exit 0
           fi
+          git commit -m "ci(release): evidence for run $GITHUB_RUN_ID (${GITHUB_SHA:0:7}) [skip ci]"
+          # The branch can move while the pipeline runs -- a person pushes the next
+          # commit. Pushing the evidence straight onto the tip then fails, the run
+          # is reported failed although every gate passed, and the evidence of a
+          # green run is lost with it (observed: run 37540344857, whose gates all
+          # passed and whose evidence never reached the branch). Rebase onto the
+          # branch as it now is and push again; a run that cannot record its
+          # evidence must still fail, so this refuses after the last attempt.
+          for attempt in 1 2 3; do
+            git fetch origin "$GITHUB_REF_NAME"
+            if git rebase "origin/$GITHUB_REF_NAME" >/dev/null 2>&1; then
+              if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                echo "evidence committed and pushed (attempt $attempt)"
+                exit 0
+              fi
+            else
+              git rebase --abort >/dev/null 2>&1 || true
+            fi
+            sleep 5
+          done
+          echo "FATAL: the evidence could not be pushed after 3 attempts" >&2
+          exit 1
 
       - name: Fail closed when the candidate is not releasable
         if: always()
