@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-10-06T19:42:44Z",
+  "commit": "ce64f6c2fcc47ab8bd76063f2417ee6acddd8a7f",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "name": "deeptutor-1.6.11-py3-none-any.whl",
+  "bytes": 38652189,
+  "sha256": "a545ad8314782b7b076098dda2f2311e2b4038724c6f3039b52d1251f7241ce5",
+  "entries": 4400,
+  "manifest_sha256": "927a872fa2ca57fa14d413cceb5ada7f075abebfca60857313f7a950e90bda21",
+  "canonical_sha256": "7f037ffb182603f963f86adccf7c95d7dda88e55de88f114f63e6c8b55bf7b6b",
+  "source_date_epoch": 1791314922,
+  "build_environment": {
+    "python": "3.11.16",
+    "setuptools": "84.0.0",
+    "node": "v22.23.3",
+    "web_build": "executed",
+    "runner_os": null
+  },
+  "build_report": {
+    "built_at": "2026-10-06T19:39:12Z",
+    "repository": "https://github.com/abdelnabym519-cpu/MO7",
+    "checkout": "/home/runner/work/MO7/MO7",
+    "build_root": "/tmp/mo7-build/src",
+    "mirrored": true,
+    "branch": "arena/01a0ff3f-mo7",
+    "commit": "ce64f6c2fcc47ab8bd76063f2417ee6acddd8a7f",
+    "commit_short": "ce64f6c",
+    "version": "1.6.11",
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "artifact_bytes": 38652189,
+    "artifact_sha256": "a545ad8314782b7b076098dda2f2311e2b4038724c6f3039b52d1251f7241ce5",
+    "artifact_entries": 4400,
+    "artifact_manifest_sha256": "927a872fa2ca57fa14d413cceb5ada7f075abebfca60857313f7a950e90bda21",
+    "source_date_epoch": 1791314922,
+    "python": "3.11.16",
+    "setuptools": "84.0.0",
+    "node": "v22.23.3",
+    "web_build": "executed",
+    "web_build_id": "kGfLyX6KRUlVAZh2i_NLP",
+    "scrubbed_build_path": "/srv/mo7-build",
+    "scrub_files": "371",
+    "scrub_occurrences": "14398",
+    "recipe_sha256": "4c23912380852f8139a5a0c832041034716806f515576abfbcf3da6d890887ac",
+    "tool_hashes": {
+      "rc_manifest": "05a3b637ecfefcefe0f74bd2a013615ce1255042e06de23a9809d54a0eb46ee0",
+      "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+      "rc_normalize_build": "36d57cfb856df1d0d34d683ba957f0bb5da7ee22c8f85d8b3936acc4d8b52740",
+      "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+    }
+  }
+}

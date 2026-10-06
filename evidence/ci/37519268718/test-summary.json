@@ -1,0 +1,88 @@
+{
+  "recorded_at": "2026-10-06T19:42:44Z",
+  "commit": "ce64f6c2fcc47ab8bd76063f2417ee6acddd8a7f",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "pytest": {
+    "passed": 8434,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 54,
+    "total": 8488,
+    "available": true
+  },
+  "ruff": {
+    "product_tree": {
+      "recorded_at": "2026-10-06T19:30:02Z",
+      "scope": "product",
+      "paths": [
+        "deeptutor",
+        "deeptutor_cli",
+        "tests",
+        "scripts"
+      ],
+      "files_seen": 1800,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1783 files already formatted"
+    },
+    "repository_wide": {
+      "recorded_at": "2026-10-06T19:30:04Z",
+      "scope": "repo",
+      "paths": [
+        "."
+      ],
+      "files_seen": 1800,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1963 files already formatted"
+    }
+  },
+  "static_and_import_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "ce64f6c2fcc47ab8bd76063f2417ee6acddd8a7f",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "a545ad8314782b7b",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.189s",
+      "required": false
+    }
+  ]
+}
