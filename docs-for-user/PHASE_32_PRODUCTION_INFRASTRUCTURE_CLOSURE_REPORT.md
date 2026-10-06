@@ -632,8 +632,14 @@ a rehearsal record and the storage it covers are present (107 with them, 105
 without). This is by design and is recorded here so a later operator does not read
 a changing total as a changing deployment.
 
-Evidence: `evidence/final-loop.log` (this loop), plus the per-instrument JSON
-files named in §29.
+A confirmation pass was then run from the frozen repository state (commit
+`968e1ef`, the harness in `mo7-prod/harness/` byte-identical to the committed
+sources): verify 107/107, validation 41/41 and 6/6, security 38/38 on both
+surfaces, artifact probe 29/29 on both surfaces, `identity traceable=True
+failures=0`, `healthy True`, 18 rules with 0 firing.
+
+Evidence: `evidence/final-loop.log` and `evidence/final-loop-frozen.log`, plus the
+per-instrument JSON files named in §29.
 
 ---
 
