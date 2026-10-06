@@ -651,6 +651,16 @@ def verb_promote(args) -> int:
         return 2
 
     release_id = args.release_id or state["rc_id"]
+    # The release this promotion will replace, read before it happens: the marker
+    # names the running release and the promotion overwrites it, so a rollback
+    # decided after a failed post-deploy validation can only know its target from
+    # here (or from the promoted marker's `previous_release`, which this value is
+    # written into). Without this the rollback degrades to "manual action
+    # required", which is what the first full cycle observed.
+    previous_release = deployed_release().get("release_id") or state.get("previous_release")
+    if previous_release:
+        state["previous_release"] = previous_release
+        log(f"promotion will replace {previous_release}")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     logfile = LOG_DIR / f"promote-{state['rc_id']}.log"
     result = run(
@@ -719,8 +729,15 @@ def verb_promote(args) -> int:
         # A release that does not serve is not a release. Roll back to the release
         # that was current before this promotion and record both facts.
         previous = (
-            args.previous or state.get("previous_release") or deployed.get("previous_release")
+            args.previous
+            or state.get("previous_release")
+            or deployed.get("previous_release")
+            or previous_release
         )
+        if previous == release_id:
+            # A target equal to the release being rolled back from is not a
+            # rollback: it would re-promote the release that just failed.
+            previous = deployed.get("previous_release") or state.get("previous_release")
         rollback = None
         if previous:
             rollback = run(

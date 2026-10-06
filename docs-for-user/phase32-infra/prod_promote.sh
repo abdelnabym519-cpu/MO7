@@ -178,23 +178,32 @@ if [ "$DO_SMOKE" = "1" ]; then
   fi
 fi
 
-# The contract must name the release that is now running; a forward deployment
-# that reached this point has been health- and smoke-verified.
-"$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_contract_identity.py" | while read -r line; do log "CONTRACT $line"; done
-
 printf '%s deploy release=%s artifact=%s commit=%s previous=%s outage_ms=%s\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RELEASE_ID" "$ARTIFACT_SHA" "$COMMIT" \
   "${PREVIOUS_RELEASE##*/}" "$DOWN_MS" >>"$PROD_DEPLOY_LOG"
-python3 - "$PROD_ROOT" "$RELEASE_ID" "$PROD_CURRENT_RELEASE_FILE" <<'PYEOF'
+# The marker is written first, and the contract is refreshed from it afterwards.
+# The marker is what `prod_contract_identity.py` reads, so refreshing the contract
+# before this point wrote the *previous* release's identity into the contract --
+# observed on the second promotion of a host: the release was live and serving,
+# and every identity-bearing check read the old release. Order matters here.
+python3 - "$PROD_ROOT" "$RELEASE_ID" "$PROD_CURRENT_RELEASE_FILE" "${PREVIOUS_RELEASE##*/}" <<'PYEOF'
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-root, release_id, out = sys.argv[1:4]
+root, release_id, out, previous = sys.argv[1:5]
 manifest = json.loads((Path(root) / "releases" / release_id / "manifest.json").read_text())
 manifest["promoted_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 manifest["current"] = str(Path(root) / "current")
+# The release this promotion replaced, recorded where a rollback and an auditor
+# both look for it. `prod_rollback.sh` resolves its target from the deploy log;
+# a caller that decides to roll back later needs the same fact in one place.
+manifest["previous_release"] = previous or None
 Path(out).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 PYEOF
+
+# The contract must name the release that is now running; a forward deployment
+# that reached this point has been health- and smoke-verified.
+"$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_contract_identity.py" | while read -r line; do log "CONTRACT $line"; done
 log "RELEASE $RELEASE_ID is live"
