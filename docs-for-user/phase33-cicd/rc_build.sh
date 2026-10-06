@@ -17,6 +17,10 @@
 #   4. build the wheel
 #   5. write build-report.json (identity + hashes) next to the artifact
 #
+# Declared build inputs: SOURCE_DATE_EPOCH (the commit timestamp), the canonical
+# build root every builder mirrors into, and CIRCLE_NODE_TOTAL (the worker count
+# Next.js writes into the generated config).
+#
 # Determinism: SOURCE_DATE_EPOCH is pinned to the commit timestamp unless given,
 # so a build does not inherit "now" as an input. The build also does not inherit
 # the builder's directory: webpack derives module and chunk ids from module
@@ -40,6 +44,9 @@ SDE=""
 SKIP_WEB=0
 MIRROR=1
 BUILD_ROOT="${MO7_BUILD_ROOT:-/tmp/mo7-build/src}"
+# The worker count Next writes into the generated config, as a declared build
+# input rather than a property of whoever runs the build.
+BUILD_CPU_PIN="${MO7_BUILD_CPU_PIN:-2}"
 FONT_MOCK="${MO7_FONT_MOCK:-/home/user/mo7-cicd/font-mock.cjs}"
 PY="${MO7_BUILD_PYTHON:-/home/user/mo7-cicd/venv/bin/python}"
 
@@ -139,7 +146,14 @@ else
   # build's assets alongside its own — observed as extra entries in the wheel
   # manifest, and a real reproducibility hazard for a release artifact.
   rm -rf "$SRC/web/.next"
-  log "web build: npm run build (offline font responses)"
+  # Next.js derives `experimental.cpus` from the machine it runs on —
+  # `Math.max(1, os.cpus().length - 1)` — and that value is written into the
+  # generated configuration, so the artifact used to record how many cores the
+  # builder had (measured: 1 here on two cores, a CI runner's own count there).
+  # Next honours CIRCLE_NODE_TOTAL as an override, so the recipe declares the
+  # value the release is built with instead of inheriting the builder's machine.
+  export CIRCLE_NODE_TOTAL="$BUILD_CPU_PIN"
+  log "web build: npm run build (offline font responses, CIRCLE_NODE_TOTAL=$BUILD_CPU_PIN)"
   ( cd "$SRC/web" && NEXT_FONT_GOOGLE_MOCKED_RESPONSES="$FONT_MOCK" \
       NEXT_TELEMETRY_DISABLED=1 npm run build ) >"$OUT/web-build.log" 2>&1 \
     || { tail -30 "$OUT/web-build.log" >&2; die "web build failed"; }
@@ -223,6 +237,7 @@ cat >"$OUT/build-report.json" <<JSON
   "node": "$(node --version 2>/dev/null || echo unknown)",
   "web_build": "$([ "$SKIP_WEB" = "1" ] && echo reused || echo executed)",
   "web_build_id": "$BUILD_ID",
+  "build_cpu_pin": "$BUILD_CPU_PIN",
   "scrubbed_build_path": "$PLACEHOLDER",
   "scrub_files": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('files_changed', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)",
   "scrub_occurrences": "$("$PY" -c "import json,sys;print(json.load(open(sys.argv[1])).get('occurrences', 0))" "$OUT/path-scrub.json" 2>/dev/null || echo 0)",

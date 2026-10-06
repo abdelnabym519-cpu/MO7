@@ -363,6 +363,7 @@ The claim is deliberately narrow, and every part of it has a measurement:
 | The artifact carries no random build id and no random tsconfig name | verified | `build-metadata.json`: both derived from commit + `SOURCE_DATE_EPOCH` + version, every occurrence rewritten |
 | Per-build generated **secrets** differ between builds | **true, by design, and not derived** | `prerender-manifest.json` (`preview.previewModeId`, `preview.previewModeSigningKey`), `server-reference-manifest.json` (`encryptionKey`) |
 | The artifact records the **builder's network addresses** | **true**, masked in the comparison, recorded as a finding | `allowedDevOrigins` in `required-server-files.json` and in the standalone `server.js` (measured: `["127.0.0.1","169.254.0.21"]` here, a CI runner's own addresses there) |
+| The artifact records the **builder's CPU count** | **fixed**: the recipe pins `CIRCLE_NODE_TOTAL` | `build-report.json`: `build_cpu_pin`; verified by building under a contradictory environment value |
 
 ### 13.1 What the comparison is
 
@@ -386,6 +387,20 @@ out of the files afterwards cannot repair an id that was already hashed. Fixed b
 building at a **canonical build root** — `rc_build.sh` mirrors the checkout into
 `/tmp/mo7-build/src` and builds there, so every builder builds at the same
 absolute path. Identity is still read from the real checkout.
+
+**P33-R3 — the artifact recorded the builder's machine.** Two values in the
+generated Next.js configuration come from the machine that builds it:
+`allowedDevOrigins` (this machine's non-loopback IPv4 addresses, from
+`web/next.config.js`) and `experimental.cpus` (`Math.max(1, os.cpus().length - 1)`
+inside Next itself). Both are written into `required-server-files.json` and
+embedded in the standalone `server.js`, so the artifact said how many cores the
+builder had and which network it was on — and a rebuild on another machine could
+never match it. The worker count is now **a declared build input**: the recipe
+exports Next's own `CIRCLE_NODE_TOTAL` override (`MO7_BUILD_CPU_PIN`, default 2),
+so the environment cannot supply the value; measured, a build run under
+`CIRCLE_NODE_TOTAL=8` still records the pin and compares clean. The address list
+is masked in the comparison (§13.6) because removing it means changing product
+source, which this phase does not do.
 
 **P33-R2 — the artifact carried random values.** Next.js generates a random build
 id per build (measured: 433 files, 450 occurrences in one bundle) and writes a
