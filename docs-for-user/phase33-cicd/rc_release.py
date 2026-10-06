@@ -29,6 +29,7 @@ transition records the evidence digest it was taken on.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -40,6 +41,8 @@ import time
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+
+import rc_manifest  # noqa: E402  - the comparison rules live with the build manifest
 
 WORKDIR = Path(os.environ.get("MO7_RELEASE_WORKDIR", "/home/user/mo7-cicd"))
 PROD_ROOT = Path(os.environ.get("PROD_ROOT", "/home/user/mo7-prod"))
@@ -282,15 +285,42 @@ def verb_validate(args) -> int:
         report["commit"][:12],
     )
 
-    # 4. the two builds must be content-identical (the equivalence proof)
-    ci_manifest = json.loads((frozen / "artifact.json").read_text())
+    # 4. the two builds must be the same content (the equivalence proof)
+    #
+    # Not by comparing canonical digests: the canonical form normalises the build
+    # id in entry *names* and in JSON bodies, but not in every entry that embeds
+    # it (RECORD, server.js and the manifests keep its fingerprints), so two
+    # builds of one commit never have the same canonical digest — measured:
+    # c=95e89d86… and d=fe45f82f… for two builds on this host. Comparing them
+    # would have refused every promotion, and calling it an identity proof would
+    # have been wrong. The entry-by-entry comparison is used instead: every entry
+    # difference must be explained by a checked rule (build id in the name, build
+    # id in the content, a digest of build-id-derived content, ordering), and
+    # nothing may be left unexplained.
+    ci_manifest_path = frozen / "artifact-manifest.json.gz"
+    if not ci_manifest_path.is_file():
+        plain = frozen / "artifact-manifest.json"
+        ci_manifest_path = plain if plain.is_file() else None
+    if ci_manifest_path is None:
+        check(
+            "the CI evidence carries the artifact manifest",
+            False,
+            "no artifact-manifest.json(.gz) in the frozen CI evidence: the rebuild "
+            "cannot be compared with what CI built",
+        )
+        return finish_validation(state, checks, 1)
+    if ci_manifest_path.suffix == ".gz":
+        ci_manifest = json.loads(gzip.decompress(ci_manifest_path.read_bytes()))
+    else:
+        ci_manifest = json.loads(ci_manifest_path.read_text())
     local_manifest = json.loads((out / "manifest.json").read_text())
-    content_equal = local_manifest["canonical_sha256"] == ci_manifest.get("canonical_sha256")
+    comparison = rc_manifest.compare(ci_manifest, local_manifest)
     check(
-        "the local rebuild is content-identical to the CI artifact",
-        content_equal,
-        f"local={local_manifest['canonical_sha256'][:16]}… "
-        f"ci={str(ci_manifest.get('canonical_sha256'))[:16]}…",
+        "the rebuild and the CI artifact are the same content",
+        bool(comparison["reproducible"]),
+        f"byte_identical={comparison['byte_identical']} "
+        f"classification={comparison['classification']} "
+        f"unexplained={comparison['unexplained'][:3]}",
     )
     check(
         "the rebuild has the same entry count as the CI artifact",
@@ -355,7 +385,23 @@ def verb_validate(args) -> int:
         "build_report": report,
         "manifest_sha256": local_manifest["manifest_sha256"],
         "canonical_sha256": local_manifest["canonical_sha256"],
-        "content_identical_to_ci": bool(content_equal),
+        "equivalence": {
+            "method": "entry-by-entry comparison of the two artifacts' build manifests",
+            "ci_artifact_sha256": ci_manifest.get("artifact_sha256"),
+            "local_artifact_sha256": local_manifest.get("artifact_sha256"),
+            "byte_identical": comparison["byte_identical"],
+            "content_identical_to_ci": bool(comparison["reproducible"]),
+            "classification": comparison["classification"],
+            "unexplained": comparison["unexplained"][:20],
+            "build_ids": {
+                "ci": ci_manifest.get("build_id"),
+                "local": local_manifest.get("build_id"),
+            },
+            "canonical_sha256": {
+                "ci": ci_manifest.get("canonical_sha256"),
+                "local": local_manifest.get("canonical_sha256"),
+            },
+        },
         "artifact_path": str(artifact),
         "artifact_sha256": report["artifact_sha256"],
         "contract": json.loads(contract_path.read_text()) if contract_path.is_file() else {},

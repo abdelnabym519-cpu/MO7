@@ -503,7 +503,17 @@ def main() -> int:
         mark = "PASS" if row["ok"] else ("EXCEPTED" if row.get("excepted") else "FAIL")
         print(f"  {mark:8s} {row['stage']} -- {row['detail'][:140]}")
     print(f"evidence: {out}")
-    return 0
+    # The verdict is the tool's result, so it is also its exit status: a caller
+    # that runs the assembler and checks the exit code must not be able to treat
+    # an unreleasable candidate as a success. (It could: the document said
+    # NOT_RELEASABLE while the process returned 0.)
+    if verdict == "RELEASABLE":
+        return 0
+    print(
+        f"refused: {verdict} ({len([g for g in gates if not g['ok'] and g.get('required', True)])} "
+        f"required gate(s) failed)"
+    )
+    return 1
 
 
 if __name__ == "__main__":

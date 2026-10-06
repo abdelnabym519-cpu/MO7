@@ -229,9 +229,21 @@ def case_unreleasable_verdict(artifact: Path, work: Path) -> dict:
             str(policy_path),
             "--out",
             str(out),
-            "--json",
         ]
     )
+    # rc_evidence writes the candidate; its exit code is the pipeline's verdict,
+    # so a candidate with red required gates must come back non-zero.
+    if proc.returncode == 0:
+        return {
+            "case": "a candidate whose required gates are red",
+            "injected": "a security violation, a failed contract and a failed reproducibility check",
+            "detector": "rc_evidence.py (promotion gate and verdict)",
+            "detected": False,
+            "gate": "promotion gate",
+            "blocked": False,
+            "detail": f"rc_evidence accepted a candidate with red required gates (exit 0): "
+            f"{(proc.stdout or proc.stderr).strip()[-200:]}",
+        }
     rc = (
         json.loads((out / "release-candidate.json").read_text())
         if (out / "release-candidate.json").is_file()

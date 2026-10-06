@@ -260,6 +260,24 @@ PYEOF
     # so this one command uses the promoted release's interpreter.
     [ -x "$PROD_CURRENT_LINK/venv/bin/python" ] || { echo "FATAL: no promoted release; run prod.sh promote --release <id>" >&2; exit 78; }
     DEEPTUTOR_HOME="$PROD_HOME" "$PROD_CURRENT_LINK/venv/bin/python" "$HARNESS/prod_init_config.py"
+    # Settings are read once, at import. A deployment that has already started
+    # keeps serving the settings it started with, so applying the configuration
+    # to a running stack must restart the processes that read it — otherwise a
+    # freshly promoted host keeps auth disabled and provisioning fails with
+    # "Auth is disabled — user creation is not available" (observed).
+    if sup_running; then
+      echo "configuration written; restarting the stack so the release reads it"
+      sup restart backend frontend
+      for _ in $(seq 1 60); do
+        if curl -fsS "http://$PROD_BACKEND_HOST:$PROD_BACKEND_PORT/health/ready" >/dev/null 2>&1; then
+          echo "backend ready with the new configuration"
+          break
+        fi
+        sleep 1
+      done
+      curl -fsS "http://$PROD_BACKEND_HOST:$PROD_BACKEND_PORT/health/ready" >/dev/null 2>&1 \
+        || { echo "FATAL: backend did not become ready after applying the configuration" >&2; exit 1; }
+    fi
     ;;
   ""|-h|--help|help)
     usage

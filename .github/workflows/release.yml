@@ -213,6 +213,11 @@ jobs:
           set -euo pipefail
           bash docs-for-user/phase33-cicd/rc_build.sh \
             --checkout "$GITHUB_WORKSPACE" --out /tmp/mo7-build/out
+          # The build manifest is published with the evidence: it is the only
+          # artefact that lets another host verify that its own rebuild of this
+          # commit is the same content as the artifact CI built (the wheel itself
+          # cannot be fetched from here). It is a digest map, ~0.9 MiB gzipped.
+          gzip -9 -c /tmp/mo7-build/out/manifest.json > /tmp/mo7-build/out/artifact-manifest.json.gz
           python -c 'import json,pathlib;r=json.loads(pathlib.Path("/tmp/mo7-build/out/build-report.json").read_text());print("artifact_sha256="+r["artifact_sha256"]);print("canonical_sha256="+r["artifact_manifest_sha256"]);print("artifact="+r["artifact"]);print("entries="+str(r["artifact_entries"]));print("version="+r["version"])' >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT" | tail -5
 
@@ -261,7 +266,11 @@ jobs:
         env:
           STRICT: ${{ inputs.strict }}
         run: |
-          set -euo pipefail
+          # The assembler's exit status is the pipeline's verdict, and the
+          # evidence below is read whether or not it refused the candidate: the
+          # outputs (rc_id, verdict) and the committed documents are the record.
+          set -uo pipefail
+          assembler_exit=0
           python docs-for-user/phase33-cicd/rc_evidence.py \
             --run-id "$GITHUB_RUN_ID" \
             --run-attempt "$GITHUB_RUN_ATTEMPT" \
@@ -278,6 +287,7 @@ jobs:
             --raw /tmp/mo7-build/out/artifact-contract.json \
             --raw /tmp/mo7-build/out/artifact-scan.json \
             --raw /tmp/mo7-build/out/reproducibility.json \
+            --raw /tmp/mo7-build/out/artifact-manifest.json.gz \
             --raw /tmp/mo7-build/lint-product.json \
             --raw /tmp/mo7-build/lint-repo.json \
             --pytest-report pytest-report.xml \
@@ -290,10 +300,11 @@ jobs:
             --stage /tmp/mo7-build/stage-frontend.json \
             --lint-product /tmp/mo7-build/lint-product.json \
             --lint-repo /tmp/mo7-build/lint-repo.json \
-            --out "evidence/ci/$GITHUB_RUN_ID"
+            --out "evidence/ci/$GITHUB_RUN_ID" || assembler_exit=$?
           cat "evidence/ci/$GITHUB_RUN_ID/release-candidate.json" | head -40
           python -c 'import json,pathlib,os;root=pathlib.Path("evidence/ci")/os.environ["GITHUB_RUN_ID"];rc=json.loads((root/"release-candidate.json").read_text());print("rc_id="+rc["rc_id"]);print("verdict="+rc["verdict"])' >> "$GITHUB_OUTPUT"
           tail -2 "$GITHUB_OUTPUT"
+          exit "$assembler_exit"
 
       - name: Publish the pipeline summary
         if: always()

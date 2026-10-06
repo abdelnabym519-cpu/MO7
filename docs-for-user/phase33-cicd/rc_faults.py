@@ -77,6 +77,47 @@ def evidence_verdict(
         "unexplained differences: 0\n"
     )
     report = build_report(workdir / "build-report.json", artifact, commit)
+    # The gates that read other stages' reports must be given reports, or the
+    # candidate is refused for evidence the fault harness never supplied and the
+    # "recovered" half of a case can never be green. These are the harness's own
+    # inputs, named as such; the pipeline supplies the real ones.
+    (workdir / "pytest.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" '
+        'tests="1" failures="0" errors="0" skipped="0"><testcase classname="fault" '
+        'name="injected"/></testsuite></testsuites>\n'
+    )
+    (workdir / "bandit.json").write_text(
+        json.dumps({"findings": 7, "high_high": 0, "high": []}) + "\n"
+    )
+    (workdir / "lint-product.json").write_text(
+        json.dumps(
+            {
+                "clean": True,
+                "errors": 0,
+                "unformatted": 0,
+                "files_seen": 1797,
+                "paths": ["deeptutor", "deeptutor_cli", "tests", "scripts"],
+            }
+        )
+        + "\n"
+    )
+    repro_document = workdir / "repro.json"
+    repro_document.write_text(
+        json.dumps(
+            {
+                "byte_identical": False,
+                "reproducible": True,
+                "classification": {"unexplained": 0, "names_differ_only_by_build_id": 4},
+                "content_identical": False,
+                "canonical_added": [],
+                "canonical_removed": [],
+                "canonical_changed": ["deeptutor-1.6.11.dist-info/RECORD"],
+                "unexplained": [],
+                "build_id_records": ["fault-a", "fault-b"],
+            }
+        )
+        + "\n"
+    )
     proc = run(
         [
             PYTHON,
@@ -97,6 +138,14 @@ def evidence_verdict(
             str(workdir / "scan.json"),
             "--reproducibility",
             str(workdir / "repro.txt"),
+            "--reproducibility-json",
+            str(repro_document),
+            "--pytest-report",
+            str(workdir / "pytest.xml"),
+            "--bandit-summary",
+            str(workdir / "bandit.json"),
+            "--lint-product",
+            str(workdir / "lint-product.json"),
             "--policy",
             str(policy),
             "--out",
