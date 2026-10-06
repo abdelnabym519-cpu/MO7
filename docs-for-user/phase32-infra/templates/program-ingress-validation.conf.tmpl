@@ -1,0 +1,29 @@
+; =============================================================================
+; MO7 production program definitions — validation ingress (autostart=false)
+; =============================================================================
+; A TLS-terminating proxy in front of the frontend so the browser and API
+; harnesses exercise the same request shape a client sees through the platform
+; edge (HTTPS, forwarded headers, hop-by-hop header handling).
+;
+; It is NOT the production edge and its certificate is self-signed: production
+; TLS terminates at the platform edge named by PROD_PUBLIC_ORIGIN. It is
+; supervised rather than hand-started so that validation windows have the same
+; crash handling as everything else, and it is deliberately `autostart=false`
+; so it only exists while a validation run needs it.
+; =============================================================================
+[program:ingress-validation]
+command=node @PROD_ROOT@/harness/ingress_tls_proxy.js @PROD_ROOT@/harness/tls @PROD_TLS_VALIDATION_PORT@ @PROD_FRONTEND_PORT@
+directory=@PROD_ROOT@
+autostart=false
+autorestart=true
+startsecs=2
+startretries=5
+rlimit_nofile=@PROD_RLIMIT_NOFILE@
+stopwaitsecs=10
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stdout_logfile=@PROD_ROOT@/run/supervisor/ingress-validation.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=3
+redirect_stderr=true

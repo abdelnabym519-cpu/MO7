@@ -1,0 +1,42 @@
+# =============================================================================
+# systemd unit for a real production host
+# =============================================================================
+# This unit is the correct production start mechanism on a host with a working
+# init system. It is shipped (and referenced by the runbook) but NOT installed
+# here: this sandbox has PID 1 = systemd with no D-Bus and no writable unit
+# directory, so the deployment runs the same process model via
+# `bin/prod.sh start` plus the host watchdog (prod_watchdog.py) instead. The
+# difference is documented in the closure report as an environment limitation,
+# not as a production capability.
+#
+# Install on a real host:
+#   sudo cp mo7-production.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mo7-production
+# =============================================================================
+[Unit]
+Description=MO7 production stack (supervisord: backend, frontend, scheduler)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=mo7
+Group=mo7
+Environment=PROD_ROOT=/srv/mo7-prod
+PIDFile=/srv/mo7-prod/run/supervisord.pid
+ExecStart=/srv/mo7-prod/ops-venv/bin/supervisord -c /srv/mo7-prod/etc/supervisord.conf
+ExecStop=/srv/mo7-prod/ops-venv/bin/supervisorctl -c /srv/mo7-prod/etc/supervisord.conf shutdown
+ExecReload=/srv/mo7-prod/ops-venv/bin/supervisorctl -c /srv/mo7-prod/etc/supervisord.conf restart backend frontend
+Restart=always
+RestartSec=5
+KillMode=process
+TimeoutStopSec=90
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/srv/mo7-prod
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,33 @@
+; =============================================================================
+; MO7 production program definitions — backend
+; =============================================================================
+; Same shape as [program:backend] in the release Dockerfile: the program body is
+; the release's own start-backend.sh, which runs exactly the image's uvicorn
+; command line (see docs-for-user/phase32-infra/templates/start-backend.sh).
+;
+; Deliberate, documented difference from the image: no `user=` directive.
+; supervisord runs as the unprivileged deployment user (uid 1001) and the app
+; processes inherit it, which is the same effective posture as the image under
+; rootless Podman + `userns_mode: keep-id` (the shape CONTAINERIZATION.md
+; documents for the hardened path). No component runs as root.
+;
+; `current` is a symlink to the promoted release, so promotion and rollback are
+; an atomic symlink flip followed by `supervisorctl restart`.
+; =============================================================================
+[program:backend]
+command=/bin/bash @PROD_ROOT@/current/bin/start-backend.sh
+directory=@PROD_ROOT@/current
+autostart=true
+autorestart=true
+startsecs=10
+startretries=5
+rlimit_nofile=@PROD_RLIMIT_NOFILE@
+stopwaitsecs=20
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stdout_logfile=@PROD_ROOT@/run/supervisor/backend.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=5
+redirect_stderr=true
+environment=PYTHONUNBUFFERED="1",PROD_ROOT="@PROD_ROOT@",PROD_CONTRACT="@PROD_ROOT@/etc/production.env"

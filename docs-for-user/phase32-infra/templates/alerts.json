@@ -1,0 +1,211 @@
+{
+  "environment": "production",
+  "owner_default": "mo7-platform-oncall",
+  "notes": [
+    "Every rule is evaluated against a measured metrics sample (prod_metrics.py).",
+    "No external alerting integration exists in this environment; the evaluator writes",
+    "run/alerts/alerts.json (state) and run/alerts/alerts.log (transitions), which is where",
+    "a pager integration would be attached. Nothing here is simulated.",
+    "'verification' names the command that was actually used to prove the rule fires."
+  ],
+  "rules": [
+    {
+      "id": "process-down-backend",
+      "severity": "critical",
+      "metric": "programs.backend.state",
+      "op": "!=",
+      "value": "RUNNING",
+      "description": "the API process is not RUNNING under supervisord",
+      "response": "prod.sh status; prod.sh logs backend 200; restart with prod.sh restart backend; if it fails again check the data root and secrets, then roll back with prod.sh rollback",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case api-crash (process killed, alerts fire, autorestarts, alert clears)"
+    },
+    {
+      "id": "process-down-frontend",
+      "severity": "critical",
+      "metric": "programs.frontend.state",
+      "op": "!=",
+      "value": "RUNNING",
+      "description": "the frontend process is not RUNNING under supervisord",
+      "response": "prod.sh status; prod.sh logs frontend 200; prod.sh restart frontend",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case frontend-crash"
+    },
+    {
+      "id": "supervisor-watchdog-down",
+      "severity": "critical",
+      "metric": "watchdog.running",
+      "op": "!=",
+      "value": true,
+      "description": "the host watchdog that keeps supervisord alive is not running",
+      "response": "prod.sh watchdog start; confirm with prod.sh status; without the watchdog nothing restarts supervisord itself",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case supervisor-kill (supervisord killed, watchdog restarted it)"
+    },
+    {
+      "id": "readiness-failed",
+      "severity": "critical",
+      "metric": "probes.ready.status",
+      "op": "!=",
+      "value": 200,
+      "description": "the API readiness probe is not answering 200",
+      "response": "prod.sh health; check database/storage health in the same sample; prod.sh logs backend",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case api-stop (API stopped; readiness reports unhealthy, alert fires, recovery clears it)"
+    },
+    {
+      "id": "frontend-unreachable",
+      "severity": "critical",
+      "metric": "probes.frontend.status",
+      "op": "!=",
+      "value": 200,
+      "description": "the frontend does not serve /login",
+      "response": "prod.sh logs frontend 200; prod.sh restart frontend",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case frontend-stop"
+    },
+    {
+      "id": "ingress-unreachable",
+      "severity": "warning",
+      "metric": "probes.ingress.status",
+      "op": "!=",
+      "value": 200,
+      "description": "the validation ingress does not reach the frontend over TLS",
+      "response": "prod.sh status (ingress is a validation component); verify the platform edge separately for the public origin",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case ingress-down"
+    },
+    {
+      "id": "database-integrity",
+      "severity": "critical",
+      "metric": "database.unhealthy",
+      "op": ">",
+      "value": 0,
+      "description": "at least one SQLite store failed PRAGMA integrity_check",
+      "response": "prod.sh fingerprint; identify the store; restore it from the newest verified backup with prod.sh restore into a rehearsal root, validate, then promote the restore",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py (integrity of all stores) plus prod_restore.py rehearsal"
+    },
+    {
+      "id": "backup-stale",
+      "severity": "warning",
+      "metric": "backups.latest_age_hours",
+      "op": ">",
+      "value": 26,
+      "description": "the newest backup is older than 26 hours",
+      "response": "prod.sh backup --label manual; check the scheduler (prod.sh logs watchdog) and disk space",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py --section backups; prod_faults.py --case backup-failure"
+    },
+    {
+      "id": "backup-missing",
+      "severity": "critical",
+      "metric": "backups.count",
+      "op": "==",
+      "value": 0,
+      "description": "no verified backup exists",
+      "response": "run prod.sh backup and investigate why the scheduler did not; do not promote any release until a verified backup exists",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py --section backups"
+    },
+    {
+      "id": "backup-unverified",
+      "severity": "critical",
+      "metric": "backups.latest_verified",
+      "op": "!=",
+      "value": true,
+      "description": "the newest backup did not verify (integrity or hash failure)",
+      "response": "inspect evidence/backup-*.json and run prod.sh backup again; treat unverified backups as absent",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_backup.py returns non-zero on verification failure; prod_faults.py --case backup-failure"
+    },
+    {
+      "id": "disk-pressure",
+      "severity": "warning",
+      "metric": "disk.percent_used",
+      "op": ">",
+      "value": 80,
+      "description": "filesystem usage above 80%",
+      "response": "prod.sh backups (prune old backups); inspect data growth; plan capacity (documented limits in the closure report)",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py --section resources (recorded usage) and prod_faults.py --case disk-pressure"
+    },
+    {
+      "id": "disk-critical",
+      "severity": "critical",
+      "metric": "disk.percent_used",
+      "op": ">",
+      "value": 92,
+      "description": "filesystem nearly full: writes will start failing",
+      "response": "prune backups, clear runtime caches, and expand the volume; the API answers sanitised 500s for failed writes",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case disk-pressure (write failure path exercised on a bounded filesystem)"
+    },
+    {
+      "id": "application-errors",
+      "severity": "warning",
+      "metric": "logs.backend.recent_error_lines",
+      "op": ">",
+      "value": 5,
+      "description": "recent ERROR/Traceback lines in the backend log",
+      "response": "prod.sh logs backend 400; correlate with the access lines the app writes for non-200 responses",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case storage-readonly (sanitised 500 recorded in the log, response carries no stack trace)"
+    },
+    {
+      "id": "secret-permissions",
+      "severity": "critical",
+      "metric": "secrets.auth_secret.mode",
+      "op": "!=",
+      "value": "0o600",
+      "description": "the auth secret is not mode 0600",
+      "response": "chmod 600 the file; the release start script refuses to start with a world-readable secret, so this alert precedes a hard failure",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_faults.py --case secret-missing (start refusal and alert) and prod_verify.py --section secrets"
+    },
+    {
+      "id": "restart-rate",
+      "severity": "warning",
+      "metric": "derived.restarts_last_hour.backend",
+      "op": ">",
+      "value": 3,
+      "description": "the API process restarted more than three times in the last hour",
+      "response": "prod.sh logs backend 400 for the crash loop cause; consider rollback with prod.sh rollback",
+      "owner": "mo7-platform-oncall",
+      "verification": "derived from the metrics series collected by prod_metrics.py --loop during the failure runs"
+    },
+    {
+      "id": "cert-expiry-validation-ingress",
+      "severity": "warning",
+      "metric": "tls.validation_cert_days",
+      "op": "<",
+      "value": 21,
+      "description": "the validation ingress certificate expires within 21 days",
+      "response": "re-issue it with prod_bootstrap.sh (idempotent) or a documented openssl command in the runbook",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py --section tls (certificate days measured) and prod_faults.py --case cert-expired"
+    },
+    {
+      "id": "cert-expiry-production-edge",
+      "severity": "warning",
+      "metric": "tls.production_edge_days",
+      "op": "<",
+      "value": 21,
+      "description": "EXTERNAL DEPENDENCY: the production certificate is issued by the platform edge for the public origin and cannot be inspected from inside the deployment host",
+      "response": "monitor the platform edge certificate from an external client (Arena preview / external HTTPS check); renew on the platform side",
+      "owner": "platform-provider",
+      "verification": "not verifiable from inside the sandbox: classified as an external dependency in the closure report, with the external check named"
+    },
+    {
+      "id": "release-identity",
+      "severity": "critical",
+      "metric": "release.current_target",
+      "op": "==",
+      "value": null,
+      "description": "the `current` release symlink is missing: the deployment has no promoted release",
+      "response": "prod.sh releases; prod.sh rollback --to <release-id>",
+      "owner": "mo7-platform-oncall",
+      "verification": "prod_verify.py --section identity (release -> artifact -> commit chain)"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+; =============================================================================
+; MO7 production program definitions — operational scheduler
+; =============================================================================
+; Metrics sampling, alert evaluation and scheduled verified backups. This host
+; has no cron and no init system, so the recurring operational loop is a
+; supervised program with the same lifecycle guarantees as the application
+; processes: autostart, autorestart, ring-buffered logs, and a FATAL state that
+; the alert evaluator and prod.sh status both surface.
+; =============================================================================
+[program:scheduler]
+command=@PROD_ROOT@/ops-venv/bin/python @PROD_ROOT@/harness/prod_scheduler.py --interval 60
+directory=@PROD_ROOT@
+autostart=true
+autorestart=true
+startsecs=5
+startretries=5
+rlimit_nofile=@PROD_RLIMIT_NOFILE@
+stopwaitsecs=15
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stdout_logfile=@PROD_ROOT@/run/supervisor/scheduler.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+redirect_stderr=true
+environment=PROD_ROOT="@PROD_ROOT@",PROD_CONTRACT="@PROD_ROOT@/etc/production.env"

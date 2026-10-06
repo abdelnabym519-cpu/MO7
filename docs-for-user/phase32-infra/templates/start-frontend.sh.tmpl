@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# =============================================================================
+# MO7 production frontend start script (one per release)
+# =============================================================================
+# Mirrors the image's /app/start-frontend.sh: PORT/HOSTNAME from the contract,
+# then `exec node server.js` from the release's materialised Next.js standalone
+# bundle. The bundle is produced by `next build` (standalone output), copied
+# from the installed deeptutor_web package, and patched with the runtime API
+# base and auth flag at deploy time — the same two placeholders the launcher
+# patches for `deeptutor start`.
+# =============================================================================
+set -euo pipefail
+
+RELEASE_DIR="@RELEASE_DIR@"
+PROD_ROOT="@PROD_ROOT@"
+CONTRACT="$PROD_ROOT/etc/production.env"
+
+if [ ! -r "$CONTRACT" ]; then
+  echo "FATAL: missing or unreadable deployment contract $CONTRACT" >&2
+  exit 78
+fi
+# shellcheck disable=SC1090
+set -a; . "$CONTRACT"; set +a
+
+WEB_DIR="$RELEASE_DIR/web"
+if [ ! -f "$WEB_DIR/server.js" ]; then
+  echo "FATAL: release web bundle missing ($WEB_DIR/server.js)" >&2
+  exit 78
+fi
+
+# supervisord applies the contract's file-descriptor limit as the *soft* limit, and
+# the Node runtime raises its soft limit back to the inherited hard limit; setting
+# both here makes the contract value the limit the process really runs with.
+ulimit -n "${PROD_RLIMIT_NOFILE:-65536}" 2>/dev/null || true
+
+export NODE_ENV=production
+export PORT="${PROD_FRONTEND_PORT}"
+export HOSTNAME="${PROD_FRONTEND_HOST}"
+# Read by web/proxy.ts at request time; the bundle carries no baked-in host.
+# Private interface: the frontend proxy is the only intended client of the API and
+# it dials the contract host/port, never a published address.
+export DEEPTUTOR_API_BASE_URL="http://${PROD_BACKEND_HOST}:${PROD_BACKEND_PORT}"
+export DEEPTUTOR_AUTH_ENABLED="true"
+
+echo "[frontend] start release=${PROD_RELEASE_ID} commit=${PROD_SOURCE_COMMIT} pid=$$ host=${HOSTNAME}:${PORT}"
+cd "$WEB_DIR"
+exec node server.js

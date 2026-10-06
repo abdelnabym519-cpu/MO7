@@ -1,0 +1,26 @@
+; =============================================================================
+; MO7 production program definitions — frontend
+; =============================================================================
+; Same shape as [program:frontend] in the release Dockerfile: `node server.js`
+; from the Next.js standalone bundle, with PORT/HOSTNAME from the contract and
+; NODE_ENV=production. The bundle is materialised once per release under
+; releases/<release-id>/web/ and patched with the runtime API base by the
+; deployment pipeline, so no build-time URL is baked in.
+; =============================================================================
+[program:frontend]
+command=/bin/bash @PROD_ROOT@/current/bin/start-frontend.sh
+directory=@PROD_ROOT@/current
+autostart=true
+autorestart=true
+startsecs=5
+startretries=5
+rlimit_nofile=@PROD_RLIMIT_NOFILE@
+stopwaitsecs=10
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stdout_logfile=@PROD_ROOT@/run/supervisor/frontend.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=5
+redirect_stderr=true
+environment=NODE_ENV="production",PROD_ROOT="@PROD_ROOT@",PROD_CONTRACT="@PROD_ROOT@/etc/production.env"

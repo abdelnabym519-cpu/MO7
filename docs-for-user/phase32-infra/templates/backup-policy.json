@@ -1,0 +1,22 @@
+{
+  "retention": 7,
+  "include_storage": true,
+  "storage_paths": [
+    "data/users"
+  ],
+  "config_paths": [
+    "data/user/settings",
+    "data/system/auth/users.json",
+    "data/system/auth/auth_secret"
+  ],
+  "schedule": {
+    "backup_interval_hours": 6,
+    "metrics_interval_seconds": 60,
+    "note": "Enforced by the supervised scheduler (run/scheduler.log). This host has no cron; the scheduler is a supervisord program like any other service, so a crashed scheduler is restarted and alerted on exactly like the application."
+  },
+  "restore_rehearsal": {
+    "target": "/home/user/mo7-prod/restore-rehearsal",
+    "command": "prod.sh restore --backup <newest verified backup> --target /home/user/mo7-prod/restore-rehearsal --force",
+    "note": "Restores never write to the live data root; the rehearsal root is rebuilt on every run."
+  }
+}

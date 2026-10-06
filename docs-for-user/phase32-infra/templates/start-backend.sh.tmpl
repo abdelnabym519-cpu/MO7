@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# =============================================================================
+# MO7 production backend start script (one per release)
+# =============================================================================
+# Rendered by prod_deploy.sh / prod_bootstrap.sh from
+# docs-for-user/phase32-infra/templates/start-backend.sh.tmpl into
+# <release>/bin/start-backend.sh and executed by supervisord as
+# [program:backend]. It runs exactly the image's backend command line
+# (Dockerfile /app/start-backend.sh): uvicorn on the contract host/port with
+# --workers, --no-access-log, --no-proxy-headers, the attachment-derived
+# --ws-max-size and the keep-alive the frontend proxy needs.
+#
+# Guards (deployment-level, not product behaviour): a required secret that is
+# missing, empty or world-readable, or an unwritable data root, must stop the
+# program with a FATAL line and a non-zero exit so supervisord marks it FATAL
+# and the alert evaluator sees it — instead of silently regenerating a secret
+# or serving 500s.
+# =============================================================================
+set -euo pipefail
+
+RELEASE_DIR="@RELEASE_DIR@"
+PROD_ROOT="@PROD_ROOT@"
+CONTRACT="$PROD_ROOT/etc/production.env"
+
+if [ ! -r "$CONTRACT" ]; then
+  echo "FATAL: missing or unreadable deployment contract $CONTRACT" >&2
+  exit 78
+fi
+# shellcheck disable=SC1090
+set -a; . "$CONTRACT"; set +a
+
+# Ops secrets are injected from a 0600 file owned by the deployment user. The
+# file is never echoed; only its presence is reported.
+if [ -f "$PROD_ROOT/secrets/secrets.env" ]; then
+  mode="$(stat -c '%a' "$PROD_ROOT/secrets/secrets.env")"
+  if [ "$mode" != "600" ]; then
+    echo "FATAL: $PROD_ROOT/secrets/secrets.env must be mode 600 (found $mode)" >&2
+    exit 78
+  fi
+  # shellcheck disable=SC1090
+  set -a; . "$PROD_ROOT/secrets/secrets.env"; set +a
+fi
+
+PY="$RELEASE_DIR/venv/bin/python"
+if [ ! -x "$PY" ]; then
+  echo "FATAL: release virtualenv missing ($PY)" >&2
+  exit 78
+fi
+
+# supervisord applies the contract's file-descriptor limit as the *soft* limit, and
+# the Node runtime raises its soft limit back to the inherited hard limit; setting
+# both here makes the contract value the limit the process really runs with.
+ulimit -n "${PROD_RLIMIT_NOFILE:-65536}" 2>/dev/null || true
+
+export DEEPTUTOR_HOME="$PROD_HOME"
+export DEEPTUTOR_IGNORE_PROCESS_ENV_OVERRIDES=1
+unset BACKEND_PORT BACKEND_WORKERS FRONTEND_PORT NEXT_PUBLIC_API_BASE_EXTERNAL \
+      NEXT_PUBLIC_API_BASE CORS_ORIGIN CORS_ORIGINS DISABLE_SSL_VERIFY \
+      CHAT_ATTACHMENT_DIR 2>/dev/null || true
+
+# --- required-secret / writability guards ------------------------------------
+if [ "${PROD_REQUIRE_DATA_WRITABLE:-0}" = "1" ] && [ ! -w "$PROD_HOME/data" ]; then
+  echo "FATAL: data root is not writable by $(id -un): $PROD_HOME/data" >&2
+  exit 78
+fi
+case ",${PROD_REQUIRED_SECRETS:-}," in
+  *,auth_secret,*)
+    secret="$PROD_HOME/data/system/auth/auth_secret"
+    if [ ! -s "$secret" ]; then
+      echo "FATAL: required secret missing or empty: $secret (auth is enabled; refusing to regenerate it)" >&2
+      exit 78
+    fi
+    secret_mode="$(stat -c '%a' "$secret")"
+    if [ "$secret_mode" != "600" ]; then
+      echo "FATAL: required secret $secret has mode $secret_mode (expected 600)" >&2
+      exit 78
+    fi
+    ;;
+esac
+
+# --- runtime settings -> environment (the container entrypoint's mechanism) ---
+rendered="$("$PY" - <<'PYEOF'
+import shlex
+from deeptutor.services.config import export_runtime_settings_to_env
+
+for key, value in export_runtime_settings_to_env(overwrite=True).items():
+    print(f"export {key}={shlex.quote(str(value))}")
+PYEOF
+)"
+# shellcheck disable=SC1090
+eval "$rendered"
+
+# Private interface: the API is addressed by its contract host, which is chosen so
+# the platform port bridge (which dials 127.0.0.1) has no live target. See
+# templates/production.env.tmpl and the runbook's network boundary section.
+export DEEPTUTOR_API_BASE_URL="http://${PROD_BACKEND_HOST}:${PROD_BACKEND_PORT}"
+export DEEPTUTOR_AUTH_ENABLED="true"
+export BACKEND_HOST="${PROD_BACKEND_HOST}"
+export BACKEND_PORT="${PROD_BACKEND_PORT}"
+export BACKEND_WORKERS="${PROD_BACKEND_WORKERS}"
+export FRONTEND_HOST="${PROD_FRONTEND_HOST}"
+export FRONTEND_PORT="${PROD_FRONTEND_PORT}"
+
+WS_MAX_SIZE="$("$PY" -c 'from deeptutor.services.config import get_ws_max_size; print(get_ws_max_size())' 2>/dev/null || echo 16777216)"
+KEEP_ALIVE="$("$PY" -c 'from deeptutor.services.config import HTTP_KEEP_ALIVE_TIMEOUT; print(HTTP_KEEP_ALIVE_TIMEOUT)' 2>/dev/null || echo 300)"
+
+echo "[backend] start release=${PROD_RELEASE_ID} commit=${PROD_SOURCE_COMMIT} pid=$$ host=${BACKEND_HOST}:${BACKEND_PORT} workers=${BACKEND_WORKERS} ws_max_size=${WS_MAX_SIZE} keep_alive=${KEEP_ALIVE}"
+
+# shellcheck disable=SC2086
+exec "$PY" -m uvicorn deeptutor.api.main:app \
+  --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" --workers "${BACKEND_WORKERS}" \
+  --no-access-log --no-proxy-headers \
+  --ws-max-size "${WS_MAX_SIZE}" --timeout-keep-alive "${KEEP_ALIVE}"

@@ -1,0 +1,40 @@
+; =============================================================================
+; MO7 production supervisord daemon configuration
+; =============================================================================
+; Mirrors /etc/supervisor/supervisord.conf from the release Dockerfile, adapted
+; for a host that is NOT PID 1: supervisord daemonises (nodaemon=false), writes
+; a pidfile under the deployment root, and logs to a rotating file instead of
+; the container's stdout. Program definitions live in etc/supervisord.d/ and
+; are byte-for-byte the same shape as the image's programs.conf.
+;
+; Rendered by prod_bootstrap.sh — @PROD_ROOT@ is replaced with the deployment
+; root. Edit the template in docs-for-user/phase32-infra/templates/ and re-run
+; the bootstrap rather than editing this file in place.
+; =============================================================================
+[supervisord]
+nodaemon=false
+pidfile=@PROD_ROOT@/run/supervisord.pid
+logfile=@PROD_ROOT@/run/supervisord.log
+logfile_maxbytes=10MB
+logfile_backups=5
+loglevel=info
+; Raise the (soft) open-file limit for the daemon and every child. The host's
+; soft limit is 1024; the hard limit is 524288, so this is a real, effective
+; production hardening step — verified by prod_verify.py (resource-limits).
+minfds=@PROD_MIN_FDS@
+minprocs=200
+identifier=mo7-production-supervisord
+
+[unix_http_server]
+file=@PROD_ROOT@/run/supervisor.sock
+chmod=0700
+chown=@PROD_UID@:@PROD_GID@
+
+[supervisorctl]
+serverurl=unix://@PROD_ROOT@/run/supervisor.sock
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[include]
+files = @PROD_ROOT@/etc/supervisord.d/*.conf
