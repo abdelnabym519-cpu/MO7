@@ -43,7 +43,7 @@ TARGET = os.environ.get("PROD_BACKEND", cfg.TLS_TARGET)
 HOST, _, PORT = TARGET.partition(":")
 PORT = int(PORT or cfg.TLS_VALIDATION_PORT)
 TLS = PORT == cfg.TLS_VALIDATION_PORT or PORT == 443
-BASE = f"{'https' if TLS else 'http'}://127.0.0.1:{PORT}"
+BASE = f"{'https' if TLS else 'http'}://{HOST}:{PORT}"
 # The deployment's API listens on loopback only; API-only surfaces (the file
 # library collection route, settings) are checked there. Cookies are Secure and
 # therefore not sent over http, so those calls authenticate with the session
@@ -76,7 +76,7 @@ def main() -> int:
     check("the three production accounts authenticate", bool(a.cookies) and bool(b.cookies) and bool(admin.cookies))
 
     # --- wire-level cookie contract -----------------------------------------
-    status, headers, payload = raw("POST", "/api/auth/login", host_header=HOST,
+    status, headers, payload = raw("POST", "/api/auth/login", host_header=HOST, host=HOST,
                                    body=json.dumps({"username": CREDS["admin"]["username"],
                                                     "password": CREDS["admin"]["password"]}).encode(),
                                    port=PORT, tls=TLS)
@@ -252,7 +252,7 @@ def main() -> int:
     for path in ("/docs", "/redoc", "/openapi.json", "/api/docs"):
         # First hop only: a redirect to the login page is a refusal, and
         # following it would report the login page as the served content.
-        status, headers, payload = raw("GET", path, host_header=HOST, port=PORT, tls=TLS)
+        status, headers, payload = raw("GET", path, host_header=HOST, host=HOST, port=PORT, tls=TLS)
         body = payload.decode("utf-8", "replace")
         served_docs = status == 200 and any(
             marker in body.lower() for marker in ("swagger", "openapi", "redoc")

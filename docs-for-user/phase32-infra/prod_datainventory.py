@@ -17,8 +17,11 @@ including them would turn every inventory into a false positive.
     prod_datainventory.py --label before-n1 [--json]
     prod_datainventory.py --compare <label-a> <label-b>
 
-`--compare` exits non-zero when any recorded fact changed, which is what makes
-it usable as a gate in a deployment or rollback rehearsal.
+`--compare` separates the three outcomes: entries that disappeared or whose
+recorded value changed are failures (data lost or altered); entries that appeared
+are reported as additions. A deployment's own post-promote smoke legitimately
+creates runtime bookkeeping, so an addition is not a data-integrity failure —
+but a removal or a changed hash always is.
 """
 
 from __future__ import annotations
@@ -121,6 +124,24 @@ def digest_of(document: dict) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def flatten(document: dict, prefix: str = "") -> dict:
+    """Flatten the inventory into dotted-key -> value pairs for comparison.
+
+    Lists keep their order (the inventory stores table counts in a dict and
+    files sorted by path), so a reordering is a real difference and is reported.
+    """
+    flat: dict = {}
+    for key, value in document.items():
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            flat.update(flatten(value, path))
+        elif isinstance(value, list):
+            flat[path] = json.dumps(value, sort_keys=True)
+        else:
+            flat[path] = value
+    return flat
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", help="record the inventory under this label")
@@ -132,26 +153,26 @@ def main() -> int:
     if args.compare:
         first = json.loads((evidence / f"data-inventory-{args.compare[0]}.json").read_text())
         second = json.loads((evidence / f"data-inventory-{args.compare[1]}.json").read_text())
-        left, right = first["inventory"], second["inventory"]
-        fields = ["stores", "system"]
-        differences: list[str] = []
-        for field in fields:
-            if left.get(field) != right.get(field):
-                differences.append(field)
+        # Only the data is compared: the release/commit header of the two
+        # inventories is expected to differ across a deployment.
+        data = ("stores", "system")
+        left = flatten({key: first["inventory"].get(key, {}) for key in data})
+        right = flatten({key: second["inventory"].get(key, {}) for key in data})
+        added = sorted(set(right) - set(left))
+        removed = sorted(set(left) - set(right))
+        changed = sorted(key for key in set(left) & set(right) if left[key] != right[key])
         print(f"digest {args.compare[0]}: {first['digest']}")
         print(f"digest {args.compare[1]}: {second['digest']}")
-        if differences:
-            print(f"FAIL: data changed across {args.compare[0]} -> {args.compare[1]}: {differences}")
-            # A reader needs to know *what* changed, not just that something did.
-            for field in differences:
-                left_keys = set(json.dumps(left.get(field), sort_keys=True).split(","))
-                right_keys = set(json.dumps(right.get(field), sort_keys=True).split(","))
-                for line in sorted(right_keys - left_keys)[:10]:
-                    print(f"  only in {args.compare[1]}: {line.strip()}")
-                for line in sorted(left_keys - right_keys)[:10]:
-                    print(f"  only in {args.compare[0]}: {line.strip()}")
+        for label, keys in (("added", added), ("removed", removed), ("changed", changed)):
+            print(f"  {label}: {len(keys)}")
+            for key in keys[:10]:
+                detail = right.get(key, left.get(key))
+                print(f"    {key} = {str(detail)[:140]}")
+        if removed or changed:
+            print(f"FAIL: data was lost or altered across {args.compare[0]} -> {args.compare[1]}")
             return 1
-        print(f"PASS: the recorded data is identical across {args.compare[0]} -> {args.compare[1]}")
+        print(f"PASS: no recorded store, table, file or document was lost or altered "
+              f"across {args.compare[0]} -> {args.compare[1]}")
         return 0
 
     document = inventory()

@@ -17,11 +17,42 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB_DIR="${MO7_WEB_DIR:-/home/user/MO7/web}"
-CHROMIUM_HOME="${MO7_CHROMIUM_HOME:-/home/user/mo7-prod-build/chromium}"
 PROD_ROOT="${PROD_ROOT:-/home/user/mo7-prod}"
 
+# The browser is the Chromium build inflated from @sparticuz/chromium, because
+# the Playwright CDN is unreachable from this host. Its ELF libraries are not on
+# the default search path, so the wrapper finds them: the dependency archive is
+# untarred either directly under chromium-deps/ or under a nested directory
+# (the AL2023 layout), and both are accepted rather than hard-coding one host's
+# extracted shape.
+CHROMIUM_HOME="${MO7_CHROMIUM_HOME:-}"
+if [ -z "$CHROMIUM_HOME" ]; then
+  for candidate in /home/user/mo7-build/chromium /home/user/mo7-prod-build/chromium; do
+    if [ -x "$candidate/chrome-linux/chrome" ]; then
+      CHROMIUM_HOME="$candidate"
+      break
+    fi
+  done
+fi
+[ -n "$CHROMIUM_HOME" ] && [ -x "$CHROMIUM_HOME/chrome-linux/chrome" ] || {
+  echo "FATAL: no Chromium build found; set MO7_CHROMIUM_HOME to the extracted @sparticuz/chromium directory" >&2
+  exit 78
+}
+
+DEPS_LIB=""
+for candidate in "$CHROMIUM_HOME"/chromium-deps/lib "$CHROMIUM_HOME"/chromium-deps/*/lib; do
+  if compgen -G "$candidate/libnspr4.so" >/dev/null; then
+    DEPS_LIB="$candidate"
+    break
+  fi
+done
+[ -n "$DEPS_LIB" ] || {
+  echo "FATAL: the Chromium library directory (libnspr4.so) is missing under $CHROMIUM_HOME/chromium-deps" >&2
+  exit 78
+}
+
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
-export LD_LIBRARY_PATH="$CHROMIUM_HOME/chromium-deps/al2023/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$DEPS_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export WEB_BASE_URL="${WEB_BASE_URL:-https://127.0.0.1:8443}"
 export MO7_STORAGE_STATE="${MO7_STORAGE_STATE:-$PROD_ROOT/harness/storage-state.json}"
 

@@ -60,7 +60,13 @@ die() { log "FATAL: $*"; exit 1; }
 
 sup() { "$SUPERVISORCTL" -c "$PROD_ROOT/etc/supervisord.conf" "$@"; }
 
-http_code() { curl -s -k -o /dev/null -m 4 -w '%{http_code}' "$1" 2>/dev/null || echo 000; }
+# One HTTP status code, always three digits: curl writes 000 when it cannot
+# connect, and must not also be followed by the fallback.
+http_code() {
+  local code
+  code="$(curl -s -k -o /dev/null -m 4 -w '%{http_code}' "$1" 2>/dev/null)" || true
+  printf '%s' "${code:-000}"
+}
 
 wait_healthy() { # wait_healthy <deadline-seconds>
   local deadline="$1" start
@@ -90,11 +96,35 @@ RELEASE_DIR="$PROD_RELEASES_DIR/$RELEASE_ID"
 # anywhere in staging therefore cannot leave a half-built release directory that
 # a later promotion could switch to.
 STAGING_DIR="$PROD_RELEASES_DIR/.staging-$RELEASE_ID-$$"
+# A deployment is all-or-nothing: until the release is published, any exit
+# (failure, signal, refusal at the smoke gate) leaves the host exactly as it
+# was — the incomplete staging tree is removed and the contract, which the
+# operator updates to name the artifact under test, is restored byte for byte.
+# Without this a refused deployment would leave the contract pointing at a
+# release that is not running, and every later identity/health report would be
+# wrong for reasons that have nothing to do with production.
+PUBLISHED=0
+restore_contract_identity() {
+  # The contract names the release the host is *supposed* to be running, so a
+  # refused deployment must restore it from the promoted release's own manifest
+  # (`run/current-release.json`, written by prod_promote.sh). Otherwise the
+  # contract would keep naming an artifact that never took traffic, and every
+  # later identity/health report would be wrong for unrelated reasons.
+  [ -x "$PROD_ROOT/ops-venv/bin/python" ] || return 0
+  "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_contract_identity.py"
+}
+
+
 cleanup_staging() {
   local status=$?
   if [ -n "${STAGING_DIR:-}" ] && [ -d "${STAGING_DIR:-}" ]; then
     log "STAGE failed; removing the incomplete staging directory $STAGING_DIR"
     rm -rf "$STAGING_DIR"
+  fi
+  if [ "$PUBLISHED" != "1" ]; then
+    local restored
+    restored="$(restore_contract_identity 2>&1 || true)"
+    [ -n "$restored" ] && log "DEPLOY refused: $restored"
   fi
   return "$status"
 }
@@ -208,27 +238,58 @@ log "STAGE complete: $RELEASE_ID (installed version $INSTALLED_VERSION)"
 # --- 3. PRE-PROMOTE SMOKE ----------------------------------------------------
 log "SMOKE starting the staged release on the scratch port $SMOKE_PORT"
 : >"$SMOKE_LOG"
+# The staged process runs with the release directory as its working directory
+# (the app resolves its packaged web bundle relative to it) and its output goes
+# to a log that outlives the staging directory, so a failure is readable even
+# after the staging tree is removed. `exec` makes the recorded pid the python
+# process itself rather than an intermediate shell.
 (
-  cd "$STAGING_DIR"
-  DEEPTUTOR_HOME="$PROD_HOME" \
-  PROD_ROOT="$PROD_ROOT" PROD_CONTRACT="$CONTRACT" \
-  SMOKE_BACKEND_PORT="$SMOKE_PORT" \
-  "$STAGING_DIR/venv/bin/python" -m uvicorn deeptutor.api.main:app \
-    --host "$PROD_BACKEND_HOST" --port "$SMOKE_PORT" --no-access-log --no-proxy-headers \
-    >>"$SMOKE_LOG" 2>&1 &
-  echo $! >"$STAGING_DIR/smoke.pid"
-)
-SMOKE_PID="$(cat "$STAGING_DIR/smoke.pid")"
+  cd "$STAGING_DIR" || exit 1
+  exec env DEEPTUTOR_HOME="$PROD_HOME" \
+    PROD_ROOT="$PROD_ROOT" PROD_CONTRACT="$CONTRACT" \
+    SMOKE_BACKEND_PORT="$SMOKE_PORT" \
+    "$STAGING_DIR/venv/bin/python" -m uvicorn deeptutor.api.main:app \
+      --host "$PROD_BACKEND_HOST" --port "$SMOKE_PORT" --no-access-log --no-proxy-headers
+) >"$SMOKE_LOG" 2>&1 &
+SMOKE_PID=$!
+echo "$SMOKE_PID" >"$STAGING_DIR/smoke.pid"
+# The host watchdog sweeps programs that are not descendants of the live
+# supervisord. A staged release under test is such a program, so the pipeline
+# records the pid it owns (and the watchdog also exempts `.staging-*` trees and
+# anything under a running deployment) — otherwise the sweep would kill a
+# healthy staged release while it is being probed.
+echo "$SMOKE_PID" >"$PROD_RUN/deploy-smoke.pid"
 smoke_ok=0
+SMOKE_LAST="never answered"
 for _ in $(seq 1 60); do
-  if [ "$(http_code "http://$PROD_BACKEND_HOST:$SMOKE_PORT/health/ready")" = "200" ]; then smoke_ok=1; break; fi
+  # Keep the last answer: a readiness that stays non-200 is a finding, and a
+  # bare "never reported ready" would leave the cause to guesswork.
+  SMOKE_CODE="$(http_code "http://$PROD_BACKEND_HOST:$SMOKE_PORT/health/ready")"
+  if [ "$SMOKE_CODE" = "200" ]; then smoke_ok=1; break; fi
+  # `set -euo pipefail` is active, so a curl that cannot connect must not abort
+  # the deploy: the connection refusal *is* the measurement here.
+  SMOKE_LAST="http $SMOKE_CODE: $(curl -s -k -m 4 "http://$PROD_BACKEND_HOST:$SMOKE_PORT/health/ready" 2>/dev/null | head -c 200 || true)"
   sleep 1
 done
+if [ "$smoke_ok" != "1" ]; then
+  # A staged release that died on its own is the clearest possible failure; the
+  # exit status distinguishes "never started" from "started and crashed".
+  SMOKE_EXIT="still running"
+  if ! kill -0 "$SMOKE_PID" 2>/dev/null; then
+    # `wait` reports the staged process's own exit status; it fails by design
+    # when the process died, so `set -e` must not cut the failure report short.
+    SMOKE_EXIT="exited with $(wait "$SMOKE_PID" 2>/dev/null; echo $?)"
+  fi
+  log "SMOKE failed: staged release never reported ready (last answer: $SMOKE_LAST, process $SMOKE_EXIT)"
+  log "SMOKE staged-release log tail: $(tail -5 "$SMOKE_LOG" | tr '\n' '|')"
+  kill "$SMOKE_PID" 2>/dev/null || true
+  rm -f "$PROD_RUN/deploy-smoke.pid"
+  die "pre-promote smoke failed"
+fi
 kill "$SMOKE_PID" 2>/dev/null || true
 sleep 1
 kill -9 "$SMOKE_PID" 2>/dev/null || true
-rm -f "$STAGING_DIR/smoke.pid"
-[ "$smoke_ok" = "1" ] || { log "SMOKE failed: staged release never reported ready (see $SMOKE_LOG)"; die "pre-promote smoke failed"; }
+rm -f "$STAGING_DIR/smoke.pid" "$PROD_RUN/deploy-smoke.pid"
 log "SMOKE staged release reported /health/ready 200 on $SMOKE_PORT"
 
 # --- 2b. PUBLISH -------------------------------------------------------------
@@ -248,6 +309,7 @@ for script in "$RELEASE_DIR"/venv/bin/*; do
 done
 ln -sfn "$(cat "$RELEASE_DIR/web-dir.txt")" "$RELEASE_DIR/web"
 [ -f "$RELEASE_DIR/web/server.js" ] || die "published release web bundle is missing server.js"
+PUBLISHED=1
 trap - EXIT
 log "PUBLISH $RELEASE_DIR is staged, smoke-tested and immutable"
 

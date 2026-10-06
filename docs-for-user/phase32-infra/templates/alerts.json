@@ -148,7 +148,7 @@
       "op": ">",
       "value": 5,
       "description": "recent ERROR/Traceback lines in the backend log",
-      "response": "prod.sh logs backend 400; correlate with the access lines the app writes for non-200 responses",
+      "response": "prod.sh logs backend 400; correlate with the access lines the app writes for non-200 responses. The rule reads the last 400 backend log lines, so the deliberate fault injections (which the runbook uses to verify every other alert) keep this warning lit until 400 newer lines exist; treat a residual warning with no new error lines as stale and let it roll off.",
       "owner": "mo7-platform-oncall",
       "verification": "prod_faults.py --case storage-readonly (sanitised 500 recorded in the log, response carries no stack trace)"
     },

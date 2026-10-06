@@ -165,6 +165,7 @@ def raw(
     path: str,
     *,
     host_header: str,
+    host: str = "127.0.0.1",
     port: int = cfg.TLS_VALIDATION_PORT,
     tls: bool = True,
     body: bytes | None = None,
@@ -176,9 +177,9 @@ def raw(
     if body is not None:
         hdrs.setdefault("Content-Type", "application/json")
     if tls:
-        conn = http.client.HTTPSConnection("127.0.0.1", port, timeout=timeout, context=_TLS)
+        conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=_TLS)
     else:
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+        conn = http.client.HTTPConnection(host, port, timeout=timeout)
     try:
         conn.request(method, path, body=body, headers={"Host": host_header, **hdrs})
         response = conn.getresponse()

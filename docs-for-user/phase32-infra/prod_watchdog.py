@@ -92,6 +92,77 @@ def supervised_pids() -> set[int]:
     return seen
 
 
+def started_by_supervisord(pid: int) -> bool:
+    """True when this process's environment says supervisord launched it.
+
+    This is the structural discriminator the sweep needs. Any process a harness
+    starts by hand (the deployment pipeline's staged release under test, the
+    restore rehearsal's scratch backend, an artifact probe) runs the same
+    command line as a supervised program and can live inside the deployment
+    root — but only a process supervisord actually started can be a program
+    supervisord *lost*. Supervisor exports SUPERVISOR_ENABLED and
+    SUPERVISOR_PROCESS_NAME into every child, so requiring one of them makes the
+    sweep conservative by construction instead of by a list of exceptions.
+    """
+    try:
+        environ = Path(f"/proc/{pid}/environ").read_bytes().decode("utf-8", "replace")
+    except Exception:
+        return False
+    return "SUPERVISOR_ENABLED=1" in environ or "SUPERVISOR_PROCESS_NAME=" in environ
+
+
+def deployment_in_progress() -> set[int]:
+    """Pids that belong to a deployment the operator is running right now.
+
+    The deployment pipeline starts each staged release on a scratch port and
+    probes its readiness *before* it may take traffic. That staged process is a
+    temporary part of the deployment, not an orphan, and killing it makes a
+    healthy release look like a failed one. It is recognised three ways: it runs
+    from a `.staging-*` tree, its pid is recorded by the pipeline, or one of its
+    ancestors is the pipeline itself.
+    """
+    exempt: set[int] = set()
+    smoke_pid_file = cfg.RUN / "deploy-smoke.pid"
+    try:
+        exempt.add(int(smoke_pid_file.read_text().strip()))
+    except Exception:
+        pass
+
+    def ancestors(pid: int) -> list[int]:
+        chain: list[int] = []
+        for _ in range(8):
+            try:
+                fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+                pid = int(fields[1])  # ppid
+            except Exception:
+                break
+            if pid <= 1:
+                break
+            chain.append(pid)
+        return chain
+
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        try:
+            cwd = os.readlink(entry / "cwd")
+        except Exception:
+            continue
+        if "/.staging-" in cwd:
+            exempt.add(pid)
+            continue
+        for ancestor in ancestors(pid):
+            try:
+                cmdline = Path(f"/proc/{ancestor}/cmdline").read_bytes().decode("utf-8", "replace")
+            except Exception:
+                continue
+            if "prod_deploy.sh" in cmdline or "prod_promote.sh" in cmdline:
+                exempt.add(pid)
+                break
+    return exempt
+
+
 def orphaned_programs() -> list[int]:
     """Deployment programs that no live supervisord owns.
 
@@ -111,17 +182,20 @@ def orphaned_programs() -> list[int]:
     program_commands = ("uvicorn", "deeptutor.api.main:app", "server.js", "next-server")
     root = str(cfg.PROD_ROOT)
     supervised = supervised_pids()
+    exempt = deployment_in_progress()
     orphans: list[int] = []
     for entry in Path("/proc").iterdir():
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
-        if pid == os.getpid() or pid in supervised:
+        if pid == os.getpid() or pid in supervised or pid in exempt:
             continue
         try:
             cmdline = (entry / "cmdline").read_bytes().decode("utf-8", "replace")
             cwd = os.readlink(entry / "cwd")
         except Exception:
+            continue
+        if not started_by_supervisord(pid):
             continue
         if any(marker in cmdline for marker in strong_markers):
             orphans.append(pid)

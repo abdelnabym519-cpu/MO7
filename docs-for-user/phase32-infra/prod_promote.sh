@@ -42,7 +42,13 @@ sup() { "$PROD_SUPERVISORCTL" -c "$PROD_ROOT/etc/supervisord.conf" "$@"; }
 # program is stopped (the validation ingress is deliberately stopped outside a
 # validation window), which must not be mistaken for a dead supervisor.
 sup_running() { "$PROD_SUPERVISORCTL" -c "$PROD_ROOT/etc/supervisord.conf" pid >/dev/null 2>&1; }
-http_code() { curl -s -k -o /dev/null -m 4 -w '%{http_code}' "$1" 2>/dev/null || echo 000; }
+# One HTTP status code, always three digits: curl writes 000 when it cannot
+# connect, and must not also be followed by the fallback.
+http_code() {
+  local code
+  code="$(curl -s -k -o /dev/null -m 4 -w '%{http_code}' "$1" 2>/dev/null)" || true
+  printf '%s' "${code:-000}"
+}
 wait_healthy() {
   local deadline="$1" start
   start=$(date +%s)
@@ -171,6 +177,10 @@ if [ "$DO_SMOKE" = "1" ]; then
     die "post-promote smoke failed (see $PHASE_LOG)"
   fi
 fi
+
+# The contract must name the release that is now running; a forward deployment
+# that reached this point has been health- and smoke-verified.
+"$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_contract_identity.py" | while read -r line; do log "CONTRACT $line"; done
 
 printf '%s deploy release=%s artifact=%s commit=%s previous=%s outage_ms=%s\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RELEASE_ID" "$ARTIFACT_SHA" "$COMMIT" \

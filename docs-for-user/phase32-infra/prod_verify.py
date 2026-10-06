@@ -578,9 +578,26 @@ def section_backups() -> None:
         manifest = json.loads((newest / "manifest.json").read_text())
         check("backups", "the newest backup has a manifest with per-file hashes",
               bool(manifest.get("databases")) and all("sha256" in row for row in manifest["databases"]))
-        check("backups", "the newest backup covers every store in the deployment",
-              len(manifest["databases"]) == number_of_stores(),
-              f"backed up {len(manifest['databases'])} of {number_of_stores()} stores")
+        # A backup can only contain the stores that existed when it ran. The
+        # check therefore asks the question a backup policy actually has to
+        # answer — "is every store that existed at that moment in the snapshot?"
+        # — and reports stores created afterwards separately. Comparing counts
+        # instead would fail every time the application legitimately creates a
+        # store after a backup (a new account's history, a new workspace), which
+        # would train an operator to ignore the check.
+        backed_up = {row["path"] for row in manifest["databases"]}
+        backup_time = (newest / "manifest.json").stat().st_mtime
+        existing: dict[str, float] = {}
+        for path in cfg.HOME.rglob("*"):
+            if path.is_file() and path.suffix in DB_SUFFIXES and not path.name.endswith(("-wal", "-shm")):
+                existing[str(path.relative_to(cfg.HOME))] = path.stat().st_mtime
+        older = {name for name, mtime in existing.items() if mtime <= backup_time}
+        missing = sorted(older - backed_up)
+        newer = sorted(set(existing) - older)
+        check("backups", "the newest backup covers every store that existed when it was taken",
+              not missing,
+              f"backed up {len(backed_up)} stores; missing={missing[:5]}; "
+              f"{len(newer)} store(s) were created after the backup and are due in the next one")
         check("backups", "the newest backup covers file storage",
               bool((manifest.get("storage") or {}).get("files")), json.dumps(manifest.get("storage") or {}))
         age_hours = round((time.time() - (newest / "manifest.json").stat().st_mtime) / 3600, 2)

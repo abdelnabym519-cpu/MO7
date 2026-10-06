@@ -125,3 +125,29 @@ if [ "$DO_VERIFY" = "1" ]; then
     echo "FATAL: post-rollback smoke failed" >&2; exit 1; }
 fi
 log "ROLLBACK complete: running $TO"
+
+# The record of the release that is running is written by prod_promote.sh on the
+# way forward, so a rollback has to write it too: `run/current-release.json` is
+# what `prod.sh identity`, the contract helper and the recovery tooling read, and
+# leaving it naming the release that was just rolled back would make every later
+# report wrong. The write is atomic (temp file + rename), like the promotion's.
+python3 - "$PROD_ROOT" "$TO" "$PROD_CURRENT_RELEASE_FILE" <<'PYEOF'
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+root, release_id, out = sys.argv[1:4]
+manifest = json.loads((Path(root) / "releases" / release_id / "manifest.json").read_text())
+manifest["current"] = str(Path(root) / "current")
+manifest["rolled_back_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+target = Path(out)
+temporary = target.with_suffix(".tmp")
+temporary.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+temporary.replace(target)
+print(f"recorded {release_id} as the running release")
+PYEOF
+
+# The contract follows the release that is actually running: after a rollback
+# the recovery and validation tooling must report on the restored release.
+"$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_contract_identity.py" | while read -r line; do log "CONTRACT $line"; done

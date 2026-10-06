@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import ssl
 import statistics
+import subprocess
 import threading
 import time
 
@@ -24,7 +25,11 @@ STAGING = cfg.PROD_ROOT
 EVIDENCE = cfg.EVIDENCE_DIR / "production-perf.json"
 CREDS = cfg.credentials()
 FRONTEND = ("127.0.0.1", cfg.FRONTEND_PORT)
-BACKEND = ("127.0.0.1", cfg.BACKEND_PORT)
+# The API is bound to the contract's private address (PROD_BACKEND_HOST). The
+# platform's port bridge dials 127.0.0.1, so dialing loopback would measure the
+# bridge target rather than the API — the perf numbers must come from the same
+# address every other probe uses.
+BACKEND = (cfg.BACKEND_HOST, cfg.BACKEND_PORT)
 INGRESS = ("127.0.0.1", cfg.TLS_VALIDATION_PORT)
 TLS = ssl.create_default_context()
 TLS.check_hostname = False
@@ -108,9 +113,26 @@ def burst(cookie: str, count: int = 240, workers: int = 12):
     }
 
 
-def rss_kib(pid_path: Path) -> int | None:
+def supervisor_pid(name: str) -> int | None:
+    """The pid supervisord owns for a program (the deployment has no pid files)."""
+    ctl = STAGING / "ops-venv/bin/supervisorctl"
+    conf = STAGING / "etc/supervisord.conf"
+    if not ctl.exists() or not conf.exists():
+        return None
     try:
-        pid = int(pid_path.read_text().strip())
+        out = subprocess.run(
+            [str(ctl), "-c", str(conf), "pid", name],
+            capture_output=True, text=True, timeout=15,
+        ).stdout.strip()
+    except Exception:
+        return None
+    return int(out) if out.isdigit() else None
+
+
+def rss_kib(pid: int | None) -> int | None:
+    if not pid:
+        return None
+    try:
         for line in Path(f"/proc/{pid}/status").read_text().splitlines():
             if line.startswith("VmRSS:"):
                 return int(line.split()[1])
@@ -129,20 +151,30 @@ def main() -> int:
         "frontend /login": timed(FRONTEND, "/login"),
         "ingress(https) /login": timed(INGRESS, "/login", tls=True),
     }
-    before = {
-        "backend": rss_kib(STAGING / "run/backend.pid"),
-        "frontend": rss_kib(STAGING / "run/frontend.pid"),
+    pids = {
+        "backend": supervisor_pid("backend"),
+        "frontend": supervisor_pid("frontend"),
     }
+    before = {name: rss_kib(pid) for name, pid in pids.items()}
     report["burst"] = burst(cookie)
-    after = {
-        "backend": rss_kib(STAGING / "run/backend.pid"),
-        "frontend": rss_kib(STAGING / "run/frontend.pid"),
-    }
+    after = {name: rss_kib(pid) for name, pid in pids.items()}
+    measured = all(value is not None for value in before.values()) and all(
+        value is not None for value in after.values()
+    )
     report["rss_kib"] = {
+        "pids": pids,
         "before": before,
         "after_burst": after,
-        "backend_growth": (after["backend"] or 0) - (before["backend"] or 0),
-        "frontend_growth": (after["frontend"] or 0) - (before["frontend"] or 0),
+        "backend_growth": (after["backend"] - before["backend"]) if measured else None,
+        "frontend_growth": (after["frontend"] - before["frontend"]) if measured else None,
+        "measured": measured,
+        "note": (
+            "RSS read from /proc for the pids supervisord owns, immediately before "
+            "and after the burst."
+            if measured
+            else "the supervised pids could not be resolved, so no memory-growth "
+            "claim is made either way"
+        ),
     }
     pathological = False
     for name, row in report["warm"].items():
@@ -152,12 +184,15 @@ def main() -> int:
             pathological = True
     if report["burst"]["errors"]:
         pathological = True
-    if report["rss_kib"]["backend_growth"] > 200_000:
+    growth = report["rss_kib"]["backend_growth"]
+    if growth is not None and growth > 200_000:
         pathological = True
     report["ok"] = not pathological
     EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
     EVIDENCE.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
+    if not report["rss_kib"]["measured"]:
+        print("\nmemory growth: NOT MEASURED (no supervised pid resolved)")
     print("\nproduction perf:", "OK" if report["ok"] else "PATHOLOGICAL")
     return 0 if report["ok"] else 1
 
