@@ -1,0 +1,186 @@
+{
+  "rc_id": "1.6.11-0ad679d-ci37544304900",
+  "created_at": "2026-10-06T23:21:10Z",
+  "commit": "0ad679d84d2e3543ebe44b9a37c864dbe0773ffb",
+  "version": "1.6.11",
+  "branch": "arena/01a0ff3f-mo7",
+  "repository": "abdelnabym519-cpu/MO7",
+  "pipeline_run": "37544304900",
+  "verdict": "NOT_RELEASABLE",
+  "releasable": false,
+  "artifact": {
+    "name": "deeptutor-1.6.11-py3-none-any.whl",
+    "sha256": "04242e342619292bd4a04c22b13a499bf3000313be65d6b7452c1eba73325fc8",
+    "bytes": 38651728,
+    "entries": 4400,
+    "canonical_sha256": "99f8b5a289b13eb8cafd7ed540c5f1ef484faeb1e2bd4c1f4489dcce0e8e5c45"
+  },
+  "stages": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "0ad679d84d2e3543ebe44b9a37c864dbe0773ffb",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": true,
+      "detail": "1.6.11",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "04242e342619292b",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "byte_identical=False classified={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'derived_and_generated_values': 3, 'derived_entry_index': 0, 'ordering_only_json': 0, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 0, 'ordering_only_entries': 0, 'unexplained': 0}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": false,
+      "detail": "8433/8488 passed, 1 failed, 0 errors, 54 skipped",
+      "required": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.321s",
+      "required": false
+    },
+    {
+      "stage": "the validation toolchain installs",
+      "ok": true,
+      "detail": "pass in 56.034s",
+      "required": false
+    },
+    {
+      "stage": "import, lazy-startup and worker-protocol checks",
+      "ok": true,
+      "detail": "pass in 1.933s",
+      "required": false
+    },
+    {
+      "stage": "dependency consistency (pip check)",
+      "ok": true,
+      "detail": "pass in 0.383s",
+      "required": false
+    },
+    {
+      "stage": "frontend dependencies install from the lockfile",
+      "ok": true,
+      "detail": "pass in 21.442s",
+      "required": false
+    },
+    {
+      "stage": "the frontend deterministic gate",
+      "ok": true,
+      "detail": "pass in 185.559s",
+      "required": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 97.98s",
+      "required": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 13.348s",
+      "required": false
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "pass in 182.344s",
+      "required": true
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 scope=deeptutor deeptutor_cli tests scripts",
+      "required": false
+    },
+    {
+      "stage": "repository-wide ruff (observed)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 over 1800 files, all of them phase documentation tooling outside the product tree; see finding P33-L1",
+      "observed": true,
+      "required": false,
+      "finding": "P33-L1"
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": true,
+      "detail": "7 findings, 0 high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [
+    "python tests"
+  ],
+  "excepted_failures": [],
+  "reproducibility": {
+    "raw_output": "",
+    "byte_identical": false,
+    "reproducible": true,
+    "classification": {
+      "names_differ_only_by_build_id": 0,
+      "content_differs_only_by_build_id": 0,
+      "derived_and_generated_values": 3,
+      "derived_entry_index": 0,
+      "ordering_only_json": 0,
+      "ordering_only_lines": 0,
+      "ordering_only_embedded_json": 0,
+      "ordering_only_entries": 0,
+      "unexplained": 0
+    },
+    "raw_difference": {
+      "added": [],
+      "removed": [],
+      "changed": [
+        "deeptutor-1.6.11.dist-info/RECORD",
+        "deeptutor_web/.next/prerender-manifest.json",
+        "deeptutor_web/.next/server/server-reference-manifest.json"
+      ]
+    },
+    "build_ids": [
+      "deeptutor_web/.next/BUILD_ID"
+    ],
+    "canonical_difference": {
+      "content_identical": false,
+      "added": 0,
+      "removed": 0,
+      "changed": 3
+    },
+    "unexplained": [],
+    "source": "comparison document"
+  },
+  "immutability": {
+    "rule": "an RC is identified by (version, commit, pipeline run) and its evidence is written once; any source or artifact change produces a new RC",
+    "evidence_digest": "580d4cca6107942b069ba5073cc982f95b8c82e41c8a9d5132d6229bbca33d52"
+  }
+}
