@@ -1,0 +1,49 @@
+{
+  "recorded_at": "2026-10-06T15:35:02Z",
+  "commit": "a779933f99470cd5e5349f998049fbcaf6aec067",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "name": "deeptutor-1.6.11-py3-none-any.whl",
+  "bytes": 38651606,
+  "sha256": "869d316e3ff74c27cfe236933532349a7fe9403f6cbeaf9731bcd593fba3326f",
+  "entries": 4400,
+  "manifest_sha256": "b84134d02b3978be79030848a698a2774fc0183f334563761d4ef933b58bcc1f",
+  "canonical_sha256": "3c68e111cea8695189b5d9c5fc0758faacfae66c0dba4404a04088febdd0fc5f",
+  "source_date_epoch": 1791299796,
+  "build_environment": {
+    "python": "3.11.16",
+    "setuptools": "84.0.0",
+    "node": "v22.23.3",
+    "web_build": "executed",
+    "runner_os": null
+  },
+  "build_report": {
+    "built_at": "2026-10-06T15:30:14Z",
+    "repository": "https://github.com/abdelnabym519-cpu/MO7",
+    "checkout": "/home/runner/work/MO7/MO7",
+    "branch": "arena/01a0ff3f-mo7",
+    "commit": "a779933f99470cd5e5349f998049fbcaf6aec067",
+    "commit_short": "a779933",
+    "version": "1.6.11",
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "artifact_bytes": 38651606,
+    "artifact_sha256": "869d316e3ff74c27cfe236933532349a7fe9403f6cbeaf9731bcd593fba3326f",
+    "artifact_entries": 4400,
+    "artifact_manifest_sha256": "b84134d02b3978be79030848a698a2774fc0183f334563761d4ef933b58bcc1f",
+    "source_date_epoch": 1791299796,
+    "python": "3.11.16",
+    "setuptools": "84.0.0",
+    "node": "v22.23.3",
+    "web_build": "executed",
+    "scrubbed_build_path": "/srv/mo7-build",
+    "scrub_files": "371",
+    "scrub_occurrences": "14398",
+    "recipe_sha256": "0948be4b3039bd8a89f77b33f003993627ba33dacce2daad87956b90ee32eed5",
+    "tool_hashes": {
+      "rc_manifest": "41ab819b991acba5ca666c2a7b55803f2b23c0ba66377d8b408b27fefbf6e114",
+      "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+      "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+    }
+  }
+}
