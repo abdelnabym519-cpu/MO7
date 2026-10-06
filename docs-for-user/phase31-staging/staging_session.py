@@ -9,6 +9,7 @@ against the API by ``staging_validate.py`` and ``staging_security.py``.
 Usage: staging_session.py [account]        # account defaults to ``admin``
 Writes: <staging root>/harness/storage-state.json (mode 0600)
 """
+
 from __future__ import annotations
 
 import json
@@ -30,24 +31,41 @@ def main() -> int:
     account = sys.argv[1] if len(sys.argv) > 1 else "admin"
     credentials = json.loads((STAGING / "secrets/staging-credentials.json").read_text())
     if account not in credentials:
-        print(f"unknown account {account!r}; known: {', '.join(sorted(credentials))}", file=sys.stderr)
+        print(
+            f"unknown account {account!r}; known: {', '.join(sorted(credentials))}", file=sys.stderr
+        )
         return 2
 
     actor = Actor(account)
-    status, _, body, payload = login(actor, credentials[account]["username"], credentials[account]["password"])
+    status, _, body, payload = login(
+        actor, credentials[account]["username"], credentials[account]["password"]
+    )
     token = actor.cookies.get("dt_token")
     if status != 200 or not token:
         print(f"login failed: status={status} body={body[:200]}", file=sys.stderr)
         return 1
 
     target = STAGING / "harness/storage-state.json"
-    target.write_text(json.dumps({
-        "cookies": [{
-            "name": "dt_token", "value": token, "domain": TLS_HOST, "path": "/",
-            "expires": -1, "httpOnly": True, "secure": True, "sameSite": "Lax",
-        }],
-        "origins": [],
-    }, indent=2))
+    target.write_text(
+        json.dumps(
+            {
+                "cookies": [
+                    {
+                        "name": "dt_token",
+                        "value": token,
+                        "domain": TLS_HOST,
+                        "path": "/",
+                        "expires": -1,
+                        "httpOnly": True,
+                        "secure": True,
+                        "sameSite": "Lax",
+                    }
+                ],
+                "origins": [],
+            },
+            indent=2,
+        )
+    )
     target.chmod(stat.S_IRUSR | stat.S_IWUSR)
     print(f"wrote {target} for account {account} ({payload.get('username', account)})")
     return 0

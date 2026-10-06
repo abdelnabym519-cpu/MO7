@@ -11,6 +11,7 @@ reports the absence of infrastructure rather than pretending it exists.
 Writes evidence/staging-fingerprint.json and always exits 0 (it is evidence,
 not a gate).
 """
+
 from __future__ import annotations
 
 import json
@@ -89,7 +90,9 @@ def main() -> int:
             "python": platform.python_version(),
             "cpu_count": os.cpu_count(),
             "sandbox_id": sandbox,
-            "public_preview_origin": f"https://{config.get('STAGING_FRONTEND_PORT')}-{sandbox}.e2b.app" if sandbox else None,
+            "public_preview_origin": f"https://{config.get('STAGING_FRONTEND_PORT')}-{sandbox}.e2b.app"
+            if sandbox
+            else None,
         },
         "infrastructure": {
             "container_runtime": exists("docker") or exists("podman"),
@@ -110,7 +113,9 @@ def main() -> int:
             ),
         },
         "tls": {
-            "public_origin": tls_probe("3982-itod6pemom6o9uh7nwe24.e2b.app" if sandbox else "localhost", 443)
+            "public_origin": tls_probe(
+                "3982-itod6pemom6o9uh7nwe24.e2b.app" if sandbox else "localhost", 443
+            )
             if sandbox
             else None,
             "local_ingress_self_signed": tls_probe("127.0.0.1", 8443),

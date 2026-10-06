@@ -8,6 +8,7 @@ evidence/staging-perf.json and exits non-zero when something is pathological
 (any 5xx, latency an order of magnitude past the Phase 28 baseline, or
 unbounded memory growth).
 """
+
 from __future__ import annotations
 
 import http.client
@@ -31,7 +32,9 @@ TLS.verify_mode = ssl.CERT_NONE
 
 def login() -> str:
     conn = http.client.HTTPConnection(*BACKEND, timeout=20)
-    body = json.dumps({"username": CREDS["admin"]["username"], "password": CREDS["admin"]["password"]})
+    body = json.dumps(
+        {"username": CREDS["admin"]["username"], "password": CREDS["admin"]["password"]}
+    )
     conn.request("POST", "/api/auth/login", body=body, headers={"Content-Type": "application/json"})
     response = conn.getresponse()
     response.read()

@@ -8,6 +8,7 @@ Proves the running deployment is the recorded release:
 Exit code 0 only when every link agrees. Prints a JSON document that the
 closure report and the runbook cite as evidence.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -142,7 +143,7 @@ def main() -> int:
         report["runtime_bundle"] = {"error": f"deeptutor_web not importable ({web_source!r})"}
         ok = False
 
-    deployments = (STAGING / "run/deployments.log")
+    deployments = STAGING / "run/deployments.log"
     if deployments.exists():
         report["deployment_record"] = deployments.read_text().strip().splitlines()[-3:]
 

@@ -58,7 +58,9 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$OUT" ] || { echo "usage: rc_build.sh --out DIR [--checkout DIR]" >&2; exit 2; }
-[ -d "$CHECKOUT/.git" ] || { echo "FATAL: $CHECKOUT is not a git checkout" >&2; exit 2; }
+# `.git` is a directory in a normal checkout and a file in a linked worktree
+# (the release controller builds a worktree at the CI-validated commit).
+[ -e "$CHECKOUT/.git" ] || { echo "FATAL: $CHECKOUT is not a git checkout" >&2; exit 2; }
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd -P)"
 

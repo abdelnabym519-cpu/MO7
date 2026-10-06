@@ -303,13 +303,59 @@ def verb_validate(args) -> int:
     )
 
     # 3. rebuild the same commit here
+    #
+    # From a worktree at *the CI-validated commit*, not from the working tree.
+    # The branch head is normally one commit ahead of it (the pipeline commits
+    # its evidence after the build), and the build records the commit it builds:
+    # building the head recorded the evidence commit, and because the generated
+    # tsconfig name is derived from the commit, three entries then differed from
+    # CI's artifact with nothing to explain them. Refusing was right — the honest
+    # fix is to build the commit under validation, so "the rebuild records the
+    # same commit" is literally true rather than argued from a path filter.
     out = BUILD_DIR / state["rc_id"]
     out.mkdir(parents=True, exist_ok=True)
-    build = run(
-        ["bash", str(HERE / "rc_build.sh"), "--checkout", str(CHECKOUT), "--out", str(out)],
+    worktree = BUILD_DIR / f"{state['rc_id']}.src"
+    run(
+        ["git", "-C", str(CHECKOUT), "worktree", "remove", "--force", str(worktree)],
         capture_output=True,
-        timeout=3600,
     )
+    added = run(
+        ["git", "-C", str(CHECKOUT), "worktree", "add", "--detach", str(worktree), ci_commit],
+        capture_output=True,
+    )
+    check(
+        "the validated commit can be checked out for the rebuild",
+        added.returncode == 0,
+        (added.stderr or "")[-200:],
+    )
+    if added.returncode != 0:
+        return finish_validation(state, checks, 1)
+    # The build needs the frontend's installed dependencies. They are not part of
+    # the repository (they come from the lockfile), so the worktree borrows the
+    # checkout's — and the build only reads them.
+    node_modules = CHECKOUT / "web/node_modules"
+    linked = False
+    if node_modules.is_dir():
+        target = worktree / "web/node_modules"
+        if not target.exists():
+            target.symlink_to(node_modules)
+            linked = True
+    check(
+        "the rebuild has the frontend dependencies it needs",
+        linked or (worktree / "web/node_modules").exists(),
+        str(worktree / "web/node_modules"),
+    )
+    try:
+        build = run(
+            ["bash", str(HERE / "rc_build.sh"), "--checkout", str(worktree), "--out", str(out)],
+            capture_output=True,
+            timeout=3600,
+        )
+    finally:
+        run(
+            ["git", "-C", str(CHECKOUT), "worktree", "remove", "--force", str(worktree)],
+            capture_output=True,
+        )
     check(
         "the release build succeeds from the same commit",
         build.returncode == 0,

@@ -9,6 +9,7 @@ Values come from etc/staging.env (the deployment contract): bind ports, the
 origins the browser will actually use, security controls that must stay on, and
 the release's disabled outbound update check.
 """
+
 from __future__ import annotations
 
 import json

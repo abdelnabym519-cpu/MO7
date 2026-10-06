@@ -21,6 +21,7 @@ reintroduce a defect the application had already closed:
 usage:
     STAGING_BACKEND=127.0.0.1:8443 python3 staging_security.py   # via TLS ingress
 """
+
 from __future__ import annotations
 
 import json
@@ -70,22 +71,38 @@ def main() -> int:
     for actor, key in ((admin, "admin"), (a, "tenant_a"), (b, "tenant_b")):
         login(actor, CREDS[key]["username"], CREDS[key]["password"], base=BASE)
         actor.token = actor.cookies.get("dt_token")
-    check("the three staging accounts authenticate", bool(a.cookies) and bool(b.cookies) and bool(admin.cookies))
+    check(
+        "the three staging accounts authenticate",
+        bool(a.cookies) and bool(b.cookies) and bool(admin.cookies),
+    )
 
     # --- wire-level cookie contract -----------------------------------------
-    status, headers, payload = raw("POST", "/api/auth/login", host_header=HOST,
-                                   body=json.dumps({"username": CREDS["admin"]["username"],
-                                                    "password": CREDS["admin"]["password"]}).encode(),
-                                   port=PORT, tls=TLS)
+    status, headers, payload = raw(
+        "POST",
+        "/api/auth/login",
+        host_header=HOST,
+        body=json.dumps(
+            {"username": CREDS["admin"]["username"], "password": CREDS["admin"]["password"]}
+        ).encode(),
+        port=PORT,
+        tls=TLS,
+    )
     set_cookie = joined(headers, "set-cookie")
-    check("login sets the session cookie on the wire", status == 200 and "dt_token=" in set_cookie, set_cookie[:200])
+    check(
+        "login sets the session cookie on the wire",
+        status == 200 and "dt_token=" in set_cookie,
+        set_cookie[:200],
+    )
     check("cookie is HttpOnly", "httponly" in set_cookie.lower(), set_cookie[:200])
     check("cookie is Secure", "secure" in set_cookie.lower(), set_cookie[:200])
     check("cookie is SameSite=None", "samesite=none" in set_cookie.lower(), set_cookie[:200])
     check("cookie is Path=/", "path=/" in set_cookie.lower(), set_cookie[:200])
     check("cookie carries Max-Age", "max-age=86400" in set_cookie.lower(), set_cookie[:200])
-    check("auth responses are not cacheable", "no-store" in joined(headers, "cache-control").lower(),
-          joined(headers, "cache-control"))
+    check(
+        "auth responses are not cacheable",
+        "no-store" in joined(headers, "cache-control").lower(),
+        joined(headers, "cache-control"),
+    )
 
     # --- token shapes -------------------------------------------------------
     import base64
@@ -106,9 +123,13 @@ def main() -> int:
         "garbage": "not-a-token",
         "empty": "",
         "header_only": "eyJhbGciOiJIUzI1NiJ9",
-        "wrong_key": mint({"sub": "admin", "role": "admin", "exp": now + 3600}, b"wrong-secret-value"),
-        "alg_none": b64(json.dumps({"alg": "none", "typ": "JWT"}).encode()) + "." +
-                    b64(json.dumps({"sub": "admin", "role": "admin"}).encode()) + ".",
+        "wrong_key": mint(
+            {"sub": "admin", "role": "admin", "exp": now + 3600}, b"wrong-secret-value"
+        ),
+        "alg_none": b64(json.dumps({"alg": "none", "typ": "JWT"}).encode())
+        + "."
+        + b64(json.dumps({"sub": "admin", "role": "admin"}).encode())
+        + ".",
         "expired": mint({"sub": "staging-admin", "role": "admin", "exp": now - 60}, b"unused"),
     }
     accepted = {}
@@ -117,31 +138,60 @@ def main() -> int:
         actor.token = token
         status, _, _, _ = call(actor, "GET", "/api/notebooks", base=BASE)
         accepted[name] = status
-    check("every forged or malformed token is refused",
-          all(status == 401 for status in accepted.values()), f"results={accepted}")
+    check(
+        "every forged or malformed token is refused",
+        all(status == 401 for status in accepted.values()),
+        f"results={accepted}",
+    )
 
     # --- credential handling -------------------------------------------------
-    status, _, body, _ = call(Actor("wrong"), "POST", "/api/auth/login",
-                              body={"username": CREDS["admin"]["username"], "password": "definitely-wrong"}, base=BASE)
+    status, _, body, _ = call(
+        Actor("wrong"),
+        "POST",
+        "/api/auth/login",
+        body={"username": CREDS["admin"]["username"], "password": "definitely-wrong"},
+        base=BASE,
+    )
     check("a wrong password is refused", status == 401, f"status={status}")
-    status, _, body, _ = call(None, "POST", "/api/auth/login",
-                              body={"username": "no-such-staging-user", "password": "irrelevant"}, base=BASE)
+    status, _, body, _ = call(
+        None,
+        "POST",
+        "/api/auth/login",
+        body={"username": "no-such-staging-user", "password": "irrelevant"},
+        base=BASE,
+    )
     check("an unknown account is refused", status == 401, f"status={status}")
     status, _, body, _ = call(None, "POST", "/api/auth/login", body={"username": "x"}, base=BASE)
     check("a malformed login body is rejected", status == 422, f"status={status}")
-    check("auth failure bodies carry no internals",
-          "traceback" not in body.lower() and "site-packages" not in body.lower(), body[:160])
+    check(
+        "auth failure bodies carry no internals",
+        "traceback" not in body.lower() and "site-packages" not in body.lower(),
+        body[:160],
+    )
 
     # --- RBAC and revocation ------------------------------------------------
     non_admin = Actor("non-admin")
     login(non_admin, CREDS["tenant_a"]["username"], CREDS["tenant_a"]["password"], base=BASE)
     non_admin.token = non_admin.cookies.get("dt_token")
     status, _, body, _ = call(non_admin, "GET", "/api/multi-user/users", base=BASE)
-    check("a non-admin is refused the admin surface", status == 403, f"status={status} body={body[:120]}")
-    status, _, body, _ = call(non_admin, "POST", "/api/auth/users", body={"username": "escalate", "password": "x"}, base=BASE)
+    check(
+        "a non-admin is refused the admin surface",
+        status == 403,
+        f"status={status} body={body[:120]}",
+    )
+    status, _, body, _ = call(
+        non_admin,
+        "POST",
+        "/api/auth/users",
+        body={"username": "escalate", "password": "x"},
+        base=BASE,
+    )
     check("a non-admin cannot create accounts", status in (401, 403), f"status={status}")
 
-    doomed = {"username": f"p31-doomed-{uuid.uuid4().hex[:8]}", "password": f"p31-doomed-{uuid.uuid4().hex[:8]}"}
+    doomed = {
+        "username": f"p31-doomed-{uuid.uuid4().hex[:8]}",
+        "password": f"p31-doomed-{uuid.uuid4().hex[:8]}",
+    }
     call(admin, "POST", "/api/auth/users", body=doomed, base=BASE)
     revoked = Actor("revoked")
     login(revoked, doomed["username"], doomed["password"], base=BASE)
@@ -149,83 +199,176 @@ def main() -> int:
     before, _, _, _ = call(revoked, "GET", "/api/settings", base=BASE)
     status, _, _, _ = call(admin, "DELETE", f"/api/auth/users/{doomed['username']}", base=BASE)
     after, _, _, _ = call(revoked, "GET", "/api/settings", base=BASE)
-    check("deleting an account revokes its live session", before == 200 and status == 200 and after == 401,
-          f"before={before} delete={status} after={after}")
+    check(
+        "deleting an account revokes its live session",
+        before == 200 and status == 200 and after == 401,
+        f"before={before} delete={status} after={after}",
+    )
 
     # --- cross-tenant matrix ------------------------------------------------
-    a_notebook = (call(a, "POST", "/api/notebooks", body={"name": "p31 owner notebook"}, base=BASE)[3] or {})
+    a_notebook = (
+        call(a, "POST", "/api/notebooks", body={"name": "p31 owner notebook"}, base=BASE)[3] or {}
+    )
     notebook_id = a_notebook.get("notebook_id") or a_notebook.get("id")
-    a_file = upload(a, "POST", "/files/library/", b"p31 owner bytes\n", filename="p31-owner.txt",
-                    extra_fields=(("filename", "p31-owner.txt"), ("mime_type", "text/plain")),
-                    base=BACKEND)[3] or {}
+    a_file = (
+        upload(
+            a,
+            "POST",
+            "/files/library/",
+            b"p31 owner bytes\n",
+            filename="p31-owner.txt",
+            extra_fields=(("filename", "p31-owner.txt"), ("mime_type", "text/plain")),
+            base=BACKEND,
+        )[3]
+        or {}
+    )
     file_id = a_file.get("file_id") or a_file.get("id")
-    a_material = upload(a, "POST", "/api/reading/materials", b"# p31 owner material\n\nSecret text.\n",
-                        filename="p31-owner.md", base=BASE)[3] or {}
+    a_material = (
+        upload(
+            a,
+            "POST",
+            "/api/reading/materials",
+            b"# p31 owner material\n\nSecret text.\n",
+            filename="p31-owner.md",
+            base=BASE,
+        )[3]
+        or {}
+    )
     material_id = a_material.get("material_id") or a_material.get("id")
-    a_workspace = call(a, "POST", "/api/reading/workspaces", body={"title": "p31 owner collection"}, base=BASE)[3] or {}
+    a_workspace = (
+        call(
+            a, "POST", "/api/reading/workspaces", body={"title": "p31 owner collection"}, base=BASE
+        )[3]
+        or {}
+    )
     workspace_id = (a_workspace.get("workspace") or a_workspace).get("workspace_id")
 
     owner_shape = {
-        "collection update": call(a, "PATCH", f"/api/reading/workspaces/{workspace_id}",
-                                  body={"title": "p31 owner collection", "description": "owner shape check"}, base=BASE)[0],
-        "material position write": call(a, "PUT", f"/api/reading/materials/{material_id}/position",
-                                        body={"locator": 1, "percentage": 0.0}, base=BASE)[0],
-        "material bookmark write": call(a, "POST", f"/api/reading/materials/{material_id}/bookmarks",
-                                        body={"locator": 1, "label": "owner bookmark"}, base=BASE)[0],
-        "material annotation write": call(a, "PUT", f"/api/reading/materials/{material_id}/annotations",
-                                           body={"locator": 1, "kind": "highlight", "color": "yellow",
-                                                 "quote": "p31 owner material",
-                                                 "source_anchor": ""}, base=BASE)[0],
+        "collection update": call(
+            a,
+            "PATCH",
+            f"/api/reading/workspaces/{workspace_id}",
+            body={"title": "p31 owner collection", "description": "owner shape check"},
+            base=BASE,
+        )[0],
+        "material position write": call(
+            a,
+            "PUT",
+            f"/api/reading/materials/{material_id}/position",
+            body={"locator": 1, "percentage": 0.0},
+            base=BASE,
+        )[0],
+        "material bookmark write": call(
+            a,
+            "POST",
+            f"/api/reading/materials/{material_id}/bookmarks",
+            body={"locator": 1, "label": "owner bookmark"},
+            base=BASE,
+        )[0],
+        "material annotation write": call(
+            a,
+            "PUT",
+            f"/api/reading/materials/{material_id}/annotations",
+            body={
+                "locator": 1,
+                "kind": "highlight",
+                "color": "yellow",
+                "quote": "p31 owner material",
+                "source_anchor": "",
+            },
+            base=BASE,
+        )[0],
     }
-    check("the request shapes used by the matrix are valid for the owner",
-          all(status in (200, 201) for status in owner_shape.values()), f"owner statuses={owner_shape}")
-    before_collection = call(a, "GET", f"/api/reading/workspaces/{workspace_id}", base=BASE)[3] or {}
+    check(
+        "the request shapes used by the matrix are valid for the owner",
+        all(status in (200, 201) for status in owner_shape.values()),
+        f"owner statuses={owner_shape}",
+    )
+    before_collection = (
+        call(a, "GET", f"/api/reading/workspaces/{workspace_id}", base=BASE)[3] or {}
+    )
     before_units = call(a, "GET", f"/api/reading/materials/{material_id}/units/1", base=BASE)[2]
 
     attempts = {
         "notebook read": call(b, "GET", f"/api/notebooks/{notebook_id}", base=BASE),
-        "notebook update": call(b, "PUT", f"/api/notebooks/{notebook_id}", body={"name": "hijacked"}, base=BASE),
+        "notebook update": call(
+            b, "PUT", f"/api/notebooks/{notebook_id}", body={"name": "hijacked"}, base=BASE
+        ),
         "notebook delete": call(b, "DELETE", f"/api/notebooks/{notebook_id}", base=BASE),
         "library metadata": call(b, "GET", f"/files/library/{file_id}", base=BACKEND),
         "library download": call(b, "GET", f"/files/library/{file_id}/download", base=BACKEND),
         "library delete": call(b, "DELETE", f"/files/library/{file_id}", base=BACKEND),
         "material read": call(b, "GET", f"/api/reading/materials/{material_id}", base=BASE),
         "material text": call(b, "GET", f"/api/reading/materials/{material_id}/units/1", base=BASE),
-        "material position": call(b, "PUT", f"/api/reading/materials/{material_id}/position",
-                                  body={"locator": 2, "percentage": 0.5}, base=BASE),
-        "material annotation": call(b, "PUT", f"/api/reading/materials/{material_id}/annotations",
-                                    body={"locator": 1, "kind": "highlight", "color": "yellow",
-                                          "quote": "p31 owner material",
-                                          "source_anchor": ""}, base=BASE),
+        "material position": call(
+            b,
+            "PUT",
+            f"/api/reading/materials/{material_id}/position",
+            body={"locator": 2, "percentage": 0.5},
+            base=BASE,
+        ),
+        "material annotation": call(
+            b,
+            "PUT",
+            f"/api/reading/materials/{material_id}/annotations",
+            body={
+                "locator": 1,
+                "kind": "highlight",
+                "color": "yellow",
+                "quote": "p31 owner material",
+                "source_anchor": "",
+            },
+            base=BASE,
+        ),
         "material delete": call(b, "DELETE", f"/api/reading/materials/{material_id}", base=BASE),
         "collection read": call(b, "GET", f"/api/reading/workspaces/{workspace_id}", base=BASE),
-        "collection update": call(b, "PATCH", f"/api/reading/workspaces/{workspace_id}",
-                                  body={"title": "hijacked"}, base=BASE),
-        "collection delete": call(b, "DELETE", f"/api/reading/workspaces/{workspace_id}", base=BASE),
-        "collection material add": call(b, "POST", f"/api/reading/workspaces/{workspace_id}/materials",
-                                        body={"material_id": material_id}, base=BASE),
+        "collection update": call(
+            b,
+            "PATCH",
+            f"/api/reading/workspaces/{workspace_id}",
+            body={"title": "hijacked"},
+            base=BASE,
+        ),
+        "collection delete": call(
+            b, "DELETE", f"/api/reading/workspaces/{workspace_id}", base=BASE
+        ),
+        "collection material add": call(
+            b,
+            "POST",
+            f"/api/reading/workspaces/{workspace_id}/materials",
+            body={"material_id": material_id},
+            base=BASE,
+        ),
     }
     refused = {name: result[0] for name, result in attempts.items()}
     # 400 appears on two collection writes: an object the caller does not own is
     # reported as "workspace not found" with that status. It is a refusal that
     # discloses nothing (the message repeats only the caller's own id), and the
     # inconsistency of 400-instead-of-404 is recorded as a finding.
-    check("every cross-tenant attempt is refused",
-          all(status in (400, 401, 403, 404) for status in refused.values()), f"statuses={refused}")
+    check(
+        "every cross-tenant attempt is refused",
+        all(status in (400, 401, 403, 404) for status in refused.values()),
+        f"statuses={refused}",
+    )
     leaked = []
     for name, (status, _, body, _) in attempts.items():
         haystack = body.lower()
         if status < 400:
             leaked.append(f"{name}:{status}")
-        elif any(marker in haystack for marker in ("p31 owner", "owner shape check", "secret text", "workspace_id")):
+        elif any(
+            marker in haystack
+            for marker in ("p31 owner", "owner shape check", "secret text", "workspace_id")
+        ):
             leaked.append(f"{name}:content")
     check("no refused response leaked another account's data", not leaked, f"leaks={leaked}")
 
     after_collection = call(a, "GET", f"/api/reading/workspaces/{workspace_id}", base=BASE)[3] or {}
     after_units = call(a, "GET", f"/api/reading/materials/{material_id}/units/1", base=BASE)[2]
-    check("the owner's objects are unchanged by the refused writes",
-          before_collection == after_collection and before_units == after_units,
-          f"collection_same={before_collection == after_collection} units_same={before_units == after_units}")
+    check(
+        "the owner's objects are unchanged by the refused writes",
+        before_collection == after_collection and before_units == after_units,
+        f"collection_same={before_collection == after_collection} units_same={before_units == after_units}",
+    )
 
     # --- containment -------------------------------------------------------
     escapes = []
@@ -241,8 +384,15 @@ def main() -> int:
     check("directory traversal attempts all fail", not escapes, f"escapes={escapes}")
 
     zip_bytes = _zip_slip()
-    zip_status = upload(a, "POST", "/files/library/", zip_bytes, filename="p31-slip.zip",
-                        extra_fields=(("filename", "p31-slip.zip"), ("mime_type", "application/zip")), base=BASE)[0]
+    zip_status = upload(
+        a,
+        "POST",
+        "/files/library/",
+        zip_bytes,
+        filename="p31-slip.zip",
+        extra_fields=(("filename", "p31-slip.zip"), ("mime_type", "application/zip")),
+        base=BASE,
+    )[0]
     check("a zip-slip upload does not 5xx", zip_status < 500, f"status={zip_status}")
 
     # --- surfaces and error envelopes --------------------------------------
@@ -255,65 +405,108 @@ def main() -> int:
             marker in body.lower() for marker in ("swagger", "openapi", "redoc")
         )
         if TLS:
-            check(f"the public origin does not serve {path}",
-                  not served_docs and status in (200, 302, 307, 308, 401, 403, 404),
-                  f"status={status} location={joined(headers, 'location')}")
+            check(
+                f"the public origin does not serve {path}",
+                not served_docs and status in (200, 302, 307, 308, 401, 403, 404),
+                f"status={status} location={joined(headers, 'location')}",
+            )
         else:
             # Loopback API: its own documentation is not a public exposure. The
             # boundary assertion is that the public origin refuses it, which the
             # TLS pass of this same script makes.
-            RESULTS.append({
-                "check": f"loopback API serves {path}" if served_docs else f"loopback API refuses {path}",
-                "ok": True,
-                "detail": f"status={status} (internal surface; boundary asserted on the public origin)",
-            })
+            RESULTS.append(
+                {
+                    "check": f"loopback API serves {path}"
+                    if served_docs
+                    else f"loopback API refuses {path}",
+                    "ok": True,
+                    "detail": f"status={status} (internal surface; boundary asserted on the public origin)",
+                }
+            )
             print(f"[NOTE] loopback {path} -> {status}")
     status, _, body, _ = call(None, "GET", "/api/notebooks/does-not-exist", base=BASE)
-    check("an unknown route does not disclose internals",
-          status in (401, 404) and "traceback" not in body.lower(), f"status={status} body={body[:120]}")
+    check(
+        "an unknown route does not disclose internals",
+        status in (401, 404) and "traceback" not in body.lower(),
+        f"status={status} body={body[:120]}",
+    )
 
-    status, headers, _, _ = call(None, "OPTIONS", "/api/notebooks",
-                                 headers={"Origin": "https://attacker.example",
-                                          "Access-Control-Request-Method": "GET"}, base=BASE)
-    check("an unknown origin gets no CORS grant", headers.get("access-control-allow-origin") in (None, ""),
-          f"ACAO={headers.get('access-control-allow-origin')}")
+    status, headers, _, _ = call(
+        None,
+        "OPTIONS",
+        "/api/notebooks",
+        headers={"Origin": "https://attacker.example", "Access-Control-Request-Method": "GET"},
+        base=BASE,
+    )
+    check(
+        "an unknown origin gets no CORS grant",
+        headers.get("access-control-allow-origin") in (None, ""),
+        f"ACAO={headers.get('access-control-allow-origin')}",
+    )
 
     # --- throttling --------------------------------------------------------
     # A dedicated throwaway account: throttling is keyed by username, and a real
     # staging account must not be locked out by a validation pass.
     throttle_name = f"p31-throttle-{uuid.uuid4().hex[:8]}"
-    call(admin, "POST", "/api/auth/users",
-         body={"username": throttle_name, "password": uuid.uuid4().hex}, base=BASE)
+    call(
+        admin,
+        "POST",
+        "/api/auth/users",
+        body={"username": throttle_name, "password": uuid.uuid4().hex},
+        base=BASE,
+    )
     throttle_user = Actor("throttle")
     statuses = []
     for _ in range(12):
-        statuses.append(call(throttle_user, "POST", "/api/auth/login",
-                             body={"username": throttle_name, "password": "wrong-on-purpose"},
-                             base=BASE)[0])
+        statuses.append(
+            call(
+                throttle_user,
+                "POST",
+                "/api/auth/login",
+                body={"username": throttle_name, "password": "wrong-on-purpose"},
+                base=BASE,
+            )[0]
+        )
     throttled = 429 in statuses
     check("repeated failed sign-ins are throttled", throttled, f"statuses={statuses}")
-    status, headers, _, _ = call(throttle_user, "POST", "/api/auth/login",
-                                 body={"username": throttle_name, "password": "wrong-on-purpose"},
-                                 base=BASE)
-    check("the throttle advertises Retry-After", status == 429 and bool(headers.get("retry-after")),
-          f"status={status} retry-after={headers.get('retry-after')}")
+    status, headers, _, _ = call(
+        throttle_user,
+        "POST",
+        "/api/auth/login",
+        body={"username": throttle_name, "password": "wrong-on-purpose"},
+        base=BASE,
+    )
+    check(
+        "the throttle advertises Retry-After",
+        status == 429 and bool(headers.get("retry-after")),
+        f"status={status} retry-after={headers.get('retry-after')}",
+    )
     call(admin, "DELETE", f"/api/auth/users/{throttle_name}", base=BASE)
     admin_ok = Actor("admin-after-throttle")
-    status, _, _, _ = login(admin_ok, CREDS["admin"]["username"], CREDS["admin"]["password"], base=BASE)
+    status, _, _, _ = login(
+        admin_ok, CREDS["admin"]["username"], CREDS["admin"]["password"], base=BASE
+    )
     check("throttling one account does not lock out the admin", status == 200, f"status={status}")
 
     # --- carried forward from the Phase 27 matrix -------------------------
     status, _, body, payload = call(a, "GET", "/api/settings", base=BACKEND)
     tenant_blob = json.dumps(payload or {}).lower()
     tenant_leaks = [
-        marker for marker in ("api_key", "password_hash", "auth_secret", "\"secret\"")
+        marker
+        for marker in ("api_key", "password_hash", "auth_secret", '"secret"')
         if marker in tenant_blob
     ]
-    check("a tenant's settings expose no credential-shaped fields",
-          status == 200 and not tenant_leaks, f"status={status} leaks={tenant_leaks}")
+    check(
+        "a tenant's settings expose no credential-shaped fields",
+        status == 200 and not tenant_leaks,
+        f"status={status} leaks={tenant_leaks}",
+    )
     anonymous_settings = call(None, "GET", "/api/settings", base=BACKEND)[0]
-    check("settings are refused to anonymous callers", anonymous_settings == 401,
-          f"status={anonymous_settings}")
+    check(
+        "settings are refused to anonymous callers",
+        anonymous_settings == 401,
+        f"status={anonymous_settings}",
+    )
     status, _, body, payload = call(admin, "GET", "/api/settings", base=BACKEND)
 
     def credential_values(node, path=""):
@@ -323,7 +516,9 @@ def main() -> int:
             for key, value in node.items():
                 here = f"{path}.{key}" if path else key
                 if isinstance(value, str) and value and "requires_" not in key.lower():
-                    if any(word in key.lower() for word in ("api_key", "password", "secret", "token")):
+                    if any(
+                        word in key.lower() for word in ("api_key", "password", "secret", "token")
+                    ):
                         if "hash" not in key.lower() or value.strip():
                             found.append(f"{here}={value[:6]}…")
                 found.extend(credential_values(value, here))
@@ -333,19 +528,35 @@ def main() -> int:
         return found
 
     leaks = credential_values(payload or {})
-    check("administrator settings expose no credential values",
-          status == 200 and not leaks, f"status={status} leaks={leaks[:5]}")
+    check(
+        "administrator settings expose no credential values",
+        status == 200 and not leaks,
+        f"status={status} leaks={leaks[:5]}",
+    )
 
     status, headers, _, _ = call(a, "GET", f"/files/library/{file_id}/download", base=BACKEND)
     cache = (headers.get("cache-control") or "").lower()
-    check("private downloads are not publicly cacheable",
-          status == 200 and ("private" in cache or "no-store" in cache),
-          f"status={status} cache-control={cache!r}")
+    check(
+        "private downloads are not publicly cacheable",
+        status == 200 and ("private" in cache or "no-store" in cache),
+        f"status={status} cache-control={cache!r}",
+    )
 
     oversized = b"x" * (64 * 1024 * 1024)
-    status = upload(a, "POST", "/api/reading/materials", oversized, filename="p31-oversized.bin",
-                    base=BACKEND, timeout=120)[0]
-    check("an oversized upload is rejected without a 5xx", status in (400, 413, 422), f"status={status}")
+    status = upload(
+        a,
+        "POST",
+        "/api/reading/materials",
+        oversized,
+        filename="p31-oversized.bin",
+        base=BACKEND,
+        timeout=120,
+    )[0]
+    check(
+        "an oversized upload is rejected without a 5xx",
+        status in (400, 413, 422),
+        f"status={status}",
+    )
 
     try:
         import sqlite3
@@ -365,26 +576,40 @@ def main() -> int:
                     connection.close()
             except Exception as exc:  # noqa: BLE001
                 bad.append(f"{database}: {exc}")
-        check("every staging database passes integrity_check", checked >= 3 and not bad,
-              f"checked={checked} bad={bad[:3]}")
+        check(
+            "every staging database passes integrity_check",
+            checked >= 3 and not bad,
+            f"checked={checked} bad={bad[:3]}",
+        )
     except ImportError:  # pragma: no cover
         check("every staging database passes integrity_check", False, "sqlite3 unavailable")
 
     # --- storage and database separation ----------------------------------
     roots = sorted((STAGING / "home/data/users").glob("*/user"))
     distinct = {root.resolve() for root in roots}
-    check("each tenant keeps its own storage root", len(distinct) == len(roots) and len(roots) >= 3,
-          f"roots={len(roots)} distinct={len(distinct)}")
+    check(
+        "each tenant keeps its own storage root",
+        len(distinct) == len(roots) and len(roots) >= 3,
+        f"roots={len(roots)} distinct={len(distinct)}",
+    )
 
     total = len(RESULTS)
     passed = sum(1 for row in RESULTS if row["ok"])
     target_name = "tls" if TLS else "loopback"
-    document = {"target": BASE, "mode": target_name, "total": total, "passed": passed,
-                "failed": total - passed, "results": RESULTS}
+    document = {
+        "target": BASE,
+        "mode": target_name,
+        "total": total,
+        "passed": passed,
+        "failed": total - passed,
+        "results": RESULTS,
+    }
     (EVIDENCE / f"staging-security-{target_name}.json").write_text(json.dumps(document, indent=2))
     if target_name == "loopback":
         (EVIDENCE / "staging-security.json").write_text(json.dumps(document, indent=2))
-    print(f"\nstaging security matrix [{target_name}]: total={total} passed={passed} failed={total - passed}")
+    print(
+        f"\nstaging security matrix [{target_name}]: total={total} passed={passed} failed={total - passed}"
+    )
     return 0 if passed == total else 1
 
 

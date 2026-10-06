@@ -6,6 +6,7 @@ the platform origin), never a dev server, and every request carries the same
 contracts the browser does: cookie sessions, bearer tokens where the wire
 probe needs them, multipart uploads, and host headers for the public origin.
 """
+
 from __future__ import annotations
 
 import http.client
@@ -55,6 +56,7 @@ def public_host() -> str:
         return PUBLIC_HOST
     return urllib.parse.urlparse(origin).netloc or PUBLIC_HOST
 
+
 _TLS = ssl.create_default_context()
 _TLS.check_hostname = False
 _TLS.verify_mode = ssl.CERT_NONE
@@ -99,8 +101,10 @@ def call(
     if actor is not None and actor.token:
         hdrs["Authorization"] = f"Bearer {actor.token}"
     request = urllib.request.Request(url, data=data, headers=hdrs, method=method)
-    opener = actor.opener if actor is not None else urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=_TLS)
+    opener = (
+        actor.opener
+        if actor is not None
+        else urllib.request.build_opener(urllib.request.HTTPSHandler(context=_TLS))
     )
     try:
         with opener.open(request, timeout=timeout) as response:
@@ -152,7 +156,12 @@ def upload(
     try:
         with actor.opener.open(request, timeout=timeout) as response:
             text = response.read().decode("utf-8", "replace")
-            return response.status, {k.lower(): v for k, v in response.headers.items()}, text, _json(text)
+            return (
+                response.status,
+                {k.lower(): v for k, v in response.headers.items()},
+                text,
+                _json(text),
+            )
     except urllib.error.HTTPError as exc:
         text = exc.read().decode("utf-8", "replace")
         return exc.code, {k.lower(): v for k, v in exc.headers.items()}, text, _json(text)
@@ -201,7 +210,13 @@ def _json(text: str):
 
 
 def login(actor: Actor, username: str, password: str, *, base: str | None = None):
-    return call(actor, "POST", "/api/auth/login", body={"username": username, "password": password}, base=base)
+    return call(
+        actor,
+        "POST",
+        "/api/auth/login",
+        body={"username": username, "password": password},
+        base=base,
+    )
 
 
 def login_via_raw(username: str, password: str):
