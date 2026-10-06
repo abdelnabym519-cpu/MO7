@@ -362,6 +362,7 @@ The claim is deliberately narrow, and every part of it has a measurement:
 | The artifact carries no builder path | verified | `path-scrub.json`: every occurrence rewritten, every file the same size |
 | The artifact carries no random build id and no random tsconfig name | verified | `build-metadata.json`: both derived from commit + `SOURCE_DATE_EPOCH` + version, every occurrence rewritten |
 | Per-build generated **secrets** differ between builds | **true, by design, and not derived** | `prerender-manifest.json` (`preview.previewModeId`, `preview.previewModeSigningKey`), `server-reference-manifest.json` (`encryptionKey`) |
+| The artifact records the **builder's network addresses** | **true**, masked in the comparison, recorded as a finding | `allowedDevOrigins` in `required-server-files.json` and in the standalone `server.js` (measured: `["127.0.0.1","169.254.0.21"]` here, a CI runner's own addresses there) |
 
 ### 13.1 What the comparison is
 
@@ -369,7 +370,7 @@ The claim is deliberately narrow, and every part of it has a measurement:
 digest of the file with the build id masked). `rc_manifest.compare` then walks the
 two manifests and puts every difference into a named class:
 `names_differ_only_by_build_id`, `content_differs_only_by_build_id`,
-`generated_keys_and_digests`, `ordering_only_lines`, `ordering_only_json`,
+`derived_and_generated_values`, `ordering_only_lines`, `ordering_only_json`,
 `ordering_only_embedded_json`, `ordering_only_entries`, and `unexplained`.
 `reproducible` is true only when `unexplained == 0` and the entry sets match.
 Nothing is ever excused silently: an entry that cannot be explained is a refusal.
@@ -403,11 +404,11 @@ applied before the bundle is packaged and both builders apply the same rewrite.
 
 ### 13.3 What two builds of one commit actually produce
 
-Measured after both fixes, with one toolchain and two different build
-directories: **4400 entries, identical entry sets, 3 entries differing** —
-`prerender-manifest.json`, `server-reference-manifest.json` and the wheel
-`RECORD` that digests them. The classification is
-`generated_keys_and_digests: 3`, everything else `0`, `unexplained: 0`.
+Measured after all three fixes, one toolchain, two different build directories:
+**4400 entries, identical entry sets, 3 entries differing** — `server.js`,
+`required-server-files.json` and the wheel `RECORD` that digests them. The
+classification is `derived_and_generated_values: 3`, everything else `0`,
+`unexplained: 0`.
 Byte identity is therefore **not** claimed, and the reason is not a leftover build
 input: it is Next.js generating random secrets per build (see §13.5). The
 comparison masks those fields **by name** and then requires byte identity of the
@@ -436,10 +437,31 @@ anyone with the repository**, which is a real weakening: a forgeable preview
 cookie and craftable Server Action payloads. They are left random, and the
 comparison says so instead of pretending otherwise.
 
+### 13.6 The third class: values that belong to the builder's machine
+
+`web/next.config.js` enumerates this machine's non-loopback IPv4 addresses into
+`allowedDevOrigins` at build time, so a release artifact records the address of the
+machine that built it. Measured: this host builds `["127.0.0.1","169.254.0.21"]`
+and a CI runner builds its own, so `required-server-files.json`, the standalone
+`server.js` (which embeds the whole config) and the wheel `RECORD` that digests
+them differed between CI and every rebuild — the promotion gate refused the
+candidate, three times, naming exactly those entries.
+
+Two ways to close it: remove the value from the artifact, or mask it in the
+comparison. Removing it means changing `web/next.config.js` — product source, and
+`next start` ignores the setting, so the only thing the change would buy is a
+cleaner artifact. That is a product decision, not a release-process one, so it is
+**not** made here. Instead the comparison masks the array by field name, in the
+same place it masks Next's generated secrets, and requires every other byte of
+those entries to be equal — a difference anywhere else in them is still
+unexplained. The residual is recorded: an artifact built on this host carries this
+host's address, as finding P33-R3.
+
 This is the deliberate line in this phase: non-determinism that is *identity*
 (the build id, the temporary tsconfig name, the builder's path) is removed;
-non-determinism that is *secret material* is documented, and the promotion gate
-compares content with those fields masked by name.
+non-determinism that is *secret material* or *the builder's own environment* is
+documented, and the promotion gate compares content with those fields masked by
+name, requiring everything else to be byte-equal.
 
 If a release were ever disputed, the verifiable chain is: commit → the manifest
 published with the CI evidence (`artifact-manifest.json.gz`) → this host's rebuild

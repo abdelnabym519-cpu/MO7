@@ -54,6 +54,9 @@ RECORD_DIGEST = re.compile(rb"sha256=[A-Za-z0-9_-]{43}")
 #: and records that name in required-server-files.json. It identifies the build,
 #: not the code, so it is neutralised like the build id itself.
 GENERATED_TOKEN = re.compile(rb"deeptutor-build-\d+")
+#: The generated service-worker/manifest origins array, replaced by field name.
+BUILDER_ORIGINS = re.compile(rb'("allowedDevOrigins"\s*:\s*)\[[^\]]*\]')
+BUILDER_ORIGINS_PLACEHOLDER = rb'\1["<builder-network>"]'
 GENERATED_TOKEN_PLACEHOLDER = b"deeptutor-build-<token>"
 #: Generated key material. Next.js generates random secrets on every build and
 #: ships them inside the bundle: a 32-byte encryption key for Server Actions
@@ -73,12 +76,30 @@ GENERATED_TOKEN_PLACEHOLDER = b"deeptutor-build-<token>"
 GENERATED_KEY = re.compile(
     rb'("(?:encryptionKey|previewModeId|previewModeSigningKey)"\s*:\s*)"[^"]*"'
 )
+#: Builder-derived values. `web/next.config.js` enumerates this machine's
+#: non-loopback IPv4 addresses into `allowedDevOrigins` at build time, so a release
+#: artifact records the address of the machine that built it: measured, this host
+#: builds `["127.0.0.1","169.254.0.21"]` and a CI runner builds its own. It is the
+#: builder's environment rather than the source, and `next start` ignores the
+#: setting, so the comparison masks the array and requires everything else in those
+#: entries to be equal. Removing it from the artifact is a product change
+#: (next.config.js has no override) and is deliberately not made in this phase; it
+#: is recorded as a finding instead.
 
 
 def neutralise_generated_tokens(payload: bytes) -> bytes:
-    """Replace generated per-build tokens and key material with placeholders."""
+    """Replace generated per-build tokens, keys and builder-derived values.
+
+    Everything masked here is recorded by field or token name and is not the
+    source: the build id and the temporary tsconfig name (derived from the release
+    for shipped artifacts, but still masked so an older artifact compares), the
+    secrets Next.js randomises per build, and the builder's own network addresses.
+    Each mask makes the two sides comparable; nothing else in the entry is
+    excused, so a difference outside these fields is still unexplained.
+    """
     body = GENERATED_TOKEN.sub(GENERATED_TOKEN_PLACEHOLDER, payload)
-    return GENERATED_KEY.sub(rb'\1"<generated-key>"', body)
+    body = GENERATED_KEY.sub(rb'\1"<generated-key>"', body)
+    return BUILDER_ORIGINS.sub(BUILDER_ORIGINS_PLACEHOLDER, body)
 
 
 def embedded_json_canonical(payload: bytes, build_id: str) -> bytes | None:
@@ -327,7 +348,7 @@ def compare(first: dict, second: dict) -> dict:
     unexplained: list[str] = []
     for name in c_changed:
         if name in da and name in db and da[name] == db[name]:
-            residual_rules[name] = "generated_keys_and_digests"
+            residual_rules[name] = "derived_and_generated_values"
             continue
         explained = False
         for rule in (
@@ -353,8 +374,8 @@ def compare(first: dict, second: dict) -> dict:
             if (c_added or c_removed)
             else len(added) + len(removed),
             "content_differs_only_by_build_id": len(same_after_id),
-            "generated_keys_and_digests": sum(
-                1 for rule in residual_rules.values() if rule == "generated_keys_and_digests"
+            "derived_and_generated_values": sum(
+                1 for rule in residual_rules.values() if rule == "derived_and_generated_values"
             ),
             "ordering_only_json": sum(
                 1 for rule in residual_rules.values() if rule == "json_sorted_keys"
