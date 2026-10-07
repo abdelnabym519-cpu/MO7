@@ -1,0 +1,76 @@
+{
+  "recorded_at": "2026-10-07T01:40:22Z",
+  "host": "127.0.0.1:8443",
+  "host_header": "3782-i9bs99j1lpxm31yhdqyda.e2b.app",
+  "surface": "validation-ingress",
+  "tls": true,
+  "path": "/ws/books",
+  "routes": [
+    "/ws/books",
+    "/ws/questions/judge",
+    "/ws/mastery-paths",
+    "/ws/knowledge-bases/b18f1da9-b3a2-4c8f-b339-93d1a2956ab3/progress",
+    "/ws"
+  ],
+  "accounts": [
+    "tenant_a",
+    "tenant_b"
+  ],
+  "duration_seconds": 7.33,
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "own_books": 0,
+  "own_book_ack": "not_applicable",
+  "results": [
+    {
+      "check": "an account can log in over the deployment's TLS origin",
+      "ok": true,
+      "detail": "tenant_a, tenant_b"
+    },
+    {
+      "check": "every client-facing stream admits an authenticated upgrade",
+      "ok": true,
+      "detail": "/ws/books=101; /ws/questions/judge=101; /ws/mastery-paths=101; /ws/knowledge-bases/b18f1da9-b3a2-4c8f-b339-93d1a2956ab3/progress=101; /ws=101"
+    },
+    {
+      "check": "every one of those streams refuses an anonymous upgrade",
+      "ok": true,
+      "detail": "5 routes, all non-101 without a session"
+    },
+    {
+      "check": "an upgrade with a forged session token is refused",
+      "ok": true,
+      "detail": "status=403"
+    },
+    {
+      "check": "a second account's own session is admitted (refusals are about identity, not about sockets)",
+      "ok": true,
+      "detail": "status=101"
+    },
+    {
+      "check": "subscribing to a book the account does not have is refused by name, and the socket stays open",
+      "ok": true,
+      "detail": "error={\"type\": \"error\", \"content\": \"Book not found: ca91dc3b-41c2-47eb-b441-944f707df076\"} closed=False"
+    },
+    {
+      "check": "the own-book acknowledgement is measured when the account owns a book",
+      "ok": true,
+      "detail": "not applicable and not claimed: no book exists on this host (creating one needs a model provider), so the acknowledgement was not exercised; the refusals above were"
+    },
+    {
+      "check": "another account's subscription is refused, with no replayed frames",
+      "ok": true,
+      "detail": "frames=[{\"type\": \"error\", \"content\": \"Book not found: ca91dc3b-41c2-47eb-b441-944f707df076\"}]"
+    },
+    {
+      "check": "the refusal does not reveal whether the book exists",
+      "ok": true,
+      "detail": "with_book={\"type\": \"error\", \"content\": \"Book not found: ca91dc3b-41c2-47eb-b441-944f707df076\"}"
+    }
+  ],
+  "notes": [
+    "Reached through the validation-ingress (Host: 3782-i9bs99j1lpxm31yhdqyda.e2b.app), which is the door this run could use: the validation ingress when it is listening, the frontend port itself otherwise. The ingress once stripped the Upgrade/Connection pair off the ingress once stripped the Upgrade/Connection pair off the handshake, which turned every stream into a plain GET the app answered 404 -- found by this probe, fixed in docs-for-user/phase31-staging/ingress_tls_proxy.js and re-measured here.",
+    "Book identifiers are per-account data; this host has 0 book(s) for tenant_a, so the own-book acknowledgement is stated as not applicable when that count is zero rather than asserted from an empty stream."
+  ]
+}

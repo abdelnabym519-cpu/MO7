@@ -88,6 +88,22 @@ def current_release() -> str:
         return ""
 
 
+def serving_release() -> str:
+    """The release the deployment is actually serving, from the live symlink.
+
+    `current_release()` reads the marker, and a failed promotion can leave the
+    symlink flipped while the marker still names the release it was replacing.
+    This case measured recovery from the marker and reported `recovered: true`
+    while the host was serving the release nobody validated -- a false green, and
+    precisely the state the case exists to catch. Recovery is decided on what is
+    served.
+    """
+    try:
+        return Path(os.path.realpath(PROD_ROOT / "current")).name
+    except OSError:
+        return ""
+
+
 def deployment_intact(expected: str) -> tuple[bool, str]:
     """The deployment still serves `expected` and still passes verification."""
     identity = prod("identity")
@@ -226,8 +242,16 @@ def case_promote_incomplete_release(artifact: Path, workdir: Path, commit: str) 
     try:
         result = prod("promote", "--release", broken_id)
         text = (result.stdout or "") + (result.stderr or "")
-        # `promote` must not have switched anything: delete the release link
-        # target check is the marker, which is the authoritative record.
+        # `promote` must not have switched anything: the marker is the
+        # authoritative record of what is running.
+        #
+        # The copy is removed *before* the deployment is measured: a release tree
+        # is ~1.1 GiB, and the deployment's own verification refuses a host with
+        # less than 5 GiB of headroom, so measuring with the copy still on disk
+        # reports the harness's disk usage as a deployment failure (observed:
+        # verify=1, `free=4.63 GiB`, on a host that passes 107/107 with the copy
+        # removed). A case must measure the deployment, not itself.
+        shutil.rmtree(broken, ignore_errors=True)
         intact, detail = deployment_intact(before)
         return {
             "case": "promoting a hand-edited release directory",
@@ -277,6 +301,20 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
     path's own — including finding its target (P33-M5).
     """
     before = current_release()
+    serving_before = serving_release()
+    if serving_before != before:
+        return {
+            "case": "a promotion whose post-deployment validation fails",
+            "injected": "(not injected: the deployment is already inconsistent)",
+            "detected": False,
+            "blocked": False,
+            "recovered": False,
+            "validated": False,
+            "retried_from": "not needed",
+            "performed_by": "not recorded",
+            "detail": f"the marker names {before or '(none)'} and the symlink serves "
+            f"{serving_before or '(none)'}; restore the host before injecting a fault",
+        }
     rc_id = os.environ.get("MO7_FAULT_RC_ID", "")
     if not rc_id:
         return {
@@ -290,6 +328,36 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
         }
 
     import rc_release  # noqa: PLC0415  - host-layer only
+
+    # The candidate has to be promotable. A previous run of this very case leaves
+    # it DEPLOY_FAILED (correctly -- it was deployed and recovered), and the
+    # documented retry is what makes the case re-runnable without inventing a new
+    # release candidate or hand-editing state.
+    retried_from = None
+    state_before = rc_release.load_state(rc_id)
+    history_before = len(state_before.get("history", []))
+    if state_before["state"] != "APPROVED":
+        retried_from = state_before["state"]
+        retry = run(
+            [sys.executable, str(HERE / "rc_release.py"), "retry", "--rc", rc_id],
+            timeout=600,
+        )
+        if retry.returncode != 0:
+            return {
+                "case": "a promotion whose post-deployment validation fails",
+                "injected": "(not injected: the candidate cannot be promoted)",
+                "detected": False,
+                "blocked": False,
+                "recovered": False,
+                "validated": False,
+                "retried_from": retried_from,
+                "performed_by": "not recorded",
+                "detail": f"{rc_id} is {retried_from} and the retry was refused: "
+                + " ".join(((retry.stdout or "") + (retry.stderr or "")).splitlines()[-2:]),
+            }
+        state_before = rc_release.load_state(rc_id)
+        history_before = len(state_before.get("history", []))
+    started_at = rc_release.now()
 
     contract = PROD_ROOT / "etc/production.env"
     original = contract.read_text()
@@ -328,37 +396,49 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
             ],
             timeout=5400,
         )
-        text = (result.stdout or "") + (result.stderr or "")
         rollback_file = rc_release.RC_DIR / rc_id / "evidence/rollback.json"
         rollback = json.loads(rollback_file.read_text()) if rollback_file.is_file() else {}
         state_after = rc_release.load_state(rc_id)
-        automatic = current_release() == before
+        # The record has to have been produced by *this* run: a leftover
+        # rollback.json from an earlier attempt would otherwise let a refused
+        # promotion look like a detected-and-recovered one.
+        fresh = (
+            len(state_after.get("history", [])) > history_before
+            and rollback.get("recorded_at", "1970-01-01T00:00:00Z") >= started_at
+        )
+        automatic = serving_release() == before
     finally:
         # Remove the injected fault whether or not the promotion did anything.
         contract.write_text(original)
         prod("restart")
 
-    if current_release() != before:
-        # The controller could not restore the previous release while the fault
-        # was active. The documented operator rollback is then the recovery path,
-        # and the case records that a human step was required.
+    if serving_release() != before:
+        # Neither the deployment nor the controller restored the previous release
+        # while the fault was active. The documented operator rollback is then the
+        # recovery path, and the case records that a human step was required.
         manual = prod("rollback", "--to", before)
-    restored = current_release() == before
+    served = serving_release()
+    marked = current_release()
+    restored = served == before and marked == before
     intact, detail = deployment_intact(before)
+    performed_by = rollback.get("performed_by")
+    rolled_back = rollback.get("result") in ("rolled back", "rolled back by the deployment")
     return {
         "case": "a promotion whose post-deployment validation fails",
         "injected": "the contract's validation-ingress origin pointed at a dead port",
-        "detected": result.returncode != 0 and bool(rollback),
-        "blocked": state_after["state"] in ("ROLLED_BACK", "ROLLBACK_REQUIRED")
-        and current_release() != rc_id,
+        "detected": result.returncode != 0 and rolled_back and fresh,
+        "blocked": served != rc_id and marked != rc_id,
         "recovered": restored,
         "validated": intact,
         "automatic": automatic,
         "rollback_result": rollback.get("result", "not recorded"),
+        "performed_by": performed_by or "not recorded",
+        "retried_from": retried_from or "not needed",
         "detail": f"promote exit={result.returncode} state={state_after['state']} "
-        f"rollback={rollback.get('result')} automatic={automatic} "
-        f"operator_rollback_exit={manual.returncode if manual else None} "
-        f"release={current_release()}; {detail}",
+        f"rollback={rollback.get('result')} performed_by={performed_by or 'not recorded'} "
+        f"automatic={automatic} operator_rollback_exit={manual.returncode if manual else None} "
+        f"serving={served or '(none)'} marker={marked or '(none)'} "
+        f"fresh={fresh}{f' retried_from={retried_from}' if retried_from else ''}; {detail}",
     }
 
 

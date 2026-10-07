@@ -1,0 +1,9 @@
+{
+  "recorded_at": "2026-10-07T00:22:04Z",
+  "kind": "release-tag",
+  "tag": "mo7-release-1.6.11-45d419a-ci37546936253",
+  "commit": "45d419a1a80e263093ba2ec0c9cea05af6a1f8da",
+  "created": true,
+  "pushed": true,
+  "detail": "To https://github.com/abdelnabym519-cpu/MO7.git\n * [new tag]         mo7-release-1.6.11-45d419a-ci37546936253 -> mo7-release-1.6.11-45d419a-ci37546936253"
+}

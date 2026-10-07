@@ -1,0 +1,61 @@
+{
+  "recorded_at": "2026-10-07T00:27:55Z",
+  "kind": "negative-release-test",
+  "artifact_under_test": "deeptutor-1.6.11-py3-none-any.whl",
+  "artifact_sha256": "5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9",
+  "cases_total": 5,
+  "cases_refused": 5,
+  "result": "pass",
+  "cases": [
+    {
+      "case": "a planted credential in the artifact",
+      "injected": "an RSA private key written into the packaged application modules",
+      "detector": "rc_scan.py (artifact security scan) and rc_contract.py",
+      "detected": true,
+      "gate": "artifact security scan",
+      "blocked": true,
+      "detail": "}",
+      "name": "planted-credential"
+    },
+    {
+      "case": "an artifact missing a required file",
+      "injected": "deeptutor_web/server.js removed from the wheel",
+      "detector": "rc_contract.py",
+      "detected": true,
+      "gate": "artifact contract",
+      "blocked": true,
+      "detail": "[FAIL] the filename carries the package name and version -- missing-server.whl version=1.6.11; [FAIL] the artifact is a pure-Python wheel (no platform tag) -- missing-server.whl; [FAIL] the artifact carries the packaged Next.js server -- deeptutor_we",
+      "name": "missing-required-file"
+    },
+    {
+      "case": "an artifact carrying the assets of two builds",
+      "injected": "a second web build directory added beside kGKksWmRv_gqsVWijSjbZ",
+      "detector": "rc_contract.py (build identity check)",
+      "detected": true,
+      "gate": "artifact contract",
+      "blocked": true,
+      "detail": "[FAIL] the filename carries the package name and version -- two-builds.whl version=1.6.11; [FAIL] the artifact is a pure-Python wheel (no platform tag) -- two-builds.whl; [FAIL] the artifact carries the assets of exactly one web build -- web build di",
+      "name": "two-builds-in-one-artifact"
+    },
+    {
+      "case": "a version that disagrees with the artifact metadata",
+      "injected": "--version 9.9.9 against a wheel whose metadata says otherwise",
+      "detector": "rc_contract.py (metadata identity check)",
+      "detected": true,
+      "gate": "artifact contract",
+      "blocked": true,
+      "detail": "[FAIL] the filename carries the package name and version -- deeptutor-1.6.11-py3-none-any.whl version=9.9.9; [FAIL] the wheel metadata version matches -- metadata=1.6.11 expected=9.9.9",
+      "name": "version-disagreement"
+    },
+    {
+      "case": "a candidate whose required gates are red",
+      "injected": "a security violation, a failed contract and a failed reproducibility check",
+      "detector": "rc_evidence.py (promotion gate and verdict)",
+      "detected": true,
+      "gate": "promotion gate",
+      "blocked": true,
+      "detail": "verdict=NOT_RELEASABLE blocking=['artifact contract passed', 'artifact security scan is clean', 'a second build is content-identical', 'python tests', 'the product tree passes ruff (lint and format)', 'code security scan has no high/high findings']",
+      "name": "unreleasable-verdict"
+    }
+  ]
+}

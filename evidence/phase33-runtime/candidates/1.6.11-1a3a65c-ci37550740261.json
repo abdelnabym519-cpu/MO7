@@ -1,0 +1,955 @@
+{
+  "rc_id": "1.6.11-1a3a65c-ci37550740261",
+  "created_at": "2026-10-07T00:32:29Z",
+  "state": "DEPLOY_FAILED",
+  "commit": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+  "version": "1.6.11",
+  "branch": "arena/01a0ff3f-mo7",
+  "pipeline_run": "37550740261",
+  "artifact": {
+    "name": "deeptutor-1.6.11-py3-none-any.whl",
+    "sha256": "825b22cd1e9b9ca59a8818cba4a5f08b37baf900a4dd85a9ef869b7ca569cd1d",
+    "bytes": 38651837,
+    "entries": 4400,
+    "canonical_sha256": "0eb926a5c3b951c6f4df97c3998ecb94b9de39310d599f670abaaff931d18690"
+  },
+  "ci_verdict": "RELEASABLE",
+  "ci_evidence": "/home/user/MO7/evidence/ci/37550740261",
+  "ci_evidence_digest": "6c8bfc60977faa6d64461a006499aae5782e8350d587ebca07926762da8d1ac2",
+  "ci_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": true,
+      "detail": "1.6.11",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "825b22cd1e9b9ca5",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "byte_identical=False classified={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'derived_and_generated_values': 3, 'derived_entry_index': 0, 'ordering_only_json': 2, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 62, 'ordering_only_entries': 0, 'unexplained': 0}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": true,
+      "detail": "8434/8488 passed, 0 failed, 0 errors, 54 skipped",
+      "required": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.248s",
+      "required": false
+    },
+    {
+      "stage": "the validation toolchain installs",
+      "ok": true,
+      "detail": "pass in 50.645s",
+      "required": false
+    },
+    {
+      "stage": "import, lazy-startup and worker-protocol checks",
+      "ok": true,
+      "detail": "pass in 1.598s",
+      "required": false
+    },
+    {
+      "stage": "dependency consistency (pip check)",
+      "ok": true,
+      "detail": "pass in 0.269s",
+      "required": false
+    },
+    {
+      "stage": "frontend dependencies install from the lockfile",
+      "ok": true,
+      "detail": "pass in 18.408s",
+      "required": false
+    },
+    {
+      "stage": "the frontend deterministic gate",
+      "ok": true,
+      "detail": "pass in 159.306s",
+      "required": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 71.548s",
+      "required": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 9.96s",
+      "required": false
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "pass in 175.185s",
+      "required": true
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 scope=deeptutor deeptutor_cli tests scripts",
+      "required": false
+    },
+    {
+      "stage": "repository-wide ruff (observed)",
+      "ok": false,
+      "detail": "errors=0 unformatted=1 over 1801 files, all of them phase documentation tooling outside the product tree; see finding P33-L1",
+      "observed": true,
+      "required": false,
+      "finding": "P33-L1"
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": true,
+      "detail": "7 findings, 0 high/high",
+      "required": true
+    }
+  ],
+  "ci_blocking_failures": [],
+  "ci_excepted_failures": [],
+  "local": {
+    "validated_at": "2026-10-07T00:38:26Z",
+    "build_report": {
+      "built_at": "2026-10-07T00:36:25Z",
+      "repository": "https://github.com/abdelnabym519-cpu/MO7.git",
+      "checkout": "/home/user/mo7-cicd/build/1.6.11-1a3a65c-ci37550740261.src",
+      "build_root": "/tmp/mo7-build/src",
+      "mirrored": true,
+      "branch": "HEAD",
+      "commit": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+      "commit_short": "1a3a65c",
+      "version": "1.6.11",
+      "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+      "artifact_bytes": 38651794,
+      "artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+      "artifact_entries": 4400,
+      "artifact_manifest_sha256": "1569942dfa0f06443d56a233629f335cb954b5c3243be754eb542b3da3d44719",
+      "source_date_epoch": 1791331948,
+      "python": "3.11.2",
+      "setuptools": "84.0.0",
+      "node": "v22.22.3",
+      "web_build": "executed",
+      "web_build_id": "cuVpKpyMa4652FP1uF0SQ",
+      "build_cpu_pin": "2",
+      "scrubbed_build_path": "/srv/mo7-build",
+      "scrub_files": "371",
+      "scrub_occurrences": "14398",
+      "recipe_sha256": "c45d6151cd4e9f1fea2d28a0a7dc697e5faca532b66ec32756afed6d812263aa",
+      "tool_hashes": {
+        "rc_manifest": "4a9a7c24ff0d415e1f9863bb62e7495e3f81bca11341ef044848264e1d26b697",
+        "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+        "rc_normalize_build": "36d57cfb856df1d0d34d683ba957f0bb5da7ee22c8f85d8b3936acc4d8b52740",
+        "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+      }
+    },
+    "manifest_sha256": "1569942dfa0f06443d56a233629f335cb954b5c3243be754eb542b3da3d44719",
+    "canonical_sha256": "51afd4253cbf8d33dd4f3da2ac3c97d610579a9685a99cc825821d0722f02818",
+    "checkout": {
+      "head": "476f1e22d7c0175886cab172b01a754bff426ad3",
+      "ci_commit": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+      "changed_since_ci": [
+        "evidence/ci/37550740261/artifact-contract.json",
+        "evidence/ci/37550740261/artifact-manifest.json.gz",
+        "evidence/ci/37550740261/artifact-scan.json",
+        "evidence/ci/37550740261/artifact.json",
+        "evidence/ci/37550740261/build-report.json",
+        "evidence/ci/37550740261/evidence-digest.txt",
+        "evidence/ci/37550740261/lint-product.json",
+        "evidence/ci/37550740261/lint-repo.json",
+        "evidence/ci/37550740261/promotion.json",
+        "evidence/ci/37550740261/release-candidate.json",
+        "evidence/ci/37550740261/release.json",
+        "evidence/ci/37550740261/reproducibility.json",
+        "evidence/ci/37550740261/security-summary.json",
+        "evidence/ci/37550740261/test-summary.json"
+      ],
+      "product_source_changed": [],
+      "recipe_sha256": {
+        "ci": "c45d6151cd4e9f1fea2d28a0a7dc697e5faca532b66ec32756afed6d812263aa",
+        "local": "c45d6151cd4e9f1fea2d28a0a7dc697e5faca532b66ec32756afed6d812263aa"
+      },
+      "tool_hashes": {
+        "ci": {
+          "rc_manifest": "4a9a7c24ff0d415e1f9863bb62e7495e3f81bca11341ef044848264e1d26b697",
+          "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+          "rc_normalize_build": "36d57cfb856df1d0d34d683ba957f0bb5da7ee22c8f85d8b3936acc4d8b52740",
+          "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+        },
+        "local": {
+          "rc_manifest": "4a9a7c24ff0d415e1f9863bb62e7495e3f81bca11341ef044848264e1d26b697",
+          "rc_scrub_paths": "aadbb06faa17d0ee78a2bb01d7bc7a064568adf7883fc1e49b940c23270023a9",
+          "rc_normalize_build": "36d57cfb856df1d0d34d683ba957f0bb5da7ee22c8f85d8b3936acc4d8b52740",
+          "prepare_web_package": "b306fcea315592a40dd21cb6b078a62cecb120e689eeea5de03c8042dbd15c2f"
+        }
+      }
+    },
+    "equivalence": {
+      "method": "entry-by-entry comparison of the two artifacts' build manifests",
+      "ci_artifact_sha256": "825b22cd1e9b9ca59a8818cba4a5f08b37baf900a4dd85a9ef869b7ca569cd1d",
+      "local_artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+      "byte_identical": false,
+      "content_identical_to_ci": true,
+      "classification": {
+        "names_differ_only_by_build_id": 0,
+        "content_differs_only_by_build_id": 0,
+        "derived_and_generated_values": 4,
+        "derived_entry_index": 1,
+        "ordering_only_json": 2,
+        "ordering_only_lines": 0,
+        "ordering_only_embedded_json": 62,
+        "ordering_only_entries": 0,
+        "unexplained": 0
+      },
+      "unexplained": [],
+      "build_ids": {
+        "ci": "cuVpKpyMa4652FP1uF0SQ",
+        "local": "cuVpKpyMa4652FP1uF0SQ"
+      },
+      "canonical_sha256": {
+        "ci": "0eb926a5c3b951c6f4df97c3998ecb94b9de39310d599f670abaaff931d18690",
+        "local": "51afd4253cbf8d33dd4f3da2ac3c97d610579a9685a99cc825821d0722f02818"
+      }
+    },
+    "artifact_path": "/home/user/mo7-cicd/build/1.6.11-1a3a65c-ci37550740261/deeptutor-1.6.11-py3-none-any.whl",
+    "artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+    "contract": {
+      "checked_at": "2026-10-07T00:38:12Z",
+      "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+      "version": "1.6.11",
+      "commit": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+      "artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+      "canonical_sha256": "51afd4253cbf8d33dd4f3da2ac3c97d610579a9685a99cc825821d0722f02818",
+      "entries": 4400,
+      "checks_total": 26,
+      "checks_passed": 26,
+      "checks_failed": 0,
+      "ok": true,
+      "results": [
+        {
+          "check": "the artifact exists",
+          "ok": true,
+          "detail": "/home/user/mo7-cicd/build/1.6.11-1a3a65c-ci37550740261/deeptutor-1.6.11-py3-none-any.whl"
+        },
+        {
+          "check": "the artifact is a wheel",
+          "ok": true,
+          "detail": "deeptutor-1.6.11-py3-none-any.whl"
+        },
+        {
+          "check": "the filename carries the package name and version",
+          "ok": true,
+          "detail": "deeptutor-1.6.11-py3-none-any.whl version=1.6.11"
+        },
+        {
+          "check": "the wheel metadata names the package",
+          "ok": true,
+          "detail": "Name=deeptutor"
+        },
+        {
+          "check": "the wheel metadata version matches",
+          "ok": true,
+          "detail": "metadata=1.6.11 expected=1.6.11"
+        },
+        {
+          "check": "the artifact is a pure-Python wheel (no platform tag)",
+          "ok": true,
+          "detail": "deeptutor-1.6.11-py3-none-any.whl"
+        },
+        {
+          "check": "the artifact carries the application package",
+          "ok": true,
+          "detail": "deeptutor/__init__.py"
+        },
+        {
+          "check": "the artifact carries the API entry point",
+          "ok": true,
+          "detail": "deeptutor/api/main.py"
+        },
+        {
+          "check": "the artifact carries the packaged web bundle package",
+          "ok": true,
+          "detail": "deeptutor_web/__init__.py"
+        },
+        {
+          "check": "the artifact carries the packaged Next.js server",
+          "ok": true,
+          "detail": "deeptutor_web/server.js"
+        },
+        {
+          "check": "the artifact carries the packaged web build id",
+          "ok": true,
+          "detail": "deeptutor_web/.next/BUILD_ID"
+        },
+        {
+          "check": "the packaged web bundle is complete",
+          "ok": true,
+          "detail": "3188 entries under deeptutor_web/"
+        },
+        {
+          "check": "the artifact carries the assets of exactly one web build",
+          "ok": true,
+          "detail": "web build directories in the artifact: ['cuVpKpyMa4652FP1uF0SQ']"
+        },
+        {
+          "check": "the packaged web build id matches the assets it ships",
+          "ok": true,
+          "detail": "BUILD_ID=cuVpKpyMa4652FP1uF0SQ asset_directories=['cuVpKpyMa4652FP1uF0SQ']"
+        },
+        {
+          "check": "every asset referenced by the web build manifests is inside the artifact",
+          "ok": true,
+          "detail": "referenced=0 missing=[]"
+        },
+        {
+          "check": "the artifact sha256 is computable",
+          "ok": true,
+          "detail": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2"
+        },
+        {
+          "check": "the canonical manifest digest is computable",
+          "ok": true,
+          "detail": "build_id=cuVpKpyMa4652FP1uF0SQ entries=4400 canonical_entries=4399"
+        },
+        {
+          "check": "the artifact was built from the requested commit",
+          "ok": true,
+          "detail": "commit=1a3a65c46fe7d22f601e2a88ee425c1a7b94248b"
+        },
+        {
+          "check": "the artifact carries no forbidden material",
+          "ok": true,
+          "detail": "clean"
+        },
+        {
+          "check": "the artifact installs into a clean virtualenv with its declared dependencies",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "check": "the artifact declares the API runtime it needs to start",
+          "ok": true,
+          "detail": "142 declared requirements, uvicorn=True fastapi=True"
+        },
+        {
+          "check": "the installed distribution reports the expected version",
+          "ok": true,
+          "detail": "installed=1.6.11 expected=1.6.11"
+        },
+        {
+          "check": "the installed package carries the web server",
+          "ok": true,
+          "detail": "/tmp/mo7-contract-_q4x3ypw/venv/lib/python3.11/site-packages/deeptutor_web/server.js"
+        },
+        {
+          "check": "the installed package imports",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "check": "the artifact's API reports liveness when started",
+          "ok": true,
+          "detail": "{\"status\":\"alive\"}"
+        },
+        {
+          "check": "the artifact's API reports readiness when started",
+          "ok": true,
+          "detail": "{\"status\":\"ready\"}"
+        }
+      ]
+    },
+    "scan": {
+      "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+      "artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+      "entries_scanned": 4400,
+      "clean": true,
+      "violation_total": 0,
+      "by_rule": {},
+      "violations": [],
+      "recorded_total": 225,
+      "recorded_by_rule": {
+        "entropy_review": 182,
+        "home_path_review": 17,
+        "in_package_tests": 25,
+        "generated_key_material": 1
+      },
+      "recorded": [
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor-1.6.11.dist-info/RECORD",
+          "detail": "high-entropy token (65 chars)"
+        },
+        {
+          "rule": "home_path_review",
+          "finding": "P33-S5",
+          "path": "deeptutor/api/routers/knowledge.py",
+          "detail": "/Users/name/ (server-side)"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/__init__.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_api_endpoints.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_assessment.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_event_hub.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_grading.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_guided_mastery_updates.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_build_shapes.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_choices.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_mode.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_navigation.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_state_integrity.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_mastery_tools.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_models.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_objective_relations.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_policy.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_prompt_language_fallback.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_scheduler.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_service_replace_merge.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_storage.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_topic_coverage.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_topic_generation.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_topic_materials.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_topic_naming.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/learning/tests/test_v2_migration.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor/services/cli_apps/vendor/catalog.json",
+          "detail": "high-entropy token (81 chars)"
+        },
+        {
+          "rule": "in_package_tests",
+          "finding": "P33-S2",
+          "path": "deeptutor/services/config/test_runner.py",
+          "detail": "test material shipped inside the package"
+        },
+        {
+          "rule": "home_path_review",
+          "finding": "P33-S5",
+          "path": "deeptutor/services/rag/pipelines/llamaindex/vector_store.py",
+          "detail": "C:\\\\Users\\\\ (server-side)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(admin)/admin/users/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(auth)/login/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(auth)/register/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(settings)/settings/[section]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(settings)/settings/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "home_path_review",
+          "finding": "P33-S5",
+          "path": "deeptutor_web/.next/server/app/(utility)/agents/page.js",
+          "detail": "/Users/you/ (server-side)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/agents/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/avatar-preview/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/courses/[courseId]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/courses/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/knowledge-bases/[kbName]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/knowledge-bases/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/graph/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/l1/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/l2/[surface]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/l2/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/l3/[slot]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/l3/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/memory/resolve/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/notebooks/[notebookId]/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/notebooks/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/profile/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/session-handoff/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/settings/progress/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/chat-history/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/cli-apps/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/mcp/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/personas/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        },
+        {
+          "rule": "entropy_review",
+          "finding": "P33-S3",
+          "path": "deeptutor_web/.next/server/app/(utility)/space/questions/page_client-reference-manifest.js",
+          "detail": "high-entropy token (84 chars)"
+        }
+      ],
+      "recorded_at": "2026-10-07T00:38:26Z"
+    },
+    "checks": [
+      {
+        "check": "the checkout contains the CI-validated commit",
+        "ok": true,
+        "detail": "checkout=476f1e22d7c0 ci=1a3a65c46fe7"
+      },
+      {
+        "check": "no product source changed since CI validated the commit",
+        "ok": true,
+        "detail": "14 path(s) differ, product=[]"
+      },
+      {
+        "check": "the checkout is clean",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "check": "the frozen CI evidence is unchanged",
+        "ok": true,
+        "detail": "unchanged"
+      },
+      {
+        "check": "the validated commit can be checked out for the rebuild",
+        "ok": true,
+        "detail": "Preparing worktree (detached HEAD 1a3a65c)\n"
+      },
+      {
+        "check": "the frontend dependencies install from the committed lockfile",
+        "ok": true,
+        "detail": "igh, 1 critical)\n\nTo address issues that do not require attention, run:\n  npm audit fix\n\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n"
+      },
+      {
+        "check": "the release build succeeds from the same commit",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "check": "the rebuild produced the declared artifact",
+        "ok": true,
+        "detail": "rebuilt=deeptutor-1.6.11-py3-none-any.whl ci=deeptutor-1.6.11-py3-none-any.whl"
+      },
+      {
+        "check": "the rebuild records the same commit",
+        "ok": true,
+        "detail": "1a3a65c46fe7"
+      },
+      {
+        "check": "the rebuild was made by the same build recipe CI recorded",
+        "ok": true,
+        "detail": "local=c45d6151cd4e9f1f ci=c45d6151cd4e9f1f"
+      },
+      {
+        "check": "the rebuild used the same manifest, scrub and packaging tools CI recorded",
+        "ok": true,
+        "detail": "differing tools=none"
+      },
+      {
+        "check": "the rebuild and the CI artifact are the same content",
+        "ok": true,
+        "detail": "byte_identical=False classification={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'derived_and_generated_values': 4, 'derived_entry_index': 1, 'ordering_only_json': 2, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 62, 'ordering_only_entries': 0, 'unexplained'"
+      },
+      {
+        "check": "the rebuild has the same entry count as the CI artifact",
+        "ok": true,
+        "detail": "local=4400 ci=4400"
+      },
+      {
+        "check": "the deployable artifact passes the artifact contract (including install and startup)",
+        "ok": true,
+        "detail": "eb server\n[PASS] the installed package imports\n[PASS] the artifact's API reports liveness when started\n[PASS] the artifact's API reports readiness when started\n\nartifact contract: 26/26 checks passed\n"
+      },
+      {
+        "check": "the deployable artifact carries no forbidden material",
+        "ok": true,
+        "detail": "clean"
+      },
+      {
+        "check": "a rollback target exists on the production host",
+        "ok": true,
+        "detail": "releases=['1.6.11-0af36b8-bootstrap', '1.6.11-45d419a-ci37546936253']"
+      }
+    ],
+    "checks_total": 16,
+    "checks_passed": 16
+  },
+  "history": [
+    {
+      "at": "2026-10-07T00:32:29Z",
+      "from": null,
+      "to": "CREATED",
+      "actor": "ci",
+      "detail": {
+        "run": "37550740261",
+        "verdict": "RELEASABLE"
+      }
+    },
+    {
+      "at": "2026-10-07T00:38:26Z",
+      "from": "CREATED",
+      "to": "VALIDATED",
+      "actor": "policy",
+      "detail": {
+        "summary": "16/16 checks passed"
+      }
+    },
+    {
+      "at": "2026-10-07T00:40:34Z",
+      "from": "VALIDATED",
+      "to": "APPROVED",
+      "actor": "policy:automatic_after_gates",
+      "detail": {
+        "summary": "approved by policy:automatic_after_gates",
+        "mode": "automatic_after_gates",
+        "ci_verdict": "RELEASABLE",
+        "local_checks": "16/16"
+      }
+    },
+    {
+      "at": "2026-10-07T00:43:53Z",
+      "from": "APPROVED",
+      "to": "DEPLOY_FAILED",
+      "actor": "policy",
+      "detail": {
+        "summary": "deploy rc=1 release=1.6.11-fault-nocommit"
+      }
+    }
+  ],
+  "ci_evidence_frozen": "/home/user/mo7-cicd/rc/1.6.11-1a3a65c-ci37550740261/ci-evidence",
+  "ci_evidence_files": {
+    "artifact-contract.json": "4c3ac23b32dcd03cf700407700cbd7b19c8b9dff7f4b0d4933d597622768e4b2",
+    "artifact-manifest.json.gz": "850a1b3f6ec4c5bd780a81cc3c06c96bbfd0681db9e003506838232a6140dbd3",
+    "artifact-scan.json": "8d5962304e9f6ca55ff876f204d807a6e48f6c753005bc9e49d82782cafa504e",
+    "artifact.json": "17e02d497cc4f511f11018d06f440925fb9eedea1597b4667519fdaf89a9b449",
+    "build-report.json": "30fa8492f1a6e28921120c7aa3b82050b5a1b8e394964e0e4dbe0e33adaffd65",
+    "evidence-digest.txt": "ecaaceea0f14dbaaf2776288016b1a7f256f7f0c6756cdd24eff6ca84cb7436f",
+    "lint-product.json": "fa17257199f1a02c8437bc03fab2cbff6a1825a7277277b1038462b5f5582070",
+    "lint-repo.json": "dd31c2feb8b032baa88f246b57ebf1d9d72cc554e4f8238fbb2eec841e07f12a",
+    "promotion.json": "bcf6536d2ee45472d9ecba2f81aeb5cc6eb50f29425013272c350a632e7f3cd4",
+    "release-candidate.json": "aff44c8937f2df2e36fa7d5ca695990a60e681900ca5b4c80c2e319a591e8693",
+    "release.json": "fb106b169f3edc282c15961f4fb5de081f615b87de6a273fbafd9296b0420a65",
+    "reproducibility.json": "36607d199f0ec1028b91f59b11f150b83a2138434a0d0d5cd8f0d54c109ee0bb",
+    "security-summary.json": "d532a3dd5a80456980490edca319485fbce2f5fa7ec13813b54cc8b2c842f059",
+    "test-summary.json": "62f82878a2fe5c3e77f1cbd228f921bd0de94b90e283f850c8e666cc6290a08e"
+  },
+  "updated_at": "2026-10-07T00:43:53Z",
+  "artifact_frozen": "/home/user/mo7-cicd/rc/1.6.11-1a3a65c-ci37550740261/deeptutor-1.6.11-py3-none-any.whl",
+  "artifact_frozen_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+  "artifact_frozen_canonical": "51afd4253cbf8d33dd4f3da2ac3c97d610579a9685a99cc825821d0722f02818",
+  "previous_release": "1.6.11-fault-nocommit",
+  "deployment": {
+    "recorded_at": "2026-10-07T00:43:53Z",
+    "kind": "deployment",
+    "environment": "production",
+    "release_id": "1.6.11-1a3a65c-ci37550740261",
+    "commit": "1a3a65c46fe7d22f601e2a88ee425c1a7b94248b",
+    "version": "1.6.11",
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "artifact_sha256": "0b68bdee94fec75f5ff4967e9ce56c27f2f760d1bd48d5555b732f2aa3e75ab2",
+    "pipeline_run": "37550740261",
+    "rc_id": "1.6.11-1a3a65c-ci37550740261",
+    "result": "failed",
+    "deploy_exit_code": 1,
+    "deploy_log": "/home/user/mo7-cicd/logs/promote-1.6.11-1a3a65c-ci37550740261.log",
+    "current_release": {
+      "release_id": "1.6.11-fault-nocommit",
+      "environment": "production",
+      "version": "1.6.11",
+      "source_commit": "1111111111111111111111111111111111111111",
+      "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+      "artifact_sha256": "5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9",
+      "artifact_bytes": 38652300,
+      "python": "3.11.2",
+      "web_bundle": "/home/user/mo7-prod/releases/1.6.11-fault-nocommit/data/user/runtime/web",
+      "staged_at": "2026-10-07T00:41:24Z",
+      "staged_by": "user",
+      "host": "e2b.local",
+      "promoted_at": "2026-10-07T00:42:04Z",
+      "current": "/home/user/mo7-prod/current",
+      "previous_release": "1.6.11-45d419a-ci37546936253"
+    }
+  }
+}

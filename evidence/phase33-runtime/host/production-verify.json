@@ -1,0 +1,654 @@
+{
+  "ran_at": "2026-10-07T01:40:30Z",
+  "duration_seconds": 7.33,
+  "release": "1.6.11-45d419a-ci37546936253",
+  "source_commit": "45d419a1a80e263093ba2ec0c9cea05af6a1f8da",
+  "artifact_sha256": "5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9",
+  "total": 107,
+  "passed": 107,
+  "failed": 0,
+  "results": [
+    {
+      "section": "infrastructure",
+      "check": "deployment contract exists and is complete",
+      "ok": true,
+      "detail": "49 keys"
+    },
+    {
+      "section": "infrastructure",
+      "check": "the documented directory contract exists",
+      "ok": true,
+      "detail": "missing=[]"
+    },
+    {
+      "section": "infrastructure",
+      "check": "the ops tooling virtualenv provides supervisor",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "infrastructure",
+      "check": "the current release symlink resolves inside releases/",
+      "ok": true,
+      "detail": "/home/user/mo7-prod/releases/1.6.11-45d419a-ci37546936253"
+    },
+    {
+      "section": "infrastructure",
+      "check": "operational entry points are installed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "infrastructure",
+      "check": "the systemd unit for real hosts is shipped with the deployment",
+      "ok": true,
+      "detail": "not installed here: this host has no usable init system"
+    },
+    {
+      "section": "topology",
+      "check": "backend is supervised by supervisord",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+    },
+    {
+      "section": "topology",
+      "check": "frontend is supervised by supervisord",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+    },
+    {
+      "section": "topology",
+      "check": "scheduler is supervised by supervisord",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+    },
+    {
+      "section": "topology",
+      "check": "the API process owns exactly one listening socket",
+      "ok": true,
+      "detail": "[{\"local\": \"127.0.0.2:8001\", \"ino\": \"166251\", \"pid\": 23606, \"owner\": \"backend (python)\", \"cgroup\": \"/user\"}]"
+    },
+    {
+      "section": "topology",
+      "check": "the API listens on the contract's private address (inside the loopback range)",
+      "ok": true,
+      "detail": "contract=127.0.0.2:8001 observed=['127.0.0.2:8001']"
+    },
+    {
+      "section": "topology",
+      "check": "the frontend owns the documented public bind (the platform edge forwards to it)",
+      "ok": true,
+      "detail": "[{\"local\": \"0.0.0.0:3782\", \"ino\": \"167170\", \"pid\": 23956, \"owner\": \"frontend (next-server (v)\", \"cgroup\": \"/user\"}]"
+    },
+    {
+      "section": "topology",
+      "check": "the validation ingress owns the documented TLS bind",
+      "ok": true,
+      "detail": "[{\"local\": \"0.0.0.0:8443\", \"ino\": \"11368\", \"pid\": 3832, \"owner\": \"ingress-validation (node)\", \"cgroup\": \"/user\"}]"
+    },
+    {
+      "section": "topology",
+      "check": "no deployment process listens on any port other than the three documented binds",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "topology",
+      "check": "the address the platform port bridge dials has no listener",
+      "ok": true,
+      "detail": "bridge target=127.0.0.1:8001"
+    },
+    {
+      "section": "topology",
+      "check": "every other listening socket belongs to the host platform, not the deployment",
+      "ok": true,
+      "detail": "[{\"local\": \"0.0.0.0:111\", \"cgroup\": \"/system.slice/rpcbind.socket\"}, {\"local\": \"*:49983\", \"cgroup\": \"/system.slice/envd.service\"}, {\"local\": \"*:22\", \"cgroup\": \"/system.slice/ssh.socket\"}, {\"local\": \"[::]:111\", \"cgroup\": \"/system.slice/rpcbind.socket\"}]"
+    },
+    {
+      "section": "lifecycle",
+      "check": "backend is RUNNING",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+    },
+    {
+      "section": "lifecycle",
+      "check": "frontend is RUNNING",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+    },
+    {
+      "section": "lifecycle",
+      "check": "scheduler is RUNNING",
+      "ok": true,
+      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+    },
+    {
+      "section": "lifecycle",
+      "check": "every long-running program declares autostart + autorestart",
+      "ok": true,
+      "detail": "autostart=3 autorestart=4"
+    },
+    {
+      "section": "lifecycle",
+      "check": "programs stop with SIGTERM and are killed by group after a grace period",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "lifecycle",
+      "check": "the host watchdog is running and reports supervisord alive",
+      "ok": true,
+      "detail": "{\"running\": true, \"pid\": 3715, \"restarts\": 0, \"supervisord_alive\": true, \"supervisord_pid\": 3697, \"service_manager\": \"supervisord-with-watchdog\"}"
+    },
+    {
+      "section": "lifecycle",
+      "check": "the watchdog records the restart count it has performed",
+      "ok": true,
+      "detail": "restarts=0"
+    },
+    {
+      "section": "lifecycle",
+      "check": "the supervised API process runs with the contract's file-descriptor limit",
+      "ok": true,
+      "detail": "Max open files            65536                65536                files"
+    },
+    {
+      "section": "health",
+      "check": "liveness answers 200",
+      "ok": true,
+      "detail": "{\"status\": 200, \"latency_ms\": 30.27}"
+    },
+    {
+      "section": "health",
+      "check": "readiness answers 200",
+      "ok": true,
+      "detail": "{\"status\": 200, \"latency_ms\": 28.22}"
+    },
+    {
+      "section": "health",
+      "check": "the frontend serves /login",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "health",
+      "check": "readiness reflects dependency health (all stores pass integrity)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "health",
+      "check": "the readiness payload reports dependency state (not just a bare 200)",
+      "ok": true,
+      "detail": "payload={'status': 'ready'}"
+    },
+    {
+      "section": "health",
+      "check": "health responses carry no secrets",
+      "ok": true,
+      "detail": "{\"status\":\"ready\"}"
+    },
+    {
+      "section": "secrets",
+      "check": "secrets/secrets.env exists with mode 0600",
+      "ok": true,
+      "detail": "mode=0o600"
+    },
+    {
+      "section": "secrets",
+      "check": "secrets/credentials.json exists with mode 0600",
+      "ok": true,
+      "detail": "mode=0o600"
+    },
+    {
+      "section": "secrets",
+      "check": "home/data/system/auth/auth_secret exists with mode 0600",
+      "ok": true,
+      "detail": "mode=0o600"
+    },
+    {
+      "section": "secrets",
+      "check": "the secrets/ directory grants no access to group or other",
+      "ok": true,
+      "detail": "mode=0o700"
+    },
+    {
+      "section": "secrets",
+      "check": "the backups/ directory grants no access to group or other",
+      "ok": true,
+      "detail": "mode=0o700"
+    },
+    {
+      "section": "secrets",
+      "check": "the run/supervisor/ directory grants no access to group or other",
+      "ok": true,
+      "detail": "mode=0o700"
+    },
+    {
+      "section": "secrets",
+      "check": "no account password appears in any supervisor-captured log",
+      "ok": true,
+      "detail": "hit=[]"
+    },
+    {
+      "section": "secrets",
+      "check": "no account password or auth secret is embedded in the served frontend bundle",
+      "ok": true,
+      "detail": "hit=[]"
+    },
+    {
+      "section": "secrets",
+      "check": "the auth secret is not embedded in the served frontend bundle",
+      "ok": true,
+      "detail": "hit=[]"
+    },
+    {
+      "section": "secrets",
+      "check": "the release start script refuses to start without the required secret",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "secrets",
+      "check": "the release start script refuses a world-readable secret",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "secrets",
+      "check": "no deployment secret value appears anywhere in the tracked repository",
+      "ok": true,
+      "detail": "hits=[]"
+    },
+    {
+      "section": "secrets",
+      "check": "no deployment secret is embedded in the release artifact",
+      "ok": true,
+      "detail": "hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "the API documentation decision is recorded in the deployment contract",
+      "ok": true,
+      "detail": "decision=loopback-operator-only"
+    },
+    {
+      "section": "network",
+      "check": "the documentation surface answers on the private API interface (operator tool)",
+      "ok": true,
+      "detail": "{\"/docs\": 200, \"/redoc\": 200, \"/openapi.json\": 200}"
+    },
+    {
+      "section": "network",
+      "check": "nothing listens on 127.0.0.1:8001, the address the platform bridge dials",
+      "ok": true,
+      "detail": "127.0.0.1:8001"
+    },
+    {
+      "section": "network",
+      "check": "the platform port bridge for the API port cannot reach the API",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "network",
+      "check": "the TLS validation origin does not serve /docs",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "section": "network",
+      "check": "the TLS validation origin does not serve /redoc",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "section": "network",
+      "check": "the TLS validation origin does not serve /openapi.json",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "section": "network",
+      "check": "the frontend does not serve /docs",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "section": "network",
+      "check": "the frontend does not serve /redoc",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "section": "network",
+      "check": "the frontend does not serve /openapi.json",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "section": "network",
+      "check": "no path escape through the frontend proxy reaches the API documentation",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "network",
+      "check": "/data/system/auth/auth_secret is not served by the frontend",
+      "ok": true,
+      "detail": "status=307 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "/home/data/system/auth/users.json is not served by the frontend",
+      "ok": true,
+      "detail": "status=404 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "/backups is not served by the frontend",
+      "ok": true,
+      "detail": "status=307 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "/etc/production.env is not served by the frontend",
+      "ok": true,
+      "detail": "status=307 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "/secrets/credentials.json is not served by the frontend",
+      "ok": true,
+      "detail": "status=404 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "/run/current-release.json is not served by the frontend",
+      "ok": true,
+      "detail": "status=404 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "the API schema carries no credential or secret material",
+      "ok": true,
+      "detail": "status=200 hits=[]"
+    },
+    {
+      "section": "network",
+      "check": "anonymous API access is refused on business routes",
+      "ok": true,
+      "detail": "{\"/api/settings\": 401, \"/api/sessions\": 401, \"/api/users\": 404, \"/api/tenants\": 404}"
+    },
+    {
+      "section": "network",
+      "check": "path traversal into the filesystem is refused",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "section": "database",
+      "check": "the deployment has its own SQLite stores",
+      "ok": true,
+      "detail": "13 stores"
+    },
+    {
+      "section": "database",
+      "check": "every store passes PRAGMA integrity_check",
+      "ok": true,
+      "detail": "unhealthy=[]"
+    },
+    {
+      "section": "database",
+      "check": "stores live under the dedicated data root",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "database",
+      "check": "no store is served or copied outside the data root",
+      "ok": true,
+      "detail": "no stray data/ directory at the deployment root"
+    },
+    {
+      "section": "database",
+      "check": "the data root grants no access to group or other",
+      "ok": true,
+      "detail": "mode=0o700"
+    },
+    {
+      "section": "storage",
+      "check": "file storage lives under the dedicated data root",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "storage",
+      "check": "the storage root supports write, read and delete",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "storage",
+      "check": "no production data lives in a temporary directory",
+      "ok": true,
+      "detail": "/home/user/mo7-prod/home"
+    },
+    {
+      "section": "storage",
+      "check": "the data root is owned by the deployment user",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "backups",
+      "check": "at least one backup has been taken",
+      "ok": true,
+      "detail": "7 backups on disk"
+    },
+    {
+      "section": "backups",
+      "check": "every backup on disk passes manifest, snapshot and storage verification",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "backups",
+      "check": "the backup index matches the backups on disk",
+      "ok": true,
+      "detail": "index_only=[] disk_only=[]"
+    },
+    {
+      "section": "backups",
+      "check": "the newest backup has a manifest with per-file hashes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "backups",
+      "check": "the newest backup covers every store that existed when it was taken",
+      "ok": true,
+      "detail": "backed up 13 stores; missing=[]; 3 store(s) were created after the backup and are due in the next one"
+    },
+    {
+      "section": "backups",
+      "check": "the newest backup covers the file storage that existed when it was taken",
+      "ok": true,
+      "detail": "archive holds 16 file(s); 10 existed at backup time; 6 were uploaded afterwards and are due in the next one; {\"archive\": \"storage.tar.gz\", \"bytes\": 10549, \"files\": 16, \"uncompressed_bytes\": 450638, \"sha256\": \"e061f99fa6fd7711e62f653cbe1fee8c6c275f0c62e8b125754b4956385f488b\"}"
+    },
+    {
+      "section": "backups",
+      "check": "the newest backup is recent enough for the policy (< 26 h)",
+      "ok": true,
+      "detail": "age=0.01 h"
+    },
+    {
+      "section": "backups",
+      "check": "a restore rehearsal has been executed and recorded",
+      "ok": true,
+      "detail": "10 rehearsal records"
+    },
+    {
+      "section": "backups",
+      "check": "the recorded restore rehearsal passed every check",
+      "ok": true,
+      "detail": "failed=0 of 10"
+    },
+    {
+      "section": "backups",
+      "check": "the restoration was rehearsed from the newest backup",
+      "ok": true,
+      "detail": "rehearsed=20261007T013948Z-pre-deploy-1.6.11-45d419a-ci37546936253 newest=20261007T013948Z-pre-deploy-1.6.11-45d419a-ci37546936253"
+    },
+    {
+      "section": "observability",
+      "check": "the metrics collector has produced a sample",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "observability",
+      "check": "the newest metrics sample is fresh (< 15 min)",
+      "ok": true,
+      "detail": "age=21.1s"
+    },
+    {
+      "section": "observability",
+      "check": "metrics cover every supervised program",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "observability",
+      "check": "metrics include health probes, database, disk, backups and secrets",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "observability",
+      "check": "the alert evaluator has run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "observability",
+      "check": "the alert policy covers crashes, health, disk, backups and certificates",
+      "ok": true,
+      "detail": "rules=18"
+    },
+    {
+      "section": "observability",
+      "check": "the continuous alert loop is evaluating (last run < 15 min)",
+      "ok": true,
+      "detail": "age=20.9s"
+    },
+    {
+      "section": "observability",
+      "check": "the alert evaluator runs against a fresh sample",
+      "ok": true,
+      "detail": "{\"evaluated_at\": \"2026-10-07T01:40:30Z\", \"evaluated_epoch\": 1791337230.0756428, \"metrics_sampled_at\": \"2026-10-07T01:40:29Z\", \"metrics_age_seconds\": 0.3, \"release\": \"1.6.11-45d419a-ci37546936253\", \"ru"
+    },
+    {
+      "section": "observability",
+      "check": "no alert is firing on the healthy deployment",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "observability",
+      "check": "no critical alert is firing on the healthy deployment",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "section": "observability",
+      "check": "the supervisor captures backend output",
+      "ok": true,
+      "detail": "36208 bytes"
+    },
+    {
+      "section": "observability",
+      "check": "the supervisor captures frontend output",
+      "ok": true,
+      "detail": "5122 bytes"
+    },
+    {
+      "section": "observability",
+      "check": "the supervisor captures scheduler output",
+      "ok": true,
+      "detail": "35235 bytes"
+    },
+    {
+      "section": "observability",
+      "check": "the supervisor log records process lifecycle events",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "observability",
+      "check": "the deployment log records release identity and timestamps",
+      "ok": true,
+      "detail": "9 records"
+    },
+    {
+      "section": "resources",
+      "check": "every supervised program runs with the contract's file-descriptor limit",
+      "ok": true,
+      "detail": "declared=65536 observed={\"backend\": \"65536\", \"frontend\": \"65536\", \"scheduler\": \"65536\"}"
+    },
+    {
+      "section": "resources",
+      "check": "the deployment has free disk headroom (> 5 GiB)",
+      "ok": true,
+      "detail": "free=8.08 GiB"
+    },
+    {
+      "section": "resources",
+      "check": "the deployment has free memory headroom (> 500 MiB)",
+      "ok": true,
+      "detail": "available=3171 MiB"
+    },
+    {
+      "section": "resources",
+      "check": "process inventory is recorded (python/node/supervisord RSS)",
+      "ok": true,
+      "detail": "{\"supervisord\": \"19 MiB\", \"python\": \"253 MiB\", \"node\": \"77 MiB\"}"
+    },
+    {
+      "section": "deployment",
+      "check": "at least one release is staged",
+      "ok": true,
+      "detail": "4 releases"
+    },
+    {
+      "section": "deployment",
+      "check": "every staged release carries a manifest and an artifact hash",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "deployment",
+      "check": "the current release is one of the staged releases",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "deployment",
+      "check": "the deployment log records artifact hashes and commits",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "section": "deployment",
+      "check": "the deployment log records measured outage windows",
+      "ok": true,
+      "detail": "recorded by prod_deploy.sh during each promotion"
+    },
+    {
+      "section": "deployment",
+      "check": "the current release marker matches the symlink",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

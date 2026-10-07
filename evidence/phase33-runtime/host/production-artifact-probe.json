@@ -1,0 +1,154 @@
+{
+  "target": "127.0.0.1:8443",
+  "tls": true,
+  "total": 29,
+  "passed": 29,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "session cookie is HttpOnly",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "session cookie is Secure",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "session cookie declares SameSite",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "session cookie is host-only (no Domain attribute)",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "session cookie is scoped to the site root",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "session cookie is not a wildcard-partitioned value",
+      "ok": true,
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+    },
+    {
+      "check": "a forged bearer token is refused",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "check": "the refusal is not a framework error page",
+      "ok": true,
+      "detail": "application/json"
+    },
+    {
+      "check": "no debug stack is leaked in the refusal body",
+      "ok": true,
+      "detail": "{\"detail\":\"Invalid or expired token\"}"
+    },
+    {
+      "check": "a refused response sets no session cookie",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "an HTML page carries the hardened headers",
+      "ok": true,
+      "detail": "status=200 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'"
+    },
+    {
+      "check": "a gated page carries the hardened headers",
+      "ok": true,
+      "detail": "status=307 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'"
+    },
+    {
+      "check": "a page that does not exist carries the hardened headers",
+      "ok": true,
+      "detail": "status=307 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'"
+    },
+    {
+      "check": "a framed JSON response matches its Content-Length",
+      "ok": true,
+      "detail": "status=401 declared=43 received=43"
+    },
+    {
+      "check": "a rejected sign-in does not disclose whether the account exists",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "check": "an unconfigured origin receives no CORS grant",
+      "ok": true,
+      "detail": "status=400 allow-origin=''"
+    },
+    {
+      "check": "the configured origin is granted exactly (never a wildcard)",
+      "ok": true,
+      "detail": "status=200 allow-origin='https://3782-i9bs99j1lpxm31yhdqyda.e2b.app'"
+    },
+    {
+      "check": "a request carrying both Content-Length and Transfer-Encoding is refused",
+      "ok": true,
+      "detail": "status=400"
+    },
+    {
+      "check": "an oversized request header is refused at the public edge without a 5xx",
+      "ok": true,
+      "detail": "status=431"
+    },
+    {
+      "check": "an unsupported method on an API route is refused",
+      "ok": true,
+      "detail": "status=405 allow='POST'"
+    },
+    {
+      "check": "a method override header cannot change the served method",
+      "ok": true,
+      "detail": "status=200 body=b'{\"notebooks\":[],\"total\":0}'"
+    },
+    {
+      "check": "path '/api/../api/notebooks' never escapes the API surface",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "check": "path '/api/%2e%2e/%2e%2e/etc/passwd' never escapes the API surface",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "check": "path '/api/notebooks/../../etc/passwd' never escapes the API surface",
+      "ok": true,
+      "detail": "status=307"
+    },
+    {
+      "check": "path '/files/outputs/..%2f..%2f..%2fetc%2fpasswd' never escapes the API surface",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "check": "an oversized JSON body is refused without a 5xx",
+      "ok": true,
+      "detail": "status=422"
+    },
+    {
+      "check": "/api/settings is refused to an anonymous caller",
+      "ok": true,
+      "detail": "status=401"
+    },
+    {
+      "check": "/files/library/ is refused to an anonymous caller",
+      "ok": true,
+      "detail": "status=308"
+    },
+    {
+      "check": "/api/multi-user/users is refused to an anonymous caller",
+      "ok": true,
+      "detail": "status=401"
+    }
+  ]
+}

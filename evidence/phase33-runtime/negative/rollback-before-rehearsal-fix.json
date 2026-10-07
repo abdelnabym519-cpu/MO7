@@ -1,0 +1,14 @@
+{
+  "note": "Recorded immediately after the first controller rollback (2026-10-07T01:36Z), before the rollback path rehearsed the backup it takes. One check red on a correct rollback.",
+  "total": 107,
+  "passed": 106,
+  "failed": 1,
+  "failures": [
+    {
+      "section": "backups",
+      "check": "the restoration was rehearsed from the newest backup",
+      "ok": false,
+      "detail": "rehearsed=20261007T005231Z-pre-deploy-1.6.11-45d419a-ci37546936253 newest=20261007T013539Z-pre-rollback-1.6.11-0af36b8-bootstrap"
+    }
+  ]
+}

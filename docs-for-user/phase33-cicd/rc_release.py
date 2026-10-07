@@ -151,6 +151,23 @@ def deployed_release() -> dict:
     return json.loads(path.read_text()) if path.is_file() else {}
 
 
+def serving_release() -> str:
+    """The release the deployment is actually running, from the live symlink.
+
+    `deployed_release()` reads the marker, and a failed promotion can leave the
+    symlink flipped while the marker still names the release it was replacing --
+    observed: a post-promote smoke failure left the host serving the unvalidated
+    release, the marker naming the previous one, and every marker-based view
+    (including the injection case) calling that state restored. Recovery must be
+    decided on what is being *served*, so this reads the symlink.
+    """
+    link = PROD_ROOT / "current"
+    try:
+        return Path(os.path.realpath(link)).name
+    except OSError:
+        return ""
+
+
 def verb_ingest(args) -> int:
     """Read CI evidence and create the release candidate."""
     evidence = Path(args.evidence).resolve()
@@ -596,6 +613,48 @@ def verb_approve(args) -> int:
     return 0
 
 
+def verb_retry(args) -> int:
+    """Re-approve a candidate whose promotion failed and whose recovery worked.
+
+    Immutability is a property of the artifact, and this path does not touch it:
+    the frozen artifact is re-hashed against the hash validation recorded, the CI
+    evidence is left exactly as it was, and the transition records who asked for
+    the retry and why. A candidate the gates *rejected* cannot be retried -- a
+    rejection is a fact about the source, not about the deployment -- and a
+    promoted candidate is live and has nothing to retry.
+    """
+    state = load_state(args.rc)
+    allowed = {"ROLLED_BACK", "DEPLOY_FAILED", "ROLLBACK_REQUIRED"}
+    if state["state"] not in allowed:
+        print(
+            f"FATAL: {state['rc_id']} is {state['state']}; only a candidate whose "
+            f"promotion failed and was recovered can be retried",
+            file=sys.stderr,
+        )
+        return 2
+    artifact = Path(state["artifact_frozen"])
+    if not artifact.is_file():
+        print(f"FATAL: the frozen artifact is missing: {artifact}", file=sys.stderr)
+        return 2
+    actual = sha256_file(artifact)
+    if actual != state["artifact_frozen_sha256"]:
+        print("FATAL: the frozen artifact no longer matches its validation hash", file=sys.stderr)
+        return 2
+    previous_state = state["state"]
+    state["retry"] = True
+    transition(
+        state,
+        "APPROVED",
+        {
+            "summary": f"re-approved after {previous_state}; the frozen artifact is unchanged",
+            "artifact_sha256": actual,
+            "requested_by": args.by or "policy:retry_after_recovery",
+        },
+        actor=args.by or "policy:retry_after_recovery",
+    )
+    return 0
+
+
 def post_deploy_validation(state: dict) -> dict:
     """Probe what the host is actually serving, not what the deploy script said."""
     steps = [
@@ -664,6 +723,13 @@ def verb_promote(args) -> int:
         log(f"promotion will replace {previous_release}")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     logfile = LOG_DIR / f"promote-{state['rc_id']}.log"
+    # The deployment records its own rollbacks in the deployment log (the promote
+    # script rolls back when its health gate or post-promote smoke refuses the
+    # release). Snapshot it so a recovery the deployment performed is not
+    # mistaken for a release that never went live -- the distinction matters:
+    # "rolled back" and "never promoted" are different facts.
+    deploy_log = PROD_ROOT / "run/deployments.log"
+    deploy_log_lines = deploy_log.read_text().splitlines() if deploy_log.is_file() else []
     result = run(
         [
             str(PROD_ROOT / "bin/prod.sh"),
@@ -675,6 +741,13 @@ def verb_promote(args) -> int:
             state["commit"],
             "--sha256",
             state["artifact_frozen_sha256"],
+            # A retry after a recovered promotion finds the release directory
+            # already staged (releases are immutable, so the deployment refuses
+            # to replace it otherwise). Re-materializing is safe here and only
+            # here: the frozen artifact was just re-hashed against the hash
+            # validation recorded, so the directory is rebuilt from the artifact
+            # that was validated, not from whatever is on disk.
+            *(["--restage"] if state.get("retry") else []),
         ],
         capture_output=True,
         timeout=5400,
@@ -704,10 +777,65 @@ def verb_promote(args) -> int:
     state["deployment"] = deployment_doc
 
     if not deployed_ok:
+        # A deployment can fail after it has flipped the symlink -- observed: the
+        # post-promote smoke refused the release, the deployment died, and the host
+        # stayed on the release nobody validated while the marker still named the
+        # release it replaced. The controller is the last automated step, so it
+        # owns the recovery: if the failed release is what is being served and the
+        # previously serving release is known, roll it back and record that.
+        serving = serving_release()
+        previous = previous_release or deployed.get("previous_release")
+        after = deploy_log.read_text().splitlines() if deploy_log.is_file() else []
+        new_lines = after[len(deploy_log_lines) :]
+        host_rolled_back = any(" rollback " in line for line in new_lines)
+        rollback = None
+        performed_by = None
+        if previous and serving and serving != previous:
+            log(f"deployment failed; rolling back to {previous}")
+            rollback = run(
+                [str(PROD_ROOT / "bin/prod.sh"), "rollback", "--to", str(previous)],
+                capture_output=True,
+                timeout=3600,
+            )
+            performed_by = "controller"
+            recovered = rollback.returncode == 0
+        elif host_rolled_back and previous and serving == previous:
+            # The deployment refused the release and restored the previous one
+            # itself; its own record says so, and the symlink agrees.
+            log("deployment failed; the deployment rolled the previous release back")
+            performed_by = "deployment"
+            recovered = True
+        else:
+            log("deployment failed before the release was serving")
+            recovered = False
+        rollback_doc = {
+            "recorded_at": now(),
+            "kind": "rollback",
+            "trigger": "deployment failed",
+            "from_release": release_id,
+            "to_release": previous,
+            "invoked": rollback is not None,
+            "performed_by": performed_by,
+            "exit_code": rollback.returncode if rollback else None,
+            "output_tail": "\n".join((rollback.stdout or "").strip().splitlines()[-10:])
+            if rollback
+            else "",
+            "result": "rolled back"
+            if recovered and performed_by == "controller"
+            else (
+                "rolled back by the deployment"
+                if recovered and performed_by == "deployment"
+                else ("not required" if performed_by is None else "manual action required")
+            ),
+        }
+        write_document(state, "rollback.json", rollback_doc)
         transition(
             state,
-            "DEPLOY_FAILED",
-            {"summary": f"deploy rc={result.returncode} release={deployed.get('release_id')}"},
+            "ROLLED_BACK" if recovered else "DEPLOY_FAILED",
+            {
+                "summary": f"deploy rc={result.returncode} release={deployed.get('release_id')} "
+                f"rollback={rollback_doc['result']}"
+            },
         )
         return 1
 
@@ -906,6 +1034,11 @@ def main() -> int:
     p.add_argument("--tag", help="release tag name (default mo7-release-<rc id>)")
     p.add_argument("--no-push", action="store_true", help="create the tag without pushing it")
     p.set_defaults(fn=verb_promote)
+
+    p = sub.add_parser("retry", help="re-approve a candidate whose promotion failed and recovered")
+    p.add_argument("--rc", required=True)
+    p.add_argument("--by", help="named approver for policies that require one")
+    p.set_defaults(fn=verb_retry)
 
     p = sub.add_parser("rollback", help="roll the production host back and re-validate")
     p.add_argument("--to", required=True)

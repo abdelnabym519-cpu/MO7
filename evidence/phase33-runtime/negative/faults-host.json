@@ -1,0 +1,73 @@
+{
+  "recorded_at": "2026-10-07T00:54:54Z",
+  "kind": "failure-injection",
+  "layer": "host",
+  "artifact_under_test": "deeptutor-1.6.11-py3-none-any.whl",
+  "cases_total": 6,
+  "cases_passed": 5,
+  "result": "fail",
+  "cases": [
+    {
+      "case": "a deploy whose declared hash does not match the artifact",
+      "injected": "deploy --sha256 00000000\u2026 for deeptutor-1.6.11-py3-none-any.whl",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "exit=1 staged=False 2026-10-07T00:53:44Z  FATAL: artifact hash mismatch: 5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9 != 0000000000000000000000000000000000000000000000000000000000000000 | 2026-10-07T00:53:44Z  DEPLOY refused: contract names 1.6.11-45d419a-ci37546936253 (version 1.6.11); release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "wrong-declared-hash"
+    },
+    {
+      "case": "a deploy whose declared commit is not in the checkout",
+      "injected": "deploy --commit 111111111111\u2026 (a sha this checkout does not contain)",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "exit=1 staged=False stale_residue_removed=True 2026-10-07T00:53:52Z  VERIFY wheel metadata version matches (1.6.11) | 2026-10-07T00:53:52Z  FATAL: declared commit 1111111111111111111111111111111111111111 does not exist in /home/user/MO7: the release would not be traceable to any source | 2026-10-07T00:53:52Z  DEPLOY refused: contract names 1.6.1; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "undeclared-commit"
+    },
+    {
+      "case": "an artifact missing the packaged web server (pre-promote failure)",
+      "injected": "no-web-deeptutor-1.6.11-py3-none-any.whl: deeptutor_web/server.js removed, declared hash corrected",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "exit=1 staged=False 2026-10-07T00:54:04Z  FATAL: cannot derive the version from no-web-deeptutor-1.6.11-py3-none-any.whl; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "artifact-without-web-bundle"
+    },
+    {
+      "case": "promoting a hand-edited release directory",
+      "injected": "1.6.11-45d419a-ci37546936253-fault-broken: web/server.js removed from a copy of 1.6.11-45d419a-ci37546936253",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "exit=1 2026-10-07T00:54:14Z  FATAL: release web bundle missing: /home/user/mo7-prod/releases/1.6.11-45d419a-ci37546936253-fault-broken/web/server.js; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "promote-incomplete-release"
+    },
+    {
+      "case": "a rollback to a release that was never staged",
+      "injected": "rollback --to 9.9.9-never-staged",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "exit=2 FATAL: release directory not found: /home/user/mo7-prod/releases/9.9.9-never-staged; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "rollback-to-unknown-release"
+    },
+    {
+      "case": "a promotion whose post-deployment validation fails",
+      "injected": "PROD_SOURCE_COMMIT in the contract pointed at a commit that does not exist",
+      "detected": false,
+      "blocked": false,
+      "recovered": true,
+      "validated": true,
+      "automatic": true,
+      "rollback_result": "not recorded",
+      "detail": "promote exit=2 state=DEPLOY_FAILED rollback=None automatic=True operator_rollback_exit=None release=1.6.11-45d419a-ci37546936253; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "name": "post-deploy-validation-failure"
+    }
+  ]
+}

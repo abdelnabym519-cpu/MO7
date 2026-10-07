@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-10-07T00:29:47Z",
+  "kind": "failure-injection",
+  "layer": "local",
+  "artifact_under_test": "deeptutor-1.6.11-py3-none-any.whl",
+  "cases_total": 4,
+  "cases_passed": 4,
+  "result": "pass",
+  "cases": [
+    {
+      "case": "a required gate is red",
+      "injected": "an artifact scan that reports a violation, under a policy with no exceptions",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "red verdict=NOT_RELEASABLE blocking=['artifact security scan is clean']; recovered verdict=RELEASABLE",
+      "name": "required-gate-red"
+    },
+    {
+      "case": "the build fails",
+      "injected": "a checkout with no web build output, built with --skip-web",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "build exit=128; verdict without an artifact=NOT_RELEASABLE",
+      "name": "build-failure"
+    },
+    {
+      "case": "the artifact fails its contract",
+      "injected": "deeptutor_web/server.js removed from a copy of the artifact",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "broken artifact exit=1; intact artifact exit=0",
+      "name": "artifact-contract-failure"
+    },
+    {
+      "case": "the validated artifact is changed before promotion",
+      "injected": "an extra module appended to the frozen artifact",
+      "detected": true,
+      "blocked": true,
+      "recovered": true,
+      "validated": true,
+      "detail": "hash before=5228a28e8448b5cd\u2026 after=2aec0c49eb1822a3\u2026; the controller refuses a candidate it cannot verify (exit=1)",
+      "name": "artifact-substitution"
+    }
+  ]
+}

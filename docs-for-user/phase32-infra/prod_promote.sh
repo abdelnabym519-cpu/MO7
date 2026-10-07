@@ -187,6 +187,8 @@ else
     else
       log "ROLLBACK FAILED: the previous release is not healthy either"
     fi
+    printf '%s rollback release=%s previous=%s reason=post-promote-health\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${PREVIOUS_RELEASE##*/}" "$RELEASE_ID" >>"$PROD_DEPLOY_LOG"
   fi
   die "promotion of $RELEASE_ID failed its health gate"
 fi
@@ -213,6 +215,8 @@ if [ "$DO_SMOKE" = "1" ]; then
       else
         log "ROLLBACK FAILED: the previous release is not healthy either"
       fi
+      printf '%s rollback release=%s previous=%s reason=post-promote-smoke\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${PREVIOUS_RELEASE##*/}" "$RELEASE_ID" >>"$PROD_DEPLOY_LOG"
     fi
     die "post-promote smoke failed (see $PHASE_LOG)"
   fi
