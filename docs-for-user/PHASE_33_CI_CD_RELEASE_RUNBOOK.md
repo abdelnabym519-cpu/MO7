@@ -646,6 +646,12 @@ closed all show up as a negative-test failure rather than as silence.
 The CI side of the same property is the pipeline's own fail-closed stage: a run
 whose required gate fails ends `NOT_RELEASABLE`, and the job exits non-zero.
 
+**Last executed:** 2026-10-07T22:12Z against the certified build of
+`1.6.11-f3da23a-ci37558387881` — **5/5 refused**, each by the tool that owns the
+check (`rc_contract.py` ×3, `rc_scan.py` ×1, `rc_evidence.py` ×1, the last one
+with `blocking=[…six named gates…]`). Evidence:
+`evidence/phase33-runtime/negative/negative-tests.json`.
+
 ## 16. Failure injection on the deployment host
 
 ```bash
@@ -662,6 +668,17 @@ or that blocks but leaves the host unhealthy, is not a pass. The release
 controller's own `MO7_FAULT_RC_ID` must name an `APPROVED` candidate — a
 candidate that is already the current release cannot be the target of the
 rollback case, because a rollback refuses to "return" to where it already is.
+The target must therefore be a second, valid candidate: on 2026-10-07 the
+certified release was live, and the earlier run `37554841809` (`6d7603c`) was
+re-ingested, validated 16/16 and approved to serve as the injection target.
+
+**Last executed:** 2026-10-07T22:39Z against the certified release —
+**local 4/4, host 6/6**, every host case `detected/blocked/recovered/validated =
+true`. The post-deploy case records `promote exit=1 state=ROLLED_BACK
+rollback=rolled back by the deployment performed_by=deployment automatic=True
+operator_rollback_exit=None fresh=True`, with the marker and the symlink both back
+on the certified release, and the host still passes `verify --quick` 107/107 with
+the injected residues removed afterwards.
 
 ## 17. Rebuilding the release environment after a recycle
 

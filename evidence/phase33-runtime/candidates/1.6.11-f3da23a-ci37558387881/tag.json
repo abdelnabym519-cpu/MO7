@@ -1,0 +1,10 @@
+{
+  "recorded_at": "2026-10-07T22:34:36Z",
+  "kind": "release-tag",
+  "tag": "mo7-release-1.6.11-f3da23a-ci37558387881",
+  "commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+  "created": false,
+  "already_existed": false,
+  "pushed": false,
+  "detail": "fatal: tag 'mo7-release-1.6.11-f3da23a-ci37558387881' already exists"
+}

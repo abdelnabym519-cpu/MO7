@@ -1,11 +1,11 @@
 {
-  "recorded_at": "2026-10-07T00:54:54Z",
+  "recorded_at": "2026-10-07T22:39:47Z",
   "kind": "failure-injection",
   "layer": "host",
   "artifact_under_test": "deeptutor-1.6.11-py3-none-any.whl",
   "cases_total": 6,
-  "cases_passed": 5,
-  "result": "fail",
+  "cases_passed": 6,
+  "result": "pass",
   "cases": [
     {
       "case": "a deploy whose declared hash does not match the artifact",
@@ -14,7 +14,7 @@
       "blocked": true,
       "recovered": true,
       "validated": true,
-      "detail": "exit=1 staged=False 2026-10-07T00:53:44Z  FATAL: artifact hash mismatch: 5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9 != 0000000000000000000000000000000000000000000000000000000000000000 | 2026-10-07T00:53:44Z  DEPLOY refused: contract names 1.6.11-45d419a-ci37546936253 (version 1.6.11); release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "detail": "exit=1 staged=False 2026-10-07T22:37:11Z  FATAL: artifact hash mismatch: 59cbaa4628b489467e8e62c9df5db5260ba9798dd6ce222521d6cadbdb0c042d != 0000000000000000000000000000000000000000000000000000000000000000 | 2026-10-07T22:37:11Z  DEPLOY refused: contract names 1.6.11-f3da23a-ci37558387881 (version 1.6.11); release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "wrong-declared-hash"
     },
     {
@@ -24,7 +24,7 @@
       "blocked": true,
       "recovered": true,
       "validated": true,
-      "detail": "exit=1 staged=False stale_residue_removed=True 2026-10-07T00:53:52Z  VERIFY wheel metadata version matches (1.6.11) | 2026-10-07T00:53:52Z  FATAL: declared commit 1111111111111111111111111111111111111111 does not exist in /home/user/MO7: the release would not be traceable to any source | 2026-10-07T00:53:52Z  DEPLOY refused: contract names 1.6.1; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "detail": "exit=1 staged=False stale_residue_removed=False 2026-10-07T22:37:17Z  VERIFY wheel metadata version matches (1.6.11) | 2026-10-07T22:37:17Z  FATAL: declared commit 1111111111111111111111111111111111111111 does not exist in /home/user/MO7: the release would not be traceable to any source | 2026-10-07T22:37:17Z  DEPLOY refused: contract names 1.6.1; release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "undeclared-commit"
     },
     {
@@ -34,17 +34,17 @@
       "blocked": true,
       "recovered": true,
       "validated": true,
-      "detail": "exit=1 staged=False 2026-10-07T00:54:04Z  FATAL: cannot derive the version from no-web-deeptutor-1.6.11-py3-none-any.whl; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "detail": "exit=1 staged=False 2026-10-07T22:37:28Z  FATAL: cannot derive the version from no-web-deeptutor-1.6.11-py3-none-any.whl; release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "artifact-without-web-bundle"
     },
     {
       "case": "promoting a hand-edited release directory",
-      "injected": "1.6.11-45d419a-ci37546936253-fault-broken: web/server.js removed from a copy of 1.6.11-45d419a-ci37546936253",
+      "injected": "1.6.11-f3da23a-ci37558387881-fault-broken: web/server.js removed from a copy of 1.6.11-f3da23a-ci37558387881",
       "detected": true,
       "blocked": true,
       "recovered": true,
       "validated": true,
-      "detail": "exit=1 2026-10-07T00:54:14Z  FATAL: release web bundle missing: /home/user/mo7-prod/releases/1.6.11-45d419a-ci37546936253-fault-broken/web/server.js; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "detail": "exit=1 2026-10-07T22:37:38Z  FATAL: release web bundle missing: /home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881-fault-broken/web/server.js; release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "promote-incomplete-release"
     },
     {
@@ -54,19 +54,21 @@
       "blocked": true,
       "recovered": true,
       "validated": true,
-      "detail": "exit=2 FATAL: release directory not found: /home/user/mo7-prod/releases/9.9.9-never-staged; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "detail": "exit=2 FATAL: release directory not found: /home/user/mo7-prod/releases/9.9.9-never-staged; release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "rollback-to-unknown-release"
     },
     {
       "case": "a promotion whose post-deployment validation fails",
-      "injected": "PROD_SOURCE_COMMIT in the contract pointed at a commit that does not exist",
-      "detected": false,
-      "blocked": false,
+      "injected": "the contract's validation-ingress origin pointed at a dead port",
+      "detected": true,
+      "blocked": true,
       "recovered": true,
       "validated": true,
       "automatic": true,
-      "rollback_result": "not recorded",
-      "detail": "promote exit=2 state=DEPLOY_FAILED rollback=None automatic=True operator_rollback_exit=None release=1.6.11-45d419a-ci37546936253; release=1.6.11-45d419a-ci37546936253 identity=0 verify=0",
+      "rollback_result": "rolled back by the deployment",
+      "performed_by": "deployment",
+      "retried_from": "not needed",
+      "detail": "promote exit=1 state=ROLLED_BACK rollback=rolled back by the deployment performed_by=deployment automatic=True operator_rollback_exit=None serving=1.6.11-f3da23a-ci37558387881 marker=1.6.11-f3da23a-ci37558387881 fresh=True; release=1.6.11-f3da23a-ci37558387881 identity=0 verify=0",
       "name": "post-deploy-validation-failure"
     }
   ]

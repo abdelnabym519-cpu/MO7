@@ -41,6 +41,10 @@ EVIDENCE = Path(os.environ.get("PROD_EVIDENCE_DIR", cfg.EVIDENCE_DIR))
 CREDS_PATH = Path(os.environ.get("PROD_CREDENTIALS", cfg.CREDENTIALS_PATH))
 
 RESULTS: list[dict] = []
+# Requests the edge refused by closing the connection instead of answering. The
+# checks that accept status 0 ("refused at the public edge without a 5xx") mean
+# exactly this, and the evidence names which requests it happened to.
+CLOSED_BEFORE_RESPONSE: list[str] = []
 STACK_MARKERS = (
     "Traceback (most recent call last)",
     'File "',
@@ -80,16 +84,29 @@ def raw(
         payload += body
     elif send_chunked:
         payload += b"0\r\n\r\n"
-    connection.sendall(payload)
+    # The edge may refuse a request by closing the connection while the client is
+    # still writing it -- an oversized header is refused that way when the client
+    # is slow enough (measured: the 64 KiB header request aborted the whole probe
+    # with an uncaught SSLEOFError while a build ran in the background, and the
+    # resulting non-zero exit turned a correct rollback into
+    # `verified_after_rollback: false`; a 4 MiB payload reproduces it
+    # deterministically). A refusal that arrives as a close is still a refusal:
+    # it is recorded and the caller decides, instead of aborting the instrument.
+    try:
+        connection.sendall(payload)
 
-    buffer = b""
-    status = 0
-    response_headers: list[tuple[str, str]] = []
-    while b"\r\n\r\n" not in buffer:
-        chunk = connection.recv(65536)
-        if not chunk:
-            break
-        buffer += chunk
+        buffer = b""
+        status = 0
+        response_headers: list[tuple[str, str]] = []
+        while b"\r\n\r\n" not in buffer:
+            chunk = connection.recv(65536)
+            if not chunk:
+                break
+            buffer += chunk
+    except (ssl.SSLError, ConnectionResetError, OSError):
+        CLOSED_BEFORE_RESPONSE.append(f"{method} {path}")
+        connection.close()
+        return 0, [], b""
     head, _, rest = buffer.partition(b"\r\n\r\n")
     lines = head.decode("latin-1").split("\r\n")
     if lines and lines[0].startswith("HTTP/"):
@@ -376,6 +393,12 @@ def main() -> int:
     print(
         f"\nproduction artifact probe [{TARGET}{' tls' if TLS else ' loopback'}]: "
         f"total={len(RESULTS)} passed={passed} failed={failed}"
+        + (
+            f"; {len(CLOSED_BEFORE_RESPONSE)} request(s) refused by closing the connection: "
+            + ", ".join(sorted(set(CLOSED_BEFORE_RESPONSE)))
+            if CLOSED_BEFORE_RESPONSE
+            else ""
+        )
     )
     EVIDENCE.mkdir(parents=True, exist_ok=True)
     evidence = EVIDENCE / "production-artifact-probe.json"
@@ -389,6 +412,7 @@ def main() -> int:
                 "total": len(RESULTS),
                 "passed": passed,
                 "failed": failed,
+                "closed_before_response": sorted(set(CLOSED_BEFORE_RESPONSE)),
                 "checks": RESULTS,
             },
             indent=2,

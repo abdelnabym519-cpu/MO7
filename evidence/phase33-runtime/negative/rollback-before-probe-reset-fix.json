@@ -1,0 +1,49 @@
+{
+  "recorded_at": "2026-10-07T22:21:00Z",
+  "kind": "rollback",
+  "environment": "production",
+  "from_release": "1.6.11-f3da23a-ci37558387881",
+  "to_release": "1.6.11-0af36b8-bootstrap",
+  "invoked": true,
+  "exit_code": 0,
+  "output_tail": "[PASS] notebooks payload has the documented shape\n[PASS] streaming surfaces admit a session and refuse an anonymous upgrade\n\nproduction smoke: total=10 passed=10 failed=0\n2026-10-07T22:20:39Z  ROLLBACK complete: running 1.6.11-0af36b8-bootstrap\nrecorded 1.6.11-0af36b8-bootstrap as the running release\n2026-10-07T22:20:39Z  CONTRACT PROD_RELEASE_ID: 1.6.11-f3da23a-ci37558387881 -> 1.6.11-0af36b8-bootstrap\n2026-10-07T22:20:39Z  CONTRACT PROD_SOURCE_COMMIT: f3da23aff1d0e62d8636a7f601277636fc45ce0c -> 0af36b89c97d92ed2a411e6db4f67601645d4ee7\n2026-10-07T22:20:39Z  CONTRACT PROD_ARTIFACT_SHA256: af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017 -> bab05773051246b2b37ec2c71317684041cc4d2a5052fb76d80b8336883b96f8\n2026-10-07T22:20:39Z  CONTRACT contract names 1.6.11-0af36b8-bootstrap (version 1.6.11)",
+  "result": "rolled back",
+  "verified_after_rollback": false,
+  "verification_steps": [
+    {
+      "step": "infrastructure verification",
+      "command": "verify --quick",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] resources: every supervised program runs with the contract's file-descriptor limit\n[PASS] resources: the deployment has free disk headroom (> 5 GiB)\n[PASS] resources: the deployment has free memory headroom (> 500 MiB)\n[PASS] resources: process inventory is recorded (python/node/supervisord RSS)\n[PASS] deployment: at least one release is staged\n[PASS] deployment: every staged release carries a manifest and an artifact hash\n[PASS] deployment: the current release is one of the staged releases\n[PASS] deployment: the deployment log records artifact hashes and commits\n[PASS] deployment: the deployment log records measured outage windows\n[PASS] deployment: the current release marker matches the symlink\n\nproduction verification: total=107 passed=107 failed=0 (11.01s, evidence: /home/user/mo7-prod/evidence/production-verify.json)"
+    },
+    {
+      "step": "liveness, readiness, frontend and ingress",
+      "command": "health --json",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "        \"integrity\": \"ok\"\n      },\n      {\n        \"path\": \"data/users/u_a38ab7f6e572435f9746527b8a28afaf/user/chat_history.db\",\n        \"bytes\": 192512,\n        \"integrity\": \"ok\"\n      }\n    ]\n  },\n  \"failures\": [],\n  \"healthy\": true\n}"
+    },
+    {
+      "step": "release identity",
+      "command": "identity",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] the promoted release matches the contract source commit\n[PASS] the artifact in the release directory hashes to the recorded value -- actual=bab05773051246b2... recorded=bab05773051246b2...\n[PASS] wheel.sha256 agrees with the contract\n[PASS] the release virtualenv has the contract version installed -- installed=1.6.11 expected=1.6.11\n[PASS] the release carries a materialised web bundle -- /home/user/mo7-prod/releases/1.6.11-0af36b8-bootstrap/data/user/runtime/web\n[PASS] the web bundle matches the artifact's packaged bundle -- {\"identical\": 3188, \"mismatched\": [], \"missing\": []}\n[PASS] the running backend belongs to the promoted release -- {\"pid\": 10531, \"cwd\": \"/home/user/mo7-prod/releases/1.6.11-0af36b8-bootstrap\", \"release\": \"1.6.11-0af36b8-bootstrap\"}\n[PASS] the running frontend belongs to the promoted release -- {\"pid\": 10546, \"cwd\": \"/home/user/mo7-prod/releases/1.6.11-0af36b8-bootstrap/data/user/runtime/web\", \"release\": \"1.6.11-0af36b8-bootstrap\"}\n[PASS] the running scheduler is the deployment's own operational tool -- {\"pid\": 7445, \"cwd\": \"/home/user/mo7-prod\", \"host_tooling\": true}\n[PASS] the deployment log records the promoted release -- 3 records\n\nidentity: traceable=True release=1.6.11-0af36b8-bootstrap artifact=bab05773051246b2... failures=0"
+    },
+    {
+      "step": "raw artifact probe",
+      "command": "artifact",
+      "ok": false,
+      "exit_code": 1,
+      "output_tail": "[PASS] a forged bearer token is refused -- status=401\n[PASS] the refusal is not a framework error page -- application/json\n[PASS] no debug stack is leaked in the refusal body -- {\"detail\":\"Invalid or expired token\"}\n[PASS] a refused response sets no session cookie\n[PASS] an HTML page carries the hardened headers -- status=200 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'\n[PASS] a gated page carries the hardened headers -- status=307 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'\n[PASS] a page that does not exist carries the hardened headers -- status=307 nosniff=nosniff referrer=strict-origin-when-cross-origin xfo=SAMEORIGIN csp=frame-ancestors 'self'\n[PASS] a framed JSON response matches its Content-Length -- status=401 declared=43 received=43\n[PASS] a rejected sign-in does not disclose whether the account exists -- status=401\n[PASS] an unconfigured origin receives no CORS grant -- status=400 allow-origin=''\n[PASS] the configured origin is granted exactly (never a wildcard) -- status=200 allow-origin='https://3782-im71q7fhah8n7rmn4z6lx.e2b.app'\n[PASS] a request carrying both Content-Length and Transfer-Encoding is refused -- status=400"
+    },
+    {
+      "step": "streaming surfaces",
+      "command": "ws",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] an account can log in over the deployment's TLS origin -- tenant_a, tenant_b\n[PASS] every client-facing stream admits an authenticated upgrade -- /ws/books=101; /ws/questions/judge=101; /ws/mastery-paths=101; /ws/knowledge-bases/d248fb06-7d2c-4730-b580-67ff5416bcc0/progress=101; /ws=101\n[PASS] every one of those streams refuses an anonymous upgrade -- 5 routes, all non-101 without a session\n[PASS] an upgrade with a forged session token is refused -- status=403\n[PASS] a second account's own session is admitted (refusals are about identity, not about sockets) -- status=101\n[PASS] subscribing to a book the account does not have is refused by name, and the socket stays open -- error={\"type\": \"error\", \"content\": \"Book not found: 7185a85d-f3d1-4c1e-b90a-f17fb9065dd0\"} closed=False\n[PASS] the own-book acknowledgement is measured when the account owns a book -- not applicable and not claimed: no book exists on this host (creating one needs a model provider), so the acknowledgement was not exercised; the refusals above were\n[PASS] another account's subscription is refused, with no replayed frames -- frames=[{\"type\": \"error\", \"content\": \"Book not found: 7185a85d-f3d1-4c1e-b90a-f17fb9065dd0\"}]\n[PASS] the refusal does not reveal whether the book exists -- with_book={\"type\": \"error\", \"content\": \"Book not found: 7185a85d-f3d1-4c1e-b90a-f17fb9065dd0\"}\n\nwebsocket probe: 9/9 checks passed -> /home/user/mo7-prod/evidence/production-websocket.json"
+    }
+  ]
+}

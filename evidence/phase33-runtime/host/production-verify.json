@@ -1,9 +1,9 @@
 {
-  "ran_at": "2026-10-07T01:40:30Z",
-  "duration_seconds": 7.33,
-  "release": "1.6.11-45d419a-ci37546936253",
-  "source_commit": "45d419a1a80e263093ba2ec0c9cea05af6a1f8da",
-  "artifact_sha256": "5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9",
+  "ran_at": "2026-10-07T22:42:05Z",
+  "duration_seconds": 5.13,
+  "release": "1.6.11-f3da23a-ci37558387881",
+  "source_commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+  "artifact_sha256": "af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017",
   "total": 107,
   "passed": 107,
   "failed": 0,
@@ -30,7 +30,7 @@
       "section": "infrastructure",
       "check": "the current release symlink resolves inside releases/",
       "ok": true,
-      "detail": "/home/user/mo7-prod/releases/1.6.11-45d419a-ci37546936253"
+      "detail": "/home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881"
     },
     {
       "section": "infrastructure",
@@ -48,25 +48,25 @@
       "section": "topology",
       "check": "backend is supervised by supervisord",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:36\nfrontend                         RUNNING   pid 18704, uptime 0:02:26\ningress-validation    "
     },
     {
       "section": "topology",
       "check": "frontend is supervised by supervisord",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:36\nfrontend                         RUNNING   pid 18704, uptime 0:02:26\ningress-validation    "
     },
     {
       "section": "topology",
       "check": "scheduler is supervised by supervisord",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:31\nfrontend                         RUNNING   pid 23956, uptime 0:00:20\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:36\nfrontend                         RUNNING   pid 18704, uptime 0:02:26\ningress-validation    "
     },
     {
       "section": "topology",
       "check": "the API process owns exactly one listening socket",
       "ok": true,
-      "detail": "[{\"local\": \"127.0.0.2:8001\", \"ino\": \"166251\", \"pid\": 23606, \"owner\": \"backend (python)\", \"cgroup\": \"/user\"}]"
+      "detail": "[{\"local\": \"127.0.0.2:8001\", \"ino\": \"117661\", \"pid\": 18690, \"owner\": \"backend (python)\", \"cgroup\": \"/user\"}]"
     },
     {
       "section": "topology",
@@ -78,13 +78,13 @@
       "section": "topology",
       "check": "the frontend owns the documented public bind (the platform edge forwards to it)",
       "ok": true,
-      "detail": "[{\"local\": \"0.0.0.0:3782\", \"ino\": \"167170\", \"pid\": 23956, \"owner\": \"frontend (next-server (v)\", \"cgroup\": \"/user\"}]"
+      "detail": "[{\"local\": \"0.0.0.0:3782\", \"ino\": \"118424\", \"pid\": 18704, \"owner\": \"frontend (next-server (v)\", \"cgroup\": \"/user\"}]"
     },
     {
       "section": "topology",
       "check": "the validation ingress owns the documented TLS bind",
       "ok": true,
-      "detail": "[{\"local\": \"0.0.0.0:8443\", \"ino\": \"11368\", \"pid\": 3832, \"owner\": \"ingress-validation (node)\", \"cgroup\": \"/user\"}]"
+      "detail": "[{\"local\": \"0.0.0.0:8443\", \"ino\": \"12561\", \"pid\": 4105, \"owner\": \"ingress-validation (node)\", \"cgroup\": \"/user\"}]"
     },
     {
       "section": "topology",
@@ -108,19 +108,19 @@
       "section": "lifecycle",
       "check": "backend is RUNNING",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:37\nfrontend                         RUNNING   pid 18704, uptime 0:02:27\ningress-validation    "
     },
     {
       "section": "lifecycle",
       "check": "frontend is RUNNING",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:37\nfrontend                         RUNNING   pid 18704, uptime 0:02:27\ningress-validation    "
     },
     {
       "section": "lifecycle",
       "check": "scheduler is RUNNING",
       "ok": true,
-      "detail": "backend                          RUNNING   pid 23606, uptime 0:00:32\nfrontend                         RUNNING   pid 23956, uptime 0:00:21\ningress-validation    "
+      "detail": "backend                          RUNNING   pid 18690, uptime 0:02:37\nfrontend                         RUNNING   pid 18704, uptime 0:02:27\ningress-validation    "
     },
     {
       "section": "lifecycle",
@@ -138,7 +138,7 @@
       "section": "lifecycle",
       "check": "the host watchdog is running and reports supervisord alive",
       "ok": true,
-      "detail": "{\"running\": true, \"pid\": 3715, \"restarts\": 0, \"supervisord_alive\": true, \"supervisord_pid\": 3697, \"service_manager\": \"supervisord-with-watchdog\"}"
+      "detail": "{\"running\": true, \"pid\": 4007, \"restarts\": 0, \"supervisord_alive\": true, \"supervisord_pid\": 3987, \"service_manager\": \"supervisord-with-watchdog\"}"
     },
     {
       "section": "lifecycle",
@@ -156,13 +156,13 @@
       "section": "health",
       "check": "liveness answers 200",
       "ok": true,
-      "detail": "{\"status\": 200, \"latency_ms\": 30.27}"
+      "detail": "{\"status\": 200, \"latency_ms\": 31.55}"
     },
     {
       "section": "health",
       "check": "readiness answers 200",
       "ok": true,
-      "detail": "{\"status\": 200, \"latency_ms\": 28.22}"
+      "detail": "{\"status\": 200, \"latency_ms\": 27.35}"
     },
     {
       "section": "health",
@@ -474,19 +474,19 @@
       "section": "backups",
       "check": "the newest backup covers the file storage that existed when it was taken",
       "ok": true,
-      "detail": "archive holds 16 file(s); 10 existed at backup time; 6 were uploaded afterwards and are due in the next one; {\"archive\": \"storage.tar.gz\", \"bytes\": 10549, \"files\": 16, \"uncompressed_bytes\": 450638, \"sha256\": \"e061f99fa6fd7711e62f653cbe1fee8c6c275f0c62e8b125754b4956385f488b\"}"
+      "detail": "archive holds 16 file(s); 10 existed at backup time; 6 were uploaded afterwards and are due in the next one; {\"archive\": \"storage.tar.gz\", \"bytes\": 10544, \"files\": 16, \"uncompressed_bytes\": 450638, \"sha256\": \"70170ca6ce131d62d3f12f4ddd7ac0a8814859b68508ea9ca8e0f901e31488dd\"}"
     },
     {
       "section": "backups",
       "check": "the newest backup is recent enough for the policy (< 26 h)",
       "ok": true,
-      "detail": "age=0.01 h"
+      "detail": "age=0.06 h"
     },
     {
       "section": "backups",
       "check": "a restore rehearsal has been executed and recorded",
       "ok": true,
-      "detail": "10 rehearsal records"
+      "detail": "13 rehearsal records"
     },
     {
       "section": "backups",
@@ -498,7 +498,7 @@
       "section": "backups",
       "check": "the restoration was rehearsed from the newest backup",
       "ok": true,
-      "detail": "rehearsed=20261007T013948Z-pre-deploy-1.6.11-45d419a-ci37546936253 newest=20261007T013948Z-pre-deploy-1.6.11-45d419a-ci37546936253"
+      "detail": "rehearsed=20261007T223834Z-pre-deploy-1.6.11-6d7603c-ci37554841809 newest=20261007T223834Z-pre-deploy-1.6.11-6d7603c-ci37554841809"
     },
     {
       "section": "observability",
@@ -510,7 +510,7 @@
       "section": "observability",
       "check": "the newest metrics sample is fresh (< 15 min)",
       "ok": true,
-      "detail": "age=21.1s"
+      "detail": "age=45.2s"
     },
     {
       "section": "observability",
@@ -540,13 +540,13 @@
       "section": "observability",
       "check": "the continuous alert loop is evaluating (last run < 15 min)",
       "ok": true,
-      "detail": "age=20.9s"
+      "detail": "age=45.0s"
     },
     {
       "section": "observability",
       "check": "the alert evaluator runs against a fresh sample",
       "ok": true,
-      "detail": "{\"evaluated_at\": \"2026-10-07T01:40:30Z\", \"evaluated_epoch\": 1791337230.0756428, \"metrics_sampled_at\": \"2026-10-07T01:40:29Z\", \"metrics_age_seconds\": 0.3, \"release\": \"1.6.11-45d419a-ci37546936253\", \"ru"
+      "detail": "{\"evaluated_at\": \"2026-10-07T22:42:04Z\", \"evaluated_epoch\": 1791412924.8765023, \"metrics_sampled_at\": \"2026-10-07T22:42:04Z\", \"metrics_age_seconds\": 0.3, \"release\": \"1.6.11-f3da23a-ci37558387881\", \"ru"
     },
     {
       "section": "observability",
@@ -564,19 +564,19 @@
       "section": "observability",
       "check": "the supervisor captures backend output",
       "ok": true,
-      "detail": "36208 bytes"
+      "detail": "40139 bytes"
     },
     {
       "section": "observability",
       "check": "the supervisor captures frontend output",
       "ok": true,
-      "detail": "5122 bytes"
+      "detail": "4396 bytes"
     },
     {
       "section": "observability",
       "check": "the supervisor captures scheduler output",
       "ok": true,
-      "detail": "35235 bytes"
+      "detail": "19524 bytes"
     },
     {
       "section": "observability",
@@ -588,7 +588,7 @@
       "section": "observability",
       "check": "the deployment log records release identity and timestamps",
       "ok": true,
-      "detail": "9 records"
+      "detail": "12 records"
     },
     {
       "section": "resources",
@@ -600,25 +600,25 @@
       "section": "resources",
       "check": "the deployment has free disk headroom (> 5 GiB)",
       "ok": true,
-      "detail": "free=8.08 GiB"
+      "detail": "free=11.28 GiB"
     },
     {
       "section": "resources",
       "check": "the deployment has free memory headroom (> 500 MiB)",
       "ok": true,
-      "detail": "available=3171 MiB"
+      "detail": "available=3213 MiB"
     },
     {
       "section": "resources",
       "check": "process inventory is recorded (python/node/supervisord RSS)",
       "ok": true,
-      "detail": "{\"supervisord\": \"19 MiB\", \"python\": \"253 MiB\", \"node\": \"77 MiB\"}"
+      "detail": "{\"supervisord\": \"19 MiB\", \"python\": \"238 MiB\", \"node\": \"72 MiB\"}"
     },
     {
       "section": "deployment",
       "check": "at least one release is staged",
       "ok": true,
-      "detail": "4 releases"
+      "detail": "2 releases"
     },
     {
       "section": "deployment",

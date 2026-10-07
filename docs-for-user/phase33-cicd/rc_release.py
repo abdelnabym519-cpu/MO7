@@ -624,7 +624,7 @@ def verb_retry(args) -> int:
     promoted candidate is live and has nothing to retry.
     """
     state = load_state(args.rc)
-    allowed = {"ROLLED_BACK", "DEPLOY_FAILED", "ROLLBACK_REQUIRED"}
+    allowed = {"ROLLED_BACK", "DEPLOY_FAILED", "ROLLBACK_REQUIRED", "ROLLBACK_FAILED"}
     if state["state"] not in allowed:
         print(
             f"FATAL: {state['rc_id']} is {state['state']}; only a candidate whose "
@@ -899,21 +899,49 @@ def verb_promote(args) -> int:
 
     # The release is real: give the commit a name that identifies it.
     tag = args.tag or f"mo7-release-{state['rc_id']}"
-    tagged = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(CHECKOUT),
-            "tag",
-            "-a",
-            tag,
-            "-m",
-            f"Release {state['version']} rc {state['rc_id']} "
-            f"artifact {state['artifact_frozen_sha256']}",
-        ],
+    # A promotion that follows a recovery must not lose its tag record: the tag
+    # was created by the first promotion, so `git tag` would fail with "already
+    # exists" and the evidence would say the release was never tagged. If the tag
+    # exists and names this commit, it is the right tag -- record that, and push
+    # it if it was never pushed.
+    existing = subprocess.run(
+        ["git", "-C", str(CHECKOUT), "rev-parse", f"refs/tags/{tag}"],
         capture_output=True,
         text=True,
     )
+    already_existed = existing.returncode == 0 and existing.stdout.strip() == state["commit"]
+    conflict = ""
+    if existing.returncode == 0 and not already_existed:
+        # The name is taken by a tag that points somewhere else. Both tags this
+        # repository had pointed at *whatever commit the checkout was on* when the
+        # promotion ran -- the CI-evidence commit that followed the validated one
+        # -- while their messages named the release candidate. A tag that names
+        # one commit and points at another is a false provenance claim, so this is
+        # recorded as a conflict rather than worked around.
+        conflict = (
+            f"tag {tag} already exists and points at {existing.stdout.strip()[:12]}, "
+            f"not the validated commit {state['commit'][:12]}"
+        )
+        tagged = subprocess.CompletedProcess(existing.args, 1, "", conflict)
+    elif already_existed:
+        tagged = existing
+    else:
+        tagged = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(CHECKOUT),
+                "tag",
+                "-a",
+                tag,
+                state["commit"],
+                "-m",
+                f"Release {state['version']} rc {state['rc_id']} "
+                f"artifact {state['artifact_frozen_sha256']}",
+            ],
+            capture_output=True,
+            text=True,
+        )
     pushed = None
     if tagged.returncode == 0 and not args.no_push:
         pushed = subprocess.run(
@@ -925,8 +953,10 @@ def verb_promote(args) -> int:
         "tag": tag,
         "commit": state["commit"],
         "created": tagged.returncode == 0,
+        "already_existed": already_existed,
+        "conflict": conflict or None,
         "pushed": bool(pushed and pushed.returncode == 0),
-        "detail": ((pushed.stderr if pushed else tagged.stderr) or "").strip()[:300],
+        "detail": ((pushed.stderr if pushed else tagged.stderr) or conflict or "").strip()[:300],
     }
     write_document(state, "tag.json", tag_doc)
     state["tag"] = tag_doc
@@ -945,6 +975,33 @@ def verb_rollback(args) -> int:
     """Roll the production host back, then re-validate it."""
     target = args.to
     state = load_state(args.rc) if args.rc else None
+    # A rollback to the release that is already serving is not a rollback: the
+    # host is where the request wants it to be. Deciding that here keeps the
+    # refusal out of the state machine -- running the script instead exits 2
+    # ("already the current release"), which used to be recorded as
+    # ROLLBACK_FAILED: an operator who asked for a no-op was told the rollback had
+    # failed, and the candidate was left in a state nothing could promote again.
+    # Refusals are facts, failures are not the same fact.
+    serving = serving_release()
+    if serving and serving == target:
+        log(f"the host already serves {target}; nothing to roll back")
+        document = {
+            "recorded_at": now(),
+            "kind": "rollback",
+            "environment": "production",
+            "from_release": serving,
+            "to_release": target,
+            "invoked": False,
+            "exit_code": 0,
+            "output_tail": "the host already serves the requested release; no rollback performed",
+            "result": "not required",
+            "verified_after_rollback": None,
+            "verification_steps": [],
+        }
+        if state is not None:
+            write_document(state, "rollback.json", document)
+        print(f"\nrollback to {target}: not required (already serving)")
+        return 0
     result = run(
         [str(PROD_ROOT / "bin/prod.sh"), "rollback", "--to", target],
         capture_output=True,

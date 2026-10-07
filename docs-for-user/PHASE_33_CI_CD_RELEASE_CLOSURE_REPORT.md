@@ -576,6 +576,9 @@ repository defect is filed as infrastructure.
 | P33-M23 | HARNESS DEFECT | The incomplete-release case failed the deployment's own **disk-headroom gate** while measuring it: its 1.1 GiB copy of the release tree pushed free space under 5 GiB, and `verify` reported `free=4.63 GiB` | The case measured the deployment with its own copy still on disk | Fault run 5: `promote-incomplete-release … validate=False` with `verify=1`; the same check passes 107/107 with the copy removed | A case's verdict depended on the harness's footprint, not the deployment's health | The copy is removed before the deployment is measured (and the reason is recorded in the case) | Run 6: `promote-incomplete-release … detect/block/recover/validate = true`; `verify --quick` 107/107 before and after the suite | FIXED |
 | P33-M24 | PIPELINE DEFECT | A candidate whose promotion failed and was rolled back **could not be promoted again**: `promote` accepts only `APPROVED`, nothing moved a recovered candidate back, and the immutable release directory cannot be re-staged without `--restage` | The state machine had no retry transition, and the deployment refuses an existing release directory by design | `state/1.6.11-f3da23a-ci37558387881.json` at `ROLLED_BACK`; `deploy` refusing the existing directory | Every transient failure (or every injection) burned its release candidate, and the only way forward was hand-editing state — the opposite of a documented process | `rc_release.py retry` re-approves a `ROLLED_BACK`/`DEPLOY_FAILED`/`ROLLBACK_REQUIRED` candidate after re-hashing the frozen artifact, refuses anything else (`REJECTED`, `PROMOTED`), records the actor and the previous state, and the promotion re-stages from the verified artifact on a retry | Run 5 and 6 used it (`retried_from=ROLLED_BACK`); `retry` on a `REJECTED` candidate is refused (`FATAL: … is REJECTED; only a candidate whose promotion failed and was recovered can be retried`) | FIXED |
 | P33-K5 | KNOWN FINDING | The controller's post-deploy-validation rollback branch is unexercised: the injection that fails the controller's probes fails the deployment's smoke first | The deployment's post-promote smoke probes the same surfaces (health, auth, ingress, data), so a fault that survives to the controller's probes was not constructible here | Run 6 (`post-deploy-validation-failure`): the release was refused by the smoke, rolled back, and the controller recorded it; the controller's own probes ran only on healthy releases | One recovery branch is documented as a second line rather than as tested | Not fixed, by design: constructing it would mean disabling a deployment gate (weakening the deployment to test the controller) | Stated in §19 and §26, and in the case's own vocabulary (`performed_by=deployment`) | STATED |
+| P33-M25 | HARNESS DEFECT | The certification instrument **aborted instead of recording a verdict** when the edge refused a request by closing the connection: the oversized-header check raised an uncaught `SSLEOFError`, and a correct rollback was recorded as `verified_after_rollback: false` | `raw()` sent the request without handling a reset; whether the 64 KiB header payload outran the server's close depended on machine load — it passed six times idle and failed three times while a build ran | `rollback.json` (`verified_after_rollback: false` with every one of the five probes green except this crash), preserved as `negative/rollback-before-probe-reset-fix.json`; a 4 MiB payload reproduces it deterministically (server closes mid-write) | A healthy deployment was reported unhealthy by the instrument, and the check that *means* "refused by closing" was the one that could not survive being refused | `raw()` records a refusal-by-close (`status=0`, listed in the evidence as `closed_before_response`) instead of raising; the check that accepts status 0 already meant exactly that, so nothing was relaxed | Deterministic replay: `raw()` returns `status=0` with the request named; the rollback re-run reports `verified_after_rollback: true`, 107/107, artifact probe 29/29 | FIXED |
+| P33-M26 | PIPELINE DEFECT | Both release tags **named one commit and pointed at another**: `git tag -a <tag> -m …` tags HEAD, and at promotion time HEAD was the CI-evidence commit that followed the validated one | The tagging step never named the commit it was tagging | `git rev-parse tag^{}` before the fix: `mo7-release-1.6.11-45d419a-…` → `1a3a65c`, `mo7-release-1.6.11-f3da23a-…` → `3bef70f`; the tagged commits are `45d419a` and `f3da23a` | The repository's own provenance claim was false in exactly the way this phase exists to prevent — a tag that identifies a release and does not point at it | The tag is created on the validated commit explicitly; an existing tag that points at a different commit is recorded as a conflict and named in the detail, and a re-promotion that finds the correct tag records `already_existed` instead of losing the tag record | Both tags re-created on their release commits and pushed; `git rev-parse tag^{}` now equals `45d419a…` and `f3da23a…` and the remote agrees (`host/release-tags.txt`, `host/tag-target.txt`); the defect's own record is kept in `tag.json` (`conflict` was produced by this run) | FIXED |
+| P33-M27 | PIPELINE DEFECT | A rollback to the release **already serving** was recorded as `ROLLBACK_FAILED`: the operator asked for a no-op, the script exited 2 with "already the current release", and the candidate was left in a state that nothing could promote again | The controller delegated the decision to the script and mapped any non-zero exit to failure | `state/1.6.11-f3da23a-ci37558387881.json` history `ROLLED_BACK → ROLLBACK_FAILED`; `rollback.json` `result: "failed"`, exit 2 | A refusal and a failure were the same fact, and a phantom failure stranded a healthy candidate (the `retry` verb refused the state until it was extended) | The controller checks what is served first: if the host already serves the requested release, nothing is invoked and the record says `result: "not required"`; a candidate whose rollback *did* fail can be retried | `rollback --to <live release>` → `not required (already serving)`, exit 0, state unchanged; `retry` moved the candidate out of `ROLLBACK_FAILED` and the release was promoted again | FIXED |
 | P33-K1 | KNOWN FINDING | Nine browser cases skip by repository design | Multi-worker and turn-lifecycle fixtures do not exist in this deployment (`DEEPTUTOR_MULTI_WORKER_E2E`, `DEEPTUTOR_TURN_E2E_FIXTURE`) | Suite source; the matrix summary (64 passed / 9 skipped) | No multi-worker turn coverage here | Reported as skipped, never as passed (carried from P32-K4) | Counts stated in §7 | CARRIED |
 | P33-K2 | EXTERNAL DEPENDENCY | No LLM-backed chat turn is exercised anywhere in the release process | No model provider is configured or reachable in this environment | `production-websocket.json` notes (`own_books: 0`, acknowledgement recorded as not-applicable) | The completion paths are not covered by production probes | Stated as a limit of the environment, never inferred as a pass | The streaming probe records 'not applicable' instead of claiming a successful subscribe | STATED |
 | P33-K3 | EXTERNAL DEPENDENCY | No signing or attestation infrastructure exists here (and the Actions artifact store is unreachable) | Environment; no sigstore/attestation tooling, no artifact download route | §3, §23 | Identity rests on hash + manifest + commit existence rather than a signature | No signing theatre: nothing is claimed to be signed | §23 names exactly what is verified | STATED |
@@ -646,8 +649,7 @@ permits those two prefixes.
 | Release marker and contract | `/home/user/mo7-prod/run/current-release.json`, `etc/production.env` |
 | Deployment ledger | `/home/user/mo7-prod/etc/deployments.log` |
 | Browser matrix | `web/test-results/` + the reporter summary in the run log |
-
-## 30. Final checklist (§34)
+| The final state, copied out of the working and production roots | `evidence/phase33-runtime/` (see its `README.md` for what is current and what is historical) |
 
 ## 30. Final checklist (§34)
 
@@ -675,13 +677,113 @@ artifact that shows it, not at the code that implements it.
 | 17 | Health and smoke after the switch | PASS | `HEALTH backend ready and frontend serving`, `SMOKE post-promote smoke passed` |
 | 18 | Post-deploy validation: verify, health, identity, artifact, ws | PASS | `post-deploy.json`, 5/5 steps exit 0 |
 | 19 | Streaming (WebSocket) surfaces admit a session and refuse an anonymous one | PASS | `production-websocket.json` 9/9 |
-| 20 | Browser suite against the deployed release | PASS | 64 passed / 9 skipped / 0 failed |
-| 21 | A failed post-deploy validation rolls back automatically | PASS | fault case (§16), `automatic: true`, host back on the previous release |
-| 22 | A rollback is verified after it happens | PASS | `rollback.json` → `verified_after_rollback: true`, 107/107 |
-| 23 | The release is uniquely identifiable and tagged | PASS | `tag.json`, tag `mo7-release-1.6.11-45d419a-ci37546936253` on the promoted commit |
+| 20 | Browser suite against the deployed release | PASS | 64 passed / 9 skipped / 0 failed (`logs/browser-final3.txt`) |
+| 21 | A failed post-deploy validation rolls back automatically | PASS | fault case (§16): `performed_by=deployment`, `automatic=True`, marker and symlink both back on the certified release |
+| 22 | A rollback is verified after it happens | PASS | `rollback.json` → `verified_after_rollback: true`, 107/107, artifact probe 29/29, streaming 9/9 |
+| 23 | The release is uniquely identifiable and tagged | PASS | `host/tag-target.txt`: `mo7-release-1.6.11-f3da23a-ci37558387881` → `f3da23a…`, verified against the repository; the tag-attachment defect that made this false is P33-M26 |
 | 24 | Machine-readable evidence for every transition | PASS | §24 table |
-| 25 | Nothing claims more than it measured | PASS | §27 limits; the streaming probe records "not applicable" rather than a pass |
+| 25 | The injection suite leaves the host on the certified release | PASS | after 6/6: `verify --quick` 107/107, `identity … failures=0`, injected residues removed |
+| 26 | Nothing claims more than it measured | PASS | §27 and §31.4 limits; the streaming probe records "not applicable" rather than a pass |
 
-## 31. Promotion assessment and repository state (§37)
+## 31. Final validation from the final state (§35)
 
-<!-- STATUS -->
+Everything here was executed against the state this report is committed in: the
+release environment rebuilt from the repository alone after the second recycle,
+the host bootstrapped and promoted from that rebuild, and the candidate built,
+validated and promoted on 2026-10-07 between 21:51Z and 22:39Z. Only this cycle
+counts for certification; the earlier ones are described in §19 and §26 and are
+marked superseded where their host no longer exists.
+
+### 31.1 One full cycle
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| Ingest the CI evidence of run `37558387881` | `RELEASABLE`, `blocking=[] excepted=[]` | `candidates/1.6.11-f3da23a-ci37558387881.json`, `evidence/ci/37558387881/release.json` |
+| Validate (16 checks) | **16/16** — source gate, clean checkout, frozen evidence, rebuild, recipe equality, content equality with the CI artifact, contract *including install and startup*, security scan | `state.json` (`local 16/16`), `artifact-contract.json`, `artifact-scan.json` |
+| Approve | `APPROVED` by `policy:automatic_after_gates` | `state.json` history |
+| Promote | `deploy` → pre-deploy backup → **restore rehearsal 10 checks** → flip → restart (measured outage **10591 ms**) → health → **post-promote smoke passed** → contract refreshed to `f3da23a` | `deployment.json`, `logs/promote-20261007T220759Z.log`, `host/deployments.log` |
+| Post-deploy validation | **5/5 steps exit 0** — verify 107/107, health, identity `traceable=True`, artifact probe 29/29, streaming 9/9 | `post-deploy.json`, `host/production-*.json` |
+| Tag | `mo7-release-1.6.11-f3da23a-ci37558387881` on `f3da23a…` (after the P33-M26 correction) | `host/tag-target.txt`, `host/release-tags.txt` |
+| State | `PROMOTED` | `state.json` |
+
+Browser matrix against the deployed release: **64 passed / 9 skipped / 0 failed**
+(`logs/browser-final3.txt`).
+
+### 31.2 One negative cycle
+
+| Suite | Result | Evidence |
+| --- | --- | --- |
+| Five invalid candidates (planted private key, missing required file, two builds in one artifact, version disagreement, red required gates) | **5/5 refused** by the real tooling | `negative/negative-tests.json` |
+| Four local injections (red gate, failing build, failing contract, artifact substitution) | **4/4** inject → detect → block → recover → validate | `negative/faults-local.json` |
+| Six host injections (wrong declared hash, undeclared commit, artifact without the web bundle, hand-edited release directory, rollback to a release that was never staged, promotion whose post-deploy validation fails) | **6/6**, every case `detected/blocked/recovered/validated = true` | `negative/faults-host.json` |
+
+The post-deploy case — the one this phase spent four runs on — now reads:
+`promote exit=1 state=ROLLED_BACK rollback=rolled back by the deployment
+performed_by=deployment automatic=True operator_rollback_exit=None
+serving=1.6.11-f3da23a-ci37558387881 marker=1.6.11-f3da23a-ci37558387881
+fresh=True`. The deployment refused the release and restored the previous one
+itself, the marker agrees with the symlink, the record was produced by this run,
+and no human step was needed. The controller's own post-deploy branch is a second
+line that no injection reaches (P33-K5) and is stated as unexercised.
+
+After the suite the host still serves the certified release: `verify --quick`
+107/107, `identity: traceable=True … failures=0`, and the releases staged for the
+injections were removed.
+
+### 31.3 Rollback and recovery
+
+| Step | Result | Evidence |
+| --- | --- | --- |
+| Roll back the certified release to the previous one | `result: "rolled back"`, `exit_code: 0`, **`verified_after_rollback: true`** — 107/107 after the rollback, identity traceable, artifact probe 29/29, streaming 9/9 | `candidates/…/rollback.json`, `logs/promote-20261007T222931Z.log` |
+| Refusals | a rollback to the release already serving is a no-op (`not required`), a rollback to a release that was never staged is refused (`exit 2`), and an injected post-deploy failure is rolled back automatically by the deployment | §19, §26 |
+| Recovery | promote the certified release again → live, `verify --quick` 107/107, `identity … failures=0`, state `PROMOTED` | `state.json`, `host/deployments.log` |
+
+Two defect records are kept from the runs that produced this cycle, because they
+are the evidence two findings were written from: the rollback that reported one
+red check before it rehearsed its own backup (`rollback-before-rehearsal-fix.json`)
+and the rollback recorded as unverified because the artifact probe aborted on a
+refusal-by-close (`rollback-before-probe-reset-fix.json`). Neither affects the
+certified state: both defects are fixed and the fixed paths are what the final
+cycle above ran.
+
+### 31.4 What is not claimed
+
+* Byte-identical rebuilds are not claimed; the mechanism and its bounds are in
+  §13 — and the runner's rebuild in this cycle came out at the same size and entry
+  count as CI with the documented generated-secret differences (`unexplained: 0`).
+* The controller's post-deploy rollback branch is unexercised (P33-K5).
+* No LLM-backed turn is exercised anywhere (P33-K2); no signing exists here
+  (P33-K3); nine browser cases skip by repository design (P33-K1).
+
+## 32. Git closure (§36)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Correct branch | `git rev-parse --abbrev-ref HEAD` | `arena/01a0ff3f-mo7` |
+| Local head equals the remote | `git rev-parse HEAD` vs `git ls-remote origin refs/heads/arena/01a0ff3f-mo7` | equal (the commit this report is committed in) |
+| Clean tree | `git status --short` | empty |
+| Release tags name their commits | `git rev-parse <tag>^{}` | `45d419a…` for `mo7-release-1.6.11-45d419a-ci37546936253`, `f3da23a…` for `mo7-release-1.6.11-f3da23a-ci37558387881` |
+| `main` untouched | `git ls-remote origin refs/heads/main` | `a053fec…` — the same commit this phase started from |
+| `arena/01a0dba1-mo7` untouched | `git ls-remote origin refs/heads/arena/01a0dba1-mo7` | unchanged; this session never checked it out or pushed to it |
+| No history rewrite | `git log` | the branch is append-only: every step of this phase is a commit, nothing was amended or force-pushed |
+| Safety net | `git stash list` | the two recycle-recovery stashes are kept, never applied blindly and never dropped |
+
+## 33. Promotion assessment and repository state (§37)
+
+**PHASE 33 READY**
+
+The authoritative release process is built, certified against a real candidate
+(`1.6.11-f3da23a-ci37558387881`, live on the deployment host), and proven to
+*refuse* — by execution, not inspection — five invalid candidates, four local
+injections and six host injections, with the rollback path exercised and verified
+afterwards. The status is bounded exactly by §31.4 and §27: no byte-identical
+build is claimed, the controller's own post-deploy rollback branch is stated as
+unexercised (P33-K5), no LLM-backed turn and no signing exist in this environment
+(P33-K2, P33-K3), and nine browser cases skip by repository design (P33-K1).
+
+**HARD STOP.** Nothing in this repository or in the rebuilt environment is to be
+carried into Phase 34, and no monitoring, recovery or CI/CD optimisation work is
+performed after this certification. The environment is left as certified: the
+host serves `1.6.11-f3da23a-ci37558387881` with 107/107 verification, the branch
+is at the commit that contains this report, and the two release tags point at the
+commits they name.

@@ -1,0 +1,46 @@
+{
+  "recorded_at": "2026-10-07T22:34:36Z",
+  "kind": "post-deploy-validation",
+  "environment": "production",
+  "release_id": "1.6.11-f3da23a-ci37558387881",
+  "commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+  "artifact_sha256": "af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017",
+  "result": "pass",
+  "steps": [
+    {
+      "step": "infrastructure verification",
+      "command": "verify --quick",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] resources: every supervised program runs with the contract's file-descriptor limit\n[PASS] resources: the deployment has free disk headroom (> 5 GiB)\n[PASS] resources: the deployment has free memory headroom (> 500 MiB)\n[PASS] resources: process inventory is recorded (python/node/supervisord RSS)\n[PASS] deployment: at least one release is staged\n[PASS] deployment: every staged release carries a manifest and an artifact hash\n[PASS] deployment: the current release is one of the staged releases\n[PASS] deployment: the deployment log records artifact hashes and commits\n[PASS] deployment: the deployment log records measured outage windows\n[PASS] deployment: the current release marker matches the symlink\n\nproduction verification: total=107 passed=107 failed=0 (6.59s, evidence: /home/user/mo7-prod/evidence/production-verify.json)"
+    },
+    {
+      "step": "liveness, readiness, frontend and ingress",
+      "command": "health --json",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "        \"integrity\": \"ok\"\n      },\n      {\n        \"path\": \"data/users/u_a38ab7f6e572435f9746527b8a28afaf/user/chat_history.db\",\n        \"bytes\": 192512,\n        \"integrity\": \"ok\"\n      }\n    ]\n  },\n  \"failures\": [],\n  \"healthy\": true\n}"
+    },
+    {
+      "step": "release identity",
+      "command": "identity",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] the promoted release matches the contract source commit\n[PASS] the artifact in the release directory hashes to the recorded value -- actual=af1ab3df13b5425d... recorded=af1ab3df13b5425d...\n[PASS] wheel.sha256 agrees with the contract\n[PASS] the release virtualenv has the contract version installed -- installed=1.6.11 expected=1.6.11\n[PASS] the release carries a materialised web bundle -- /home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881/data/user/runtime/web\n[PASS] the web bundle matches the artifact's packaged bundle -- {\"identical\": 3188, \"mismatched\": [], \"missing\": []}\n[PASS] the running backend belongs to the promoted release -- {\"pid\": 15907, \"cwd\": \"/home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881\", \"release\": \"1.6.11-f3da23a-ci37558387881\"}\n[PASS] the running frontend belongs to the promoted release -- {\"pid\": 16257, \"cwd\": \"/home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881/data/user/runtime/web\", \"release\": \"1.6.11-f3da23a-ci37558387881\"}\n[PASS] the running scheduler is the deployment's own operational tool -- {\"pid\": 16437, \"cwd\": \"/home/user/mo7-prod\", \"host_tooling\": true}\n[PASS] the deployment log records the promoted release -- 11 records\n\nidentity: traceable=True release=1.6.11-f3da23a-ci37558387881 artifact=af1ab3df13b5425d... failures=0"
+    },
+    {
+      "step": "raw artifact probe",
+      "command": "artifact",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] an unsupported method on an API route is refused -- status=405 allow='POST'\n[PASS] a method override header cannot change the served method -- status=200 body=b'{\"notebooks\":[],\"total\":0}'\n[PASS] path '/api/../api/notebooks' never escapes the API surface -- status=401\n[PASS] path '/api/%2e%2e/%2e%2e/etc/passwd' never escapes the API surface -- status=307\n[PASS] path '/api/notebooks/../../etc/passwd' never escapes the API surface -- status=307\n[PASS] path '/files/outputs/..%2f..%2f..%2fetc%2fpasswd' never escapes the API surface -- status=401\n[PASS] an oversized JSON body is refused without a 5xx -- status=422\n[PASS] /api/settings is refused to an anonymous caller -- status=401\n[PASS] /files/library/ is refused to an anonymous caller -- status=308\n[PASS] /api/multi-user/users is refused to an anonymous caller -- status=401\n\nproduction artifact probe [127.0.0.1:8443 tls]: total=29 passed=29 failed=0"
+    },
+    {
+      "step": "streaming surfaces",
+      "command": "ws",
+      "ok": true,
+      "exit_code": 0,
+      "output_tail": "[PASS] an account can log in over the deployment's TLS origin -- tenant_a, tenant_b\n[PASS] every client-facing stream admits an authenticated upgrade -- /ws/books=101; /ws/questions/judge=101; /ws/mastery-paths=101; /ws/knowledge-bases/33b61b69-5ad3-4ac3-88d7-d32d294e9d4e/progress=101; /ws=101\n[PASS] every one of those streams refuses an anonymous upgrade -- 5 routes, all non-101 without a session\n[PASS] an upgrade with a forged session token is refused -- status=403\n[PASS] a second account's own session is admitted (refusals are about identity, not about sockets) -- status=101\n[PASS] subscribing to a book the account does not have is refused by name, and the socket stays open -- error={\"type\": \"error\", \"content\": \"Book not found: 53b34c16-b6f6-40cc-80b8-037ffb2bdbe3\"} closed=False\n[PASS] the own-book acknowledgement is measured when the account owns a book -- not applicable and not claimed: no book exists on this host (creating one needs a model provider), so the acknowledgement was not exercised; the refusals above were\n[PASS] another account's subscription is refused, with no replayed frames -- frames=[{\"type\": \"error\", \"content\": \"Book not found: 53b34c16-b6f6-40cc-80b8-037ffb2bdbe3\"}]\n[PASS] the refusal does not reveal whether the book exists -- with_book={\"type\": \"error\", \"content\": \"Book not found: 53b34c16-b6f6-40cc-80b8-037ffb2bdbe3\"}\n\nwebsocket probe: 9/9 checks passed -> /home/user/mo7-prod/evidence/production-websocket.json"
+    }
+  ]
+}

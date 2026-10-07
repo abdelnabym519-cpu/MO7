@@ -1,0 +1,32 @@
+{
+  "recorded_at": "2026-10-07T22:34:21Z",
+  "kind": "deployment",
+  "environment": "production",
+  "release_id": "1.6.11-f3da23a-ci37558387881",
+  "commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+  "version": "1.6.11",
+  "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+  "artifact_sha256": "af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017",
+  "pipeline_run": "37558387881",
+  "rc_id": "1.6.11-f3da23a-ci37558387881",
+  "result": "deployed",
+  "deploy_exit_code": 0,
+  "deploy_log": "/home/user/mo7-cicd/logs/promote-1.6.11-f3da23a-ci37558387881.log",
+  "current_release": {
+    "release_id": "1.6.11-f3da23a-ci37558387881",
+    "environment": "production",
+    "version": "1.6.11",
+    "source_commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+    "artifact": "deeptutor-1.6.11-py3-none-any.whl",
+    "artifact_sha256": "af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017",
+    "artifact_bytes": 38651910,
+    "python": "3.11.2",
+    "web_bundle": "/home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881/data/user/runtime/web",
+    "staged_at": "2026-10-07T22:33:42Z",
+    "staged_by": "user",
+    "host": "e2b.local",
+    "promoted_at": "2026-10-07T22:34:21Z",
+    "current": "/home/user/mo7-prod/current",
+    "previous_release": "1.6.11-f3da23a-ci37558387881"
+  }
+}

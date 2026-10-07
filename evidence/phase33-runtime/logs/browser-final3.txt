@@ -1,0 +1,78 @@
+
+Running 73 tests using 1 worker
+
+[1/73] [ui-audit] › tests/e2e/book-reader-sequential.audit.ts:16:5 › book arrows read the current chapter before turning chapters
+[2/73] [ui-audit] › tests/e2e/compliance-and-ux.audit.ts:24:7 › Compliance :: Accessibility & Semantics › home page exposes main landmark and H1
+[3/73] [ui-audit] › tests/e2e/compliance-and-ux.audit.ts:34:7 › Compliance :: Accessibility & Semantics › images provide alt text
+[4/73] [ui-audit] › tests/e2e/compliance-and-ux.audit.ts:49:7 › Compliance :: Accessibility & Semantics › links have accessible names (text/aria-label/title)
+[5/73] [ui-audit] › tests/e2e/compliance-and-ux.audit.ts:77:7 › Compliance :: Accessibility & Semantics › viewport meta present for responsive UX
+[6/73] [ui-audit] › tests/e2e/compliance-and-ux.audit.ts:85:7 › Compliance :: Error Handling & UX Signals › api error surfaces user-friendly feedback (alert or message)
+[7/73] [ui-audit] › tests/e2e/learning-progress.audit.ts:3:5 › learning progress uses the account reading records contract
+[8/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:20:7 › four-worker v2 turn acceptance › resumes through another worker without gaps or duplicates
+[9/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:48:7 › four-worker v2 turn acceptance › keeps cancellation pending until worker C acknowledges it
+[10/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:71:7 › four-worker v2 turn acceptance › replies through worker D and completes the same waiting turn
+[11/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:96:7 › four-worker v2 turn acceptance › surfaces owner loss as retryable and regenerates elsewhere
+[12/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:124:7 › four-worker v2 turn acceptance › reloads mid-stream and replays only events after the saved cursor
+[13/73] [ui-audit] › tests/e2e/multi-worker-turns.audit.ts:148:7 › four-worker v2 turn acceptance › observing a turn through a non-owner never marks it failed
+[14/73] [ui-audit] › tests/e2e/reading-citation-material.audit.ts:212:5 › historical citation reopens its turn material and unsupported locator stays plain
+[15/73] [ui-audit] › tests/e2e/reading-location-history.audit.ts:233:5 › back and forward cross materials, survive reload, and stay session-scoped
+[16/73] [ui-audit] › tests/e2e/reading-location-history.audit.ts:264:5 › a deleted material remains identifiable and does not block older history
+[17/73] [ui-audit] › tests/e2e/reading-w3c-annotations.audit.ts:148:5 › a rich text annotation reflows and activates its sidebar entry
+[18/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/en/mobile keeps all primary surfaces usable
+[19/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/en/desktop-200pct keeps all primary surfaces usable
+[20/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/en/tablet keeps all primary surfaces usable
+[21/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/en/desktop keeps all primary surfaces usable
+[22/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/zh/mobile keeps all primary surfaces usable
+[23/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/zh/desktop-200pct keeps all primary surfaces usable
+[24/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/zh/tablet keeps all primary surfaces usable
+[25/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › snow/zh/desktop keeps all primary surfaces usable
+[26/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/en/mobile keeps all primary surfaces usable
+[27/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/en/desktop-200pct keeps all primary surfaces usable
+[28/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/en/tablet keeps all primary surfaces usable
+[29/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/en/desktop keeps all primary surfaces usable
+[30/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/zh/mobile keeps all primary surfaces usable
+[31/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/zh/desktop-200pct keeps all primary surfaces usable
+[32/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/zh/tablet keeps all primary surfaces usable
+[33/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › light/zh/desktop keeps all primary surfaces usable
+[34/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/en/mobile keeps all primary surfaces usable
+[35/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/en/desktop-200pct keeps all primary surfaces usable
+[36/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/en/tablet keeps all primary surfaces usable
+[37/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/en/desktop keeps all primary surfaces usable
+[38/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/zh/mobile keeps all primary surfaces usable
+[39/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/zh/desktop-200pct keeps all primary surfaces usable
+[40/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/zh/tablet keeps all primary surfaces usable
+[41/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › dark/zh/desktop keeps all primary surfaces usable
+[42/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/en/mobile keeps all primary surfaces usable
+[43/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/en/desktop-200pct keeps all primary surfaces usable
+[44/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/en/tablet keeps all primary surfaces usable
+[45/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/en/desktop keeps all primary surfaces usable
+[46/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/zh/mobile keeps all primary surfaces usable
+[47/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/zh/desktop-200pct keeps all primary surfaces usable
+[48/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/zh/tablet keeps all primary surfaces usable
+[49/73] [ui-audit] › tests/e2e/release-ui-matrix.audit.ts:27:11 › glass/zh/desktop keeps all primary surfaces usable
+[50/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:184:7 › Independent settings › loads existing configuration without writes, separates pages, and keeps edits across navigation
+[51/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:243:7 › Independent settings › preserves profile deep links and editing an inactive provider does not activate it
+[52/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:267:7 › Independent settings › restores old drafts and preserves non-catalog edits when changing pages
+[53/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:306:7 › Independent settings › failed saves retain changes and returning offers to save a draft
+[54/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:337:7 › Independent settings › search reaches nested model settings and legacy links remain usable
+[55/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:360:7 › Independent settings › mobile navigation and Chinese settings do not overflow
+[56/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:391:7 › Independent settings › restricted users cannot mount protected sections via direct URLs or search
+[57/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:414:7 › Independent settings › desktop general layout has one sidebar and no catalog writes
+[58/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:431:5 › diagnostics target the provider being edited without changing the active choice
+[59/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:459:5 › a failed section save never clears the pending edits
+[60/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:487:5 › setup links lead to providers, language models, and runtime status
+[61/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:501:5 › provider discovery stays staged and model choices preserve existing models
+[62/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:533:5 › provider errors and unsupported discovery keep manual entry available
+[63/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:552:5 › a delayed probe cannot attach results to changed credentials or another provider
+[64/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:573:5 › dark tablet settings keep provider hierarchy and keyboard access
+[65/73] [ui-audit] › tests/e2e/settings-navigation.audit.ts:596:5 › a new provider can be tested with only a key and supplies discovered model choices
+[66/73] [ui-audit] › tests/e2e/turn-lifecycle.audit.ts:14:7 › v2 turn lifecycle › uses the canonical activity and ask-user surfaces
+[67/73] [ui-audit] › tests/e2e/turn-lifecycle.audit.ts:31:7 › v2 turn lifecycle › recovers without replacing the canonical activity surface
+[68/73] [ui-audit] › tests/e2e/turn-lifecycle.audit.ts:44:7 › v2 turn lifecycle › stops through the composer's existing turn control
+[69/73] [ui-audit] › tests/e2e/video-learning.audit.ts:44:7 › Watching workspace restores its session and handles provider failures (desktop)
+[70/73] [ui-audit] › tests/e2e/video-learning.audit.ts:44:7 › Watching workspace restores its session and handles provider failures (mobile)
+[71/73] [epub-reader-chromium] › tests/epub-reader.audit.ts:97:5 › EPUB headings render in the reader and its chapter list navigates
+[72/73] [epub-reader-chromium] › tests/epub-reader.audit.ts:131:5 › faithfully renders EPUB resources, navigates, and restores its last chapter
+[73/73] [epub-reader-chromium] › tests/epub-reader.audit.ts:184:5 › a layout change during a chapter switch does not undo the navigation
+  9 skipped
+  64 passed (4.0m)

@@ -1,17 +1,17 @@
 {
-  "release_id": "1.6.11-45d419a-ci37546936253",
+  "release_id": "1.6.11-f3da23a-ci37558387881",
   "environment": "production",
   "version": "1.6.11",
-  "source_commit": "45d419a1a80e263093ba2ec0c9cea05af6a1f8da",
+  "source_commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
   "artifact": "deeptutor-1.6.11-py3-none-any.whl",
-  "artifact_sha256": "5228a28e8448b5cde8cadc896097ad8eb9a6565a01219c34f434eed88fa63ad9",
-  "artifact_bytes": 38652300,
+  "artifact_sha256": "af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017",
+  "artifact_bytes": 38651910,
   "python": "3.11.2",
-  "web_bundle": "/home/user/mo7-prod/releases/1.6.11-45d419a-ci37546936253/data/user/runtime/web",
-  "staged_at": "2026-10-07T00:52:23Z",
+  "web_bundle": "/home/user/mo7-prod/releases/1.6.11-f3da23a-ci37558387881/data/user/runtime/web",
+  "staged_at": "2026-10-07T22:33:42Z",
   "staged_by": "user",
   "host": "e2b.local",
-  "promoted_at": "2026-10-07T01:40:22Z",
+  "promoted_at": "2026-10-07T22:34:21Z",
   "current": "/home/user/mo7-prod/current",
-  "previous_release": "1.6.11-0af36b8-bootstrap"
+  "previous_release": "1.6.11-f3da23a-ci37558387881"
 }

@@ -4,36 +4,37 @@
   "total": 29,
   "passed": 29,
   "failed": 0,
+  "closed_before_response": [],
   "checks": [
     {
       "check": "session cookie is HttpOnly",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "session cookie is Secure",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "session cookie declares SameSite",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "session cookie is host-only (no Domain attribute)",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "session cookie is scoped to the site root",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "session cookie is not a wildcard-partitioned value",
       "ok": true,
-      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV81MTdkMzE4NjlhMWY0NTIzOTVjZDVlNWIyYjQzZDc2MCIsImRjaWQiOi"
+      "detail": "dt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwcm9kLWFkbWluIiwicm9sZSI6ImFkbWluIiwidWlkIjoidV8xNWM5YTc4YjYyMjE0NmNmYTE0MGE0MjExNDY3MDgyNCIsImRjaWQiOi"
     },
     {
       "check": "a forged bearer token is refused",
@@ -88,7 +89,7 @@
     {
       "check": "the configured origin is granted exactly (never a wildcard)",
       "ok": true,
-      "detail": "status=200 allow-origin='https://3782-i9bs99j1lpxm31yhdqyda.e2b.app'"
+      "detail": "status=200 allow-origin='https://3782-im71q7fhah8n7rmn4z6lx.e2b.app'"
     },
     {
       "check": "a request carrying both Content-Length and Transfer-Encoding is refused",
