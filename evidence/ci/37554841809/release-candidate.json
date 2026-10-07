@@ -1,0 +1,248 @@
+{
+  "rc_id": "1.6.11-6d7603c-ci37554841809",
+  "created_at": "2026-10-07T01:17:21Z",
+  "commit": "6d7603c0d72a0f17c3e8507b35e9011b457902f8",
+  "version": "1.6.11",
+  "branch": "arena/01a0ff3f-mo7",
+  "repository": "abdelnabym519-cpu/MO7",
+  "pipeline_run": "37554841809",
+  "verdict": "RELEASABLE",
+  "releasable": true,
+  "artifact": {
+    "name": "deeptutor-1.6.11-py3-none-any.whl",
+    "sha256": "8c32e12aa3e426b5db42ecb32fc78a97ee4779ebcae754f7de3ddefd181b0199",
+    "bytes": 38652438,
+    "entries": 4400,
+    "canonical_sha256": "29f33ccd1a50ceace1056b6a4454c2b6e684197b7ca9a8a7488129ab280834d9"
+  },
+  "stages": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "6d7603c0d72a0f17c3e8507b35e9011b457902f8",
+      "required": true
+    },
+    {
+      "stage": "version is declared",
+      "ok": true,
+      "detail": "1.6.11",
+      "required": true
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "8c32e12aa3e426b5",
+      "required": true
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "byte_identical=False classified={'names_differ_only_by_build_id': 0, 'content_differs_only_by_build_id': 0, 'derived_and_generated_values': 3, 'derived_entry_index': 0, 'ordering_only_json': 2, 'ordering_only_lines': 0, 'ordering_only_embedded_json': 62, 'ordering_only_entries': 0, 'unexplained': 0}",
+      "required": true
+    },
+    {
+      "stage": "python tests",
+      "ok": true,
+      "detail": "8434/8488 passed, 0 failed, 0 errors, 54 skipped",
+      "required": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.296s",
+      "required": false
+    },
+    {
+      "stage": "the validation toolchain installs",
+      "ok": true,
+      "detail": "pass in 64.491s",
+      "required": false
+    },
+    {
+      "stage": "import, lazy-startup and worker-protocol checks",
+      "ok": true,
+      "detail": "pass in 2.035s",
+      "required": false
+    },
+    {
+      "stage": "dependency consistency (pip check)",
+      "ok": true,
+      "detail": "pass in 0.339s",
+      "required": false
+    },
+    {
+      "stage": "frontend dependencies install from the lockfile",
+      "ok": true,
+      "detail": "pass in 20.377s",
+      "required": false
+    },
+    {
+      "stage": "the frontend deterministic gate",
+      "ok": true,
+      "detail": "pass in 173.763s",
+      "required": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 89.378s",
+      "required": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 12.678s",
+      "required": false
+    },
+    {
+      "stage": "a second build is content-identical",
+      "ok": true,
+      "detail": "pass in 178.645s",
+      "required": true
+    },
+    {
+      "stage": "the product tree passes ruff (lint and format)",
+      "ok": true,
+      "detail": "errors=0 unformatted=0 scope=deeptutor deeptutor_cli tests scripts",
+      "required": false
+    },
+    {
+      "stage": "repository-wide ruff (observed)",
+      "ok": false,
+      "detail": "errors=0 unformatted=1 over 1801 files, all of them phase documentation tooling outside the product tree; see finding P33-L1",
+      "observed": true,
+      "required": false,
+      "finding": "P33-L1"
+    },
+    {
+      "stage": "code security scan has no high/high findings",
+      "ok": true,
+      "detail": "7 findings, 0 high/high",
+      "required": true
+    }
+  ],
+  "blocking_failures": [],
+  "excepted_failures": [],
+  "reproducibility": {
+    "raw_output": "",
+    "byte_identical": false,
+    "reproducible": true,
+    "classification": {
+      "names_differ_only_by_build_id": 0,
+      "content_differs_only_by_build_id": 0,
+      "derived_and_generated_values": 3,
+      "derived_entry_index": 0,
+      "ordering_only_json": 2,
+      "ordering_only_lines": 0,
+      "ordering_only_embedded_json": 62,
+      "ordering_only_entries": 0,
+      "unexplained": 0
+    },
+    "raw_difference": {
+      "added": [],
+      "removed": [],
+      "changed": [
+        "deeptutor-1.6.11.dist-info/RECORD",
+        "deeptutor_web/.next/app-path-routes-manifest.json",
+        "deeptutor_web/.next/prerender-manifest.json",
+        "deeptutor_web/.next/server/app-paths-manifest.json",
+        "deeptutor_web/.next/server/app/(admin)/admin/users/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(auth)/login/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(auth)/register/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(settings)/settings/[section]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(settings)/settings/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/agents/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/avatar-preview/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/courses/[courseId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/courses/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/knowledge-bases/[kbName]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/knowledge-bases/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/graph/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/l1/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/l2/[surface]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/l2/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/l3/[slot]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/l3/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/memory/resolve/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/notebooks/[notebookId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/notebooks/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/profile/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/session-handoff/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/settings/progress/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/chat-history/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/cli-apps/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/mcp/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/personas/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/questions/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(utility)/space/skills/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/chat/[sessionId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/chat/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/co-writer/[docId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/co-writer/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/books/[bookId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/books/[bookId]/pages/[pageId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/books/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/mastery/[pathId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/mastery/[pathId]/sessions/[sessionId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/mastery/[pathId]/sessions/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/mastery/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/practice/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/[workspaceId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/[workspaceId]/sessions/[sessionId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/[workspaceId]/sessions/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/folders/[folderId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/materials/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/reading/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/watching/[sessionId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/learning/watching/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/partners/[partnerId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/partners/groups/[groupId]/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/partners/groups/new/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/partners/new/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/partners/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/(workspace)/whisper/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/_global-error/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/_not-found/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/app/handoff/page_client-reference-manifest.js",
+        "deeptutor_web/.next/server/server-reference-manifest.json"
+      ]
+    },
+    "build_ids": [
+      "deeptutor_web/.next/BUILD_ID"
+    ],
+    "canonical_difference": {
+      "content_identical": false,
+      "added": 0,
+      "removed": 0,
+      "changed": 67
+    },
+    "unexplained": [],
+    "source": "comparison document"
+  },
+  "immutability": {
+    "rule": "an RC is identified by (version, commit, pipeline run) and its evidence is written once; any source or artifact change produces a new RC",
+    "evidence_digest": "6c67da126fc03aceae472a1e3294d53a9e8af8b7ed071c5452f7c550e1862fa0"
+  }
+}

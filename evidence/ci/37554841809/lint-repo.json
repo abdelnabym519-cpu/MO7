@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-10-07T01:01:14Z",
+  "scope": "repo",
+  "paths": [
+    "."
+  ],
+  "files_seen": 1801,
+  "clean": false,
+  "lint_exit": 0,
+  "format_exit": 1,
+  "errors": 0,
+  "unformatted": 1,
+  "lint_output_tail": "All checks passed!",
+  "format_output_tail": "181 +             else cfg.CURRENT_LINK\n182 +         )\n183 |         release_python = release_dir / \"venv/bin/python\"\n    |\n\n1 file would be reformatted, 1964 files already formatted"
+}
