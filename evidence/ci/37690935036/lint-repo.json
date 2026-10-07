@@ -1,0 +1,15 @@
+{
+  "recorded_at": "2026-10-07T21:40:46Z",
+  "scope": "repo",
+  "paths": [
+    "."
+  ],
+  "files_seen": 1801,
+  "clean": true,
+  "lint_exit": 0,
+  "format_exit": 0,
+  "errors": 0,
+  "unformatted": 0,
+  "lint_output_tail": "All checks passed!",
+  "format_output_tail": "1965 files already formatted"
+}
