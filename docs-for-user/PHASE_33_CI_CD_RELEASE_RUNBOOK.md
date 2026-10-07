@@ -674,23 +674,55 @@ checkout is the source of truth, so recovery is a rebuild, in this order:
    tree with the recorded head *by content* (every tracked path hashed), because a
    recycle can leave the refs older than the disk while the tree looks merely
    dirty. Recover with `git stash push -u` (a named stash is the safety net) and a
-   fast-forward merge — never a reset.
-2. **Controller**: `/home/user/mo7-cicd` with `venv` (build, wheel, setuptools),
-   `gate-venv` (ruff + pyyaml), `fonts/` + `font-mock.cjs` (`npm pack geist@1.7.2
-   @fontsource/lora@5.3.0`, then the mock serves those files), and a baseline wheel
-   from a worktree of the current commit (`rc_build.sh`).
-3. **Chromium**: `npm install @sparticuz/chromium` (153.0.0), inflate
-   `bin/al2023.tar.br` with the package's own `build/cjs/lambdafs.cjs`, and lay
-   the result out for Playwright (`chromium-1200/chrome-linux64/` plus
-   `INSTALLATION_COMPLETE`). `prod_browser.sh` finds it through
-   `MO7_CHROMIUM_HOME`; `--version` must print before the matrix is trusted.
-4. **Deployment host**: `prod_bootstrap.sh <wheel> --release-id <id> --commit
-   <sha>`, then `promote --release <id>`, `init-config`, `ingress start`,
-   `provision`, `session <account>`, `verify`. That order is not decorative: the
-   promotion runs before `init-config` so the release is current when the
-   configuration is rendered, and `session` is what mints the browser harness's
-   storage state — without it the whole Chromium matrix fails to launch (64 tests
-   in the 2026-10-07 rebuild).
+   fast-forward merge — never a reset. Recovered this way on 2026-10-07 a second
+   time: the worktree held work the refs did not (the five fixes, the report and
+   the runtime evidence), the safety copy was taken before anything else, and the
+   difference was checked file by file before the overlay — the two recoveries
+   cost no work, and both are recorded in the commit messages.
+2. **Controller**: `rebuild_controller.sh` — `/home/user/mo7-cicd` with `venv`
+   (build, wheel, setuptools), `gate-venv` (ruff + pyyaml), `fonts/` + the offline
+   `font-mock.cjs` (`npm pack geist@1.7.2 @fontsource/lora@5.3.0`; the mock serves
+   those payloads because Google Fonts is TLS-blocked), and a worktree wheel of the
+   commit the host is bootstrapped from (`rc_build.sh`).
+3. **Chromium**: `rebuild_chromium.sh` — `npm install @sparticuz/chromium@153.0.0`
+   and lay the result out twice, because two consumers want different shapes:
+   `$MO7_CHROMIUM_HOME/chrome-linux/chrome` (+ `chromium-deps/**/lib` on
+   `LD_LIBRARY_PATH`) for `prod_browser.sh`, and
+   `~/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome` +
+   `INSTALLATION_COMPLETE` for Playwright itself. Two details cost build cycles and
+   are worth knowing: the package is **ESM-only** (`"type": "module"`, an
+   `exports` map and no `main`, so `require()` of it fails — import
+   `build/index.js`), and the bundled archives are **brotli** (`bin/al2023.tar.br`
+   is a brotli stream, not zlib). `chrome --version` must print
+   `Chromium 153.0.8010.0` before the matrix is trusted.
+4. **Deployment host**: `rebuild_host.sh` runs the sequence below. It is not
+   decorative, and two steps exist because the obvious order does not work on a
+   host that has never been configured:
+
+   ```
+   prod_bootstrap.sh <wheel> --release-id <id> --commit <sha>   # stages release 1
+   prod.sh promote --release <id> --skip-smoke                  # see below
+   prod.sh init-config                                          # needs a current release
+   prod.sh ingress start
+   prod.sh provision                                            # creates the accounts
+   prod.sh promote --release <id>                               # complete gate
+   prod.sh session admin                                        # mints the browser session
+   prod.sh verify --quick
+   check_host_convergence.sh
+   ```
+
+   The **first** promotion has to run with `--skip-smoke`: auth is disabled until
+   `init-config` writes the settings, and `init-config` needs a current release, so
+   a virgin host cannot pass the post-promote smoke — the smoke authenticates an
+   account that cannot exist yet. Run without the flag and the deployment flips the
+   symlink, fails the smoke, dies, and writes neither `run/current-release.json`
+   nor its deployment-log line; `verify --quick` then reports four failures
+   (deployment-log identity ×3 and marker/symlink mismatch) against a release that
+   is in fact serving — observed on 2026-10-07, which is why this script exists.
+   The same release is re-promoted with the complete gate four steps later, and
+   every subsequent promotion — including the certified one — runs the full gate.
+   `session` is what mints the browser harness's storage state; without it the
+   whole Chromium matrix fails to launch (64 tests in the 2026-10-07 rebuild).
    The bootstrap installs the harness from the checkout — so a host rebuilt from
    a stale checkout runs stale instruments. That is not cosmetic: a host whose
    `prod_promote.sh` predates the marker-ordering fix will promote a release and
