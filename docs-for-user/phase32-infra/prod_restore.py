@@ -175,7 +175,11 @@ def main() -> int:
 
     # --- 4. application validation against the restored root -------------------
     if app_check:
-        release_dir = Path(args[args.index("--release-dir") + 1]).resolve() if "--release-dir" in args else cfg.CURRENT_LINK
+        release_dir = (
+            Path(args[args.index("--release-dir") + 1]).resolve()
+            if "--release-dir" in args
+            else cfg.CURRENT_LINK
+        )
         release_python = release_dir / "venv/bin/python"
         if not release_python.exists():
             print(

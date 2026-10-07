@@ -621,7 +621,11 @@ rules matter operationally:
 Promotion takes a fresh pre-deploy backup and **rehearses it** (restore into a
 scratch root, ten checks) before the symlink flips, because the deployment
 verification requires the newest backup to have been rehearsed and taking a new
-one would otherwise invalidate the check the promotion is measured against.
+one would otherwise invalidate the check the promotion is measured against. A
+**rollback** takes a `pre-rollback` backup for the same reason and now rehearses
+that one too — it did not, so a correct rollback reported one red verification
+check (`rehearsed=…-pre-deploy-…` vs `newest=…-pre-rollback-…`), which is the
+same defect as the promotion's, found the same way.
 
 ## 15. Refusals (the negative cycle)
 
@@ -681,13 +685,22 @@ checkout is the source of truth, so recovery is a rebuild, in this order:
    `INSTALLATION_COMPLETE`). `prod_browser.sh` finds it through
    `MO7_CHROMIUM_HOME`; `--version` must print before the matrix is trusted.
 4. **Deployment host**: `prod_bootstrap.sh <wheel> --release-id <id> --commit
-   <sha>`, then `init-config`, `provision`, `ingress start`, `backup`, `verify`.
+   <sha>`, then `promote --release <id>`, `init-config`, `ingress start`,
+   `provision`, `session <account>`, `verify`. That order is not decorative: the
+   promotion runs before `init-config` so the release is current when the
+   configuration is rendered, and `session` is what mints the browser harness's
+   storage state — without it the whole Chromium matrix fails to launch (64 tests
+   in the 2026-10-07 rebuild).
    The bootstrap installs the harness from the checkout — so a host rebuilt from
    a stale checkout runs stale instruments. That is not cosmetic: a host whose
    `prod_promote.sh` predates the marker-ordering fix will promote a release and
    leave the contract naming the previous one, which fails every identity check.
    Re-copy the harness (`prod_*.py`, `prod_*.sh`, `ingress_tls_proxy.js`,
-   `playwright.production.config.ts`) after any recycle or checkout update.
+   `playwright.production.config.ts`) after any recycle or checkout update — and
+   note that the operational entry points are **copies** too: `bin/prod_promote.sh`,
+   `bin/prod_deploy.sh` and `bin/prod_rollback.sh` are what `bin/prod.sh` runs, so
+   patching `harness/` alone changes nothing. Copy both (they are installed from
+   the same repository files) and keep the modes executable.
 
 ## 18. Claim → instrument → evidence
 

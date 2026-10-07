@@ -93,10 +93,34 @@ if not (release / manifest["web_bundle"]).joinpath("server.js").exists() and not
 print(f"  release {manifest['release_id']} artifact {actual} commit {manifest['source_commit']} verified")
 PYEOF
 
+# One log per rollback, beside the promotion logs, so the rehearsal's checks are
+# recorded the way the promotion's are.
+ROLLBACK_LOG="$PROD_ROOT/run/rollback-$(date -u +%Y%m%dT%H%M%SZ).log"
+
 if [ "$DO_BACKUP" = "1" ]; then
   log "taking a pre-rollback backup"
   "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_backup.py" --label "pre-rollback-$TO" \
     || { echo "FATAL: pre-rollback backup failed" >&2; exit 1; }
+
+  # The control this rollback just took must be proven restorable, for the same
+  # reason a promotion rehearses its own: the deployment verification requires
+  # the *newest* backup to have been rehearsed, so taking one without rehearsing
+  # it makes a healthy rollback report one red check (observed: `rehearsed=
+  # …-pre-deploy-… newest=…-pre-rollback-…` immediately after a correct rollback).
+  # The release being restored is what boots the restored data.
+  BACKUP_DIR="$(ls -1dt "$PROD_BACKUPS"/*-pre-rollback-"$TO" 2>/dev/null | head -1)"
+  [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ] || { echo "FATAL: the pre-rollback backup cannot be found" >&2; exit 1; }
+  REHEARSAL_ROOT="$(mktemp -d /tmp/mo7-rollback-rehearsal-XXXXXX)"
+  log "MIGRATION validating the pre-rollback backup is restorable ($(basename "$BACKUP_DIR"))"
+  if "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_restore.py" \
+       --backup "$BACKUP_DIR" --target "$REHEARSAL_ROOT" --release-dir "$TARGET" >>"$ROLLBACK_LOG" 2>&1; then
+    log "MIGRATION restore rehearsal passed on the backup this rollback took"
+  else
+    rm -rf "$REHEARSAL_ROOT"
+    echo "FATAL: the pre-rollback backup could not be restored; refusing to roll back" >&2
+    exit 1
+  fi
+  rm -rf "$REHEARSAL_ROOT"
 fi
 
 # --- 4. flip and restart -----------------------------------------------------
