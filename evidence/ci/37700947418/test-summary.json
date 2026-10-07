@@ -1,0 +1,110 @@
+{
+  "recorded_at": "2026-10-07T23:31:41Z",
+  "commit": "32a7045c5e318dbe6ab8264c96894fc4d9779287",
+  "version": "1.6.11",
+  "environment": "ci",
+  "result": "pass",
+  "pytest": {
+    "passed": 8434,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 54,
+    "total": 8488,
+    "available": true,
+    "failures": [],
+    "failures_truncated": 0
+  },
+  "ruff": {
+    "product_tree": {
+      "recorded_at": "2026-10-07T23:14:10Z",
+      "scope": "product",
+      "paths": [
+        "deeptutor",
+        "deeptutor_cli",
+        "tests",
+        "scripts"
+      ],
+      "files_seen": 1801,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1783 files already formatted"
+    },
+    "repository_wide": {
+      "recorded_at": "2026-10-07T23:14:13Z",
+      "scope": "repo",
+      "paths": [
+        "."
+      ],
+      "files_seen": 1801,
+      "clean": true,
+      "lint_exit": 0,
+      "format_exit": 0,
+      "errors": 0,
+      "unformatted": 0,
+      "lint_output_tail": "All checks passed!",
+      "format_output_tail": "1966 files already formatted"
+    }
+  },
+  "static_and_import_gates": [
+    {
+      "stage": "source commit is a full sha",
+      "ok": true,
+      "detail": "32a7045c5e318dbe6ab8264c96894fc4d9779287",
+      "required": true,
+      "blocking": false
+    },
+    {
+      "stage": "artifact was produced",
+      "ok": true,
+      "detail": "deeptutor-1.6.11-py3-none-any.whl",
+      "required": true,
+      "blocking": false
+    },
+    {
+      "stage": "artifact sha256 is recorded",
+      "ok": true,
+      "detail": "ffaf87f042789880",
+      "required": true,
+      "blocking": false
+    },
+    {
+      "stage": "artifact contract passed",
+      "ok": true,
+      "detail": "26/26 checks",
+      "required": true,
+      "blocking": false
+    },
+    {
+      "stage": "artifact security scan is clean",
+      "ok": true,
+      "detail": "clean",
+      "required": true,
+      "blocking": false
+    },
+    {
+      "stage": "the source gate",
+      "ok": true,
+      "detail": "pass in 0.319s",
+      "required": false,
+      "blocking": false
+    },
+    {
+      "stage": "the artifact contract holds",
+      "ok": true,
+      "detail": "pass in 99.898s",
+      "required": false,
+      "blocking": false
+    },
+    {
+      "stage": "the artifact scan is clean",
+      "ok": true,
+      "detail": "pass in 13.668s",
+      "required": false,
+      "blocking": false
+    }
+  ]
+}
