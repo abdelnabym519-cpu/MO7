@@ -130,6 +130,13 @@ def case_wrong_declared_hash(artifact: Path, workdir: Path, commit: str) -> dict
 def case_undeclared_commit(artifact: Path, workdir: Path, commit: str) -> dict:
     before = current_release()
     release_id = "1.6.11-fault-nocommit"
+    # This case's release id is fixed, so a previous run's residue would make the
+    # `staged` check meaningless (it would read the old directory and call the
+    # case a failure). The case owns that name: anything left under it is its own
+    # residue and is removed, and that fact is reported.
+    stale = (RELEASES / release_id).exists()
+    if stale:
+        shutil.rmtree(RELEASES / release_id)
     result = prod(
         "deploy",
         str(artifact),
@@ -150,7 +157,8 @@ def case_undeclared_commit(artifact: Path, workdir: Path, commit: str) -> dict:
         "blocked": not staged,
         "recovered": not staged,
         "validated": intact,
-        "detail": f"exit={result.returncode} staged={staged} {tail(result)}; {detail}",
+        "detail": f"exit={result.returncode} staged={staged} "
+        f"stale_residue_removed={stale} {tail(result)}; {detail}",
     }
 
 
@@ -202,7 +210,19 @@ def case_promote_incomplete_release(artifact: Path, workdir: Path, commit: str) 
     if broken.exists():
         shutil.rmtree(broken)
     shutil.copytree(source, broken, symlinks=True)
-    (broken / "web/server.js").unlink(missing_ok=True)
+    # A release's `web` entry is a *symlink* to the materialised bundle inside
+    # the release (`data/user/runtime/web`). Unlinking through it deletes the
+    # running deployment's own server.js -- the harness damaged the release it was
+    # testing (observed: the frontend could no longer start because
+    # current/web/server.js was gone). The copy's link is replaced with an empty
+    # real directory instead, which is the same fault -- a release directory with
+    # no web bundle -- with nothing behind it to damage.
+    web_entry = broken / "web"
+    if web_entry.is_symlink():
+        web_entry.unlink()
+        web_entry.mkdir()
+    else:
+        (web_entry / "server.js").unlink(missing_ok=True)
     try:
         result = prod("promote", "--release", broken_id)
         text = (result.stdout or "") + (result.stderr or "")
@@ -273,9 +293,23 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
 
     contract = PROD_ROOT / "etc/production.env"
     original = contract.read_text()
+    # Which fault, precisely: it has to
+    #   * survive the promotion (the contract refresh rewrites the five identity
+    #     keys, so a wrong PROD_SOURCE_COMMIT would be repaired before anyone
+    #     validated anything),
+    #   * pass the deployment's own post-promote smoke (PROD_PUBLIC_ORIGIN does
+    #     not: the smoke probes the frontend through the public origin, so the
+    #     deployment refused the release before the controller ever validated it
+    #     and the rollback path this case exists to exercise was never reached --
+    #     observed on the first run of this suite), and
+    #   * fail the controller's post-deploy validation.
+    # A dead validation-ingress origin does exactly that: the ingress is a
+    # harness-only component the smoke explicitly tolerates being absent, and the
+    # raw artifact probe runs against it, so the release goes live and the
+    # probe then fails.
     broken_lines = []
     for line in original.splitlines():
-        if line.startswith(("PROD_PUBLIC_ORIGIN=", "PROD_TLS_VALIDATION_ORIGIN=")):
+        if line.startswith("PROD_TLS_VALIDATION_ORIGIN="):
             broken_lines.append(f"{line.split('=')[0]}=https://127.0.0.1:9")
         else:
             broken_lines.append(line)
@@ -313,7 +347,7 @@ def case_post_deploy_failure_rolls_back(artifact: Path, workdir: Path, commit: s
     intact, detail = deployment_intact(before)
     return {
         "case": "a promotion whose post-deployment validation fails",
-        "injected": "PROD_PUBLIC_ORIGIN pointed at a dead port for the promoted release",
+        "injected": "the contract's validation-ingress origin pointed at a dead port",
         "detected": result.returncode != 0 and bool(rollback),
         "blocked": state_after["state"] in ("ROLLED_BACK", "ROLLBACK_REQUIRED")
         and current_release() != rc_id,

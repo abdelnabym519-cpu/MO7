@@ -195,6 +195,25 @@ if [ "$DO_SMOKE" = "1" ]; then
   if PROD_ROOT="$PROD_ROOT" "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_smoke.py" >>"$PHASE_LOG" 2>&1; then
     log "SMOKE post-promote smoke passed (health, auth, settings, data read)"
   else
+    # A smoke failure is a promotion failure, and a promotion failure must not
+    # leave the new release published. It used to die here with the symlink
+    # already flipped and the stack restarted, so the host was left serving a
+    # release whose smoke had failed -- observed while injecting a fault that the
+    # health gate could not see: the release was live, the frontend was down, and
+    # nothing had rolled back. The health path below has always rolled back; the
+    # smoke path now does the same thing for the same reason.
+    log "SMOKE failed after promotion"
+    if [ "$DO_ROLLBACK" = "1" ] && [ -n "$PREVIOUS_RELEASE" ] && [ -d "$PREVIOUS_RELEASE" ]; then
+      log "ROLLBACK promoting ${PREVIOUS_RELEASE##*/} back"
+      ln -sfn "$PREVIOUS_RELEASE" "$PROD_ROOT/current.new"
+      mv -T "$PROD_ROOT/current.new" "$PROD_CURRENT_LINK"
+      sup restart backend frontend scheduler >>"$PHASE_LOG" 2>&1 || true
+      if wait_healthy 90; then
+        log "ROLLBACK verified: $(readlink -f "$PROD_CURRENT_LINK") is healthy again"
+      else
+        log "ROLLBACK FAILED: the previous release is not healthy either"
+      fi
+    fi
     die "post-promote smoke failed (see $PHASE_LOG)"
   fi
 fi

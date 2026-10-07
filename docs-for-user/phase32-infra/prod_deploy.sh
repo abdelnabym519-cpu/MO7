@@ -155,12 +155,20 @@ PYEOF
 [ "$WHEEL_VERSION" = "$VERSION" ] || die "wheel metadata version $WHEEL_VERSION != filename version $VERSION"
 log "VERIFY wheel metadata version matches ($WHEEL_VERSION)"
 
+# The artifact claims a source commit; the release is only traceable if that
+# commit exists in the repository it claims to be built from. This used to be a
+# warning ("traceability recorded from the contract"), which meant a release
+# could be staged and promoted while naming a commit that exists nowhere -- the
+# deploy accepted a fabricated sha (forty ones) and the host served it, found by
+# the undeclared-commit fault case. A declared identity that cannot be checked is
+# a refusal, not a note: the promotion gate's whole purpose is that a release
+# names something real.
 for checkout in "${MO7_SOURCE_CHECKOUT:-/home/user/MO7}" /home/user/MO7; do
   if [ -d "$checkout/.git" ]; then
     if git -C "$checkout" cat-file -e "${COMMIT}^{commit}" 2>/dev/null; then
       log "VERIFY commit $COMMIT exists in $checkout"
     else
-      log "WARN: commit $COMMIT not found in $checkout (traceability recorded from the contract)"
+      die "declared commit $COMMIT does not exist in $checkout: the release would not be traceable to any source"
     fi
     break
   fi
