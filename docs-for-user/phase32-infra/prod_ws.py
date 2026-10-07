@@ -64,12 +64,33 @@ import prod_config as cfg  # noqa: E402  (the harness locates itself)
 # and the Origin header all carry the public origin -- the same exchange the edge
 # performs. That is what makes the probes comparable with a browser's.
 ORIGIN = urlsplit(os.environ.get("PROD_WS_ORIGIN", cfg.PUBLIC_ORIGIN))
-TARGET = os.environ.get("PROD_WS_TARGET", cfg.TLS_TARGET)
-HOST, _, PORT_TEXT = TARGET.partition(":")
-PORT = int(PORT_TEXT or 443)
-# SNI stays the address actually dialled (the ingress serves the same routing
-# either way, exactly as `curl -k -H 'Host: ...'` proves); the public origin
-# travels in the Host and Origin headers, which is what the deployment reads.
+
+
+# Two doorways lead to the same streams, and both are production paths:
+#   * the validation ingress (TLS, harness) -- the door the browser audits use;
+#   * the frontend port itself (plain HTTP, what the platform edge proxies to).
+# The ingress is a harness component and is not always running (it exists for
+# validation windows), so a probe that only knew that door would fail a healthy
+# deployment. One surface is probed per run -- the ingress when it is listening,
+# the frontend otherwise -- and which one was used is recorded, because "the
+# streams work" is only meaningful with the door named.
+def _tcp_reachable(host: str, port: int) -> bool:
+    import socket as _socket
+
+    try:
+        with _socket.create_connection((host, port), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+TLS_TARGET = os.environ.get("PROD_WS_TARGET", cfg.TLS_TARGET)
+_tls_host, _, _tls_port = TLS_TARGET.partition(":")
+_tls_port = int(_tls_port or 443)
+if os.environ.get("PROD_WS_TARGET") or _tcp_reachable(_tls_host, _tls_port):
+    HOST, PORT, USE_TLS, SURFACE = _tls_host, _tls_port, True, "validation-ingress"
+else:
+    HOST, PORT, USE_TLS, SURFACE = cfg.FRONTEND_HOST, cfg.FRONTEND_PORT, False, "frontend"
 SNI = os.environ.get("PROD_WS_SNI", HOST)
 WS_PATH = os.environ.get("PROD_WS_PATH", "/ws/books")
 CREDS = cfg.credentials()
@@ -100,7 +121,11 @@ def http(
 ) -> tuple[int, dict[str, str], str]:
     import http.client
 
-    conn = http.client.HTTPSConnection(HOST, PORT, context=ssl_context(), timeout=20)
+    conn = (
+        http.client.HTTPSConnection(HOST, PORT, context=ssl_context(), timeout=20)
+        if USE_TLS
+        else http.client.HTTPConnection(HOST, PORT, timeout=20)
+    )
     headers = {"Host": ORIGIN.netloc}
     if cookie:
         headers["Cookie"] = cookie
@@ -208,7 +233,7 @@ def upgrade(
 ) -> tuple[int, dict[str, str], ssl.SSLSocket | None, str]:
     """Open the handshake and return (status, headers, socket, raw-head)."""
     sock = socket.create_connection((HOST, PORT), timeout=15)
-    tls = ssl_context().wrap_socket(sock, server_hostname=SNI)
+    tls = ssl_context().wrap_socket(sock, server_hostname=SNI) if USE_TLS else sock
     key = base64.b64encode(secrets.token_bytes(16)).decode()
     lines = [
         f"GET {path or WS_PATH}{query} HTTP/1.1",
@@ -433,6 +458,8 @@ def main() -> int:
         "recorded_at": recorded,
         "host": f"{HOST}:{PORT}",
         "host_header": ORIGIN.netloc,
+        "surface": SURFACE,
+        "tls": USE_TLS,
         "path": WS_PATH,
         "routes": routes,
         "accounts": ["tenant_a", "tenant_b"],
@@ -444,8 +471,9 @@ def main() -> int:
         "own_book_ack": "measured" if subscribed_ack else "not_applicable",
         "results": RESULTS,
         "notes": [
-            "Reached through the deployment's own certification ingress (TLS on "
-            f"{PORT}, Host: {ORIGIN.netloc}), exactly the door the browser audits use; the "
+            f"Reached through the {SURFACE} (Host: {ORIGIN.netloc}), which is the door this "
+            "run could use: the validation ingress when it is listening, the frontend port "
+            "itself otherwise. The ingress once stripped the Upgrade/Connection pair off the "
             "ingress once stripped the Upgrade/Connection pair off the handshake, which turned "
             "every stream into a plain GET the app answered 404 -- found by this probe, fixed in "
             "docs-for-user/phase31-staging/ingress_tls_proxy.js and re-measured here.",

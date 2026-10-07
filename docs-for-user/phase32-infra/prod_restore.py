@@ -14,6 +14,14 @@ It never writes to the live data root. The target root is a rehearsal directory
 (`--target`), which is how restore is validated without touching production.
 
     prod_restore.py --backup DIR --target DIR [--force] [--skip-app-check] [--json]
+                    [--release-dir PATH]
+
+``--release-dir`` names the release tree whose interpreter boots the restored data.
+The promotion passes the release it is about to publish, which is the property a
+migration gate should assert (this application, on this data). Without it the
+current release is used, which on a host that has never been promoted does not
+exist yet -- observed on a freshly rebuilt host, where the gate refused to promote
+anything at all and the failure named a missing path rather than the real choice.
 """
 
 from __future__ import annotations
@@ -167,7 +175,15 @@ def main() -> int:
 
     # --- 4. application validation against the restored root -------------------
     if app_check:
-        release_python = cfg.CURRENT_LINK / "venv/bin/python"
+        release_dir = Path(args[args.index("--release-dir") + 1]).resolve() if "--release-dir" in args else cfg.CURRENT_LINK
+        release_python = release_dir / "venv/bin/python"
+        if not release_python.exists():
+            print(
+                "FATAL: no release to boot the restored data with: "
+                f"{release_python} does not exist (pass --release-dir)",
+                file=sys.stderr,
+            )
+            return 1
         port = free_port()
         log = target / "restore-rehearsal-backend.log"
         environment = dict(
@@ -186,7 +202,7 @@ def main() -> int:
                 "--no-access-log",
                 "--no-proxy-headers",
             ],
-            cwd=str(cfg.CURRENT_LINK),
+            cwd=str(release_dir),
             env=environment,
             stdout=log.open("wb"),
             stderr=subprocess.STDOUT,

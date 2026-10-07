@@ -117,7 +117,8 @@ if [ "$DO_BACKUP" = "1" ]; then
   REHEARSAL_ROOT="$(mktemp -d /tmp/mo7-promote-rehearsal-XXXXXX)"
   log "MIGRATION validating the pre-deploy backup is restorable ($(basename "$BACKUP_DIR"))"
   if "$PROD_ROOT/ops-venv/bin/python" "$PROD_ROOT/harness/prod_restore.py" \
-       --backup "$BACKUP_DIR" --target "$REHEARSAL_ROOT" >>"$PHASE_LOG" 2>&1; then
+       --backup "$BACKUP_DIR" --target "$REHEARSAL_ROOT" \
+       --release-dir "$RELEASE_DIR" >>"$PHASE_LOG" 2>&1; then
     log "MIGRATION restore rehearsal passed (10 checks) on the backup this promotion took"
   else
     rm -rf "$REHEARSAL_ROOT"
