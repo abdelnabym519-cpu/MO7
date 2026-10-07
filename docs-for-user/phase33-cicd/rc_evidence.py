@@ -193,7 +193,7 @@ def main() -> int:
         print("| Stage | Result | Note |")
         print("| --- | --- | --- |")
         for row in rc["stages"]:
-            mark = "PASS" if row["ok"] else ("EXCEPTED" if row["excepted"] else "FAIL")
+            mark = "PASS" if row["ok"] else ("EXCEPTED" if row.get("excepted") else "FAIL")
             print(f"| {row['stage']} | {mark} | {row.get('detail', '')[:120]} |")
         print(f"\nartifact `{rc['artifact']['name']}`")
         print(f"\nsha256 `{rc['artifact']['sha256']}`")
@@ -253,6 +253,7 @@ def main() -> int:
 
     # --- gate table ----------------------------------------------------------
     gates: list[dict] = []
+    staging_docs: list[str] = []
 
     def gate(
         stage: str,
@@ -261,6 +262,7 @@ def main() -> int:
         excused_by: str | None = None,
         observed: bool = False,
         finding: str | None = None,
+        tail: str | None = None,
     ) -> None:
         """Record one gate.
 
@@ -270,6 +272,11 @@ def main() -> int:
         keeps ok=False, the measurement, and a finding ID.
         """
         entry = {"stage": stage, "ok": bool(ok), "detail": detail[:300]}
+        if tail:
+            # A failing stage keeps its own last lines here: without them the
+            # evidence says which stage failed but not what it saw, and the raw
+            # CI log is not reachable from outside the runner.
+            entry["failure_tail"] = tail[-600:]
         if observed:
             entry["observed"] = True
             entry["required"] = False
@@ -346,13 +353,17 @@ def main() -> int:
         if not stage:
             gate(f"a stage result is missing ({stage_path})", False, "no result document")
             continue
+        failed = not stage.get("ok", False)
         gate(
             stage["stage"],
             stage.get("ok", False),
             f"{stage.get('result')} in {stage.get('duration_seconds')}s"
-            + (f"; {stage['failure_reason']}" if not stage.get("ok") else ""),
+            + (f"; {stage['failure_reason']}" if failed else ""),
             excused_by=(exceptions.get(stage["stage"]) or {}).get("finding"),
+            tail=(stage.get("output_tail") or "").strip() if failed else None,
         )
+        if failed and stage_path not in staging_docs:
+            staging_docs.append(stage_path)
 
     lint_product = read_json(args.lint_product)
     lint_repo = read_json(args.lint_repo)
@@ -383,6 +394,13 @@ def main() -> int:
         g for g in gates if g["ok"] is False and not g.get("excepted") and not g.get("observed")
     ]
     excepted = [g for g in gates if g["ok"] is False and g.get("excepted")]
+    # "required" says whether the policy names the gate; "blocking" says whether the
+    # gate actually stopped this candidate. A gate can be unnamed by the policy and
+    # still block (every non-excepted failure blocks), and the two fields must not be
+    # read as one: an earlier run recorded a blocking gate as "required": false, which
+    # reads like an excused failure.
+    for g in gates:
+        g["blocking"] = any(g is b for b in blocking)
     verdict = "RELEASABLE" if not blocking else "NOT_RELEASABLE"
 
     rc_id = f"{version}-{commit[:7]}-ci{args.run_id}"
@@ -515,7 +533,7 @@ def main() -> int:
 
     # Raw stage reports are kept next to the verdict they produced.
     raw_copies: list[str] = []
-    for source in args.raw or []:
+    for source in [*(args.raw or []), *staging_docs]:
         candidate = Path(source)
         if not candidate.is_file():
             continue

@@ -11,6 +11,12 @@ exits with the command's own exit code so the job still reflects reality.
                 --evidence /tmp/mo7-build/stage-frontend.json \
                 --log /tmp/mo7-build/frontend.log \
                 -- npm run check:fast
+
+When a stage fails, the last lines of its output are also emitted as a GitHub
+error annotation. Some stages are declared continue-on-error so that one run
+reports every stage instead of stopping at the first, and the runner's own logs
+are not readable from outside the runner; the annotation travels with the check
+run, so the reason a stage failed is auditable rather than inferred.
 """
 
 from __future__ import annotations
@@ -21,6 +27,30 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+
+
+def annotation(stage: str, tail: list[str]) -> str:
+    """A GitHub error annotation carrying the stage's own last lines.
+
+    Workflow commands need %, CR and LF escaped, and the title needs the
+    property escapes as well; the message is bounded so one noisy stage cannot
+    flood the run.
+    """
+
+    def prop(text: str) -> str:
+        return (
+            text.replace("%", "%25")
+            .replace("\r", "%0D")
+            .replace("\n", "%0A")
+            .replace(":", "%3A")
+            .replace(",", "%2C")
+        )
+
+    def message(text: str) -> str:
+        return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+    body = message("\n".join(tail)[-1200:])
+    return f"::error title={prop(stage + ' failed')}::{body}"
 
 
 def main() -> int:
@@ -69,6 +99,8 @@ def main() -> int:
     print(f"stage '{args.stage}': {'pass' if ok else 'FAIL'} in {duration}s")
     for line in tail[-5:]:
         print(f"    {line}")
+    if not ok:
+        print(annotation(args.stage, tail))
     return proc.returncode
 
 
