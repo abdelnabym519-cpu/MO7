@@ -18,7 +18,7 @@ The certification is
 | Artifact | `deeptutor-1.6.11-py3-none-any.whl` |
 | Frozen artifact sha256 | `af1ab3df13b5425dcbced39715fb516c65bb7f602499b7cbee1b878ec134b017` |
 | Release tag | `mo7-release-1.6.11-f3da23a-ci37558387881` → `f3da23a` (`host/tag-target.txt`) |
-| Live on the host | yes (`host/current-release.json`) |
+| Live on the host | yes at the certification boundary (`host/current-release.json`); the third sandbox recycle later destroyed the host (P33-M31), so no running service is claimed now |
 
 * `candidates/1.6.11-f3da23a-ci37558387881/` — the candidate ledger and its
   evidence documents: `state.json`, `deployment.json`, `post-deploy.json`,
@@ -37,6 +37,15 @@ The certification is
   the current release tag must name.
 * `logs/` — the promotion logs of the certified cycle and of the injected
   failures, plus the browser matrix summary.
+* `frontend-gate-intermittent/` — the CI verdicts, durable pre-/post-patch Vitest
+  repetitions, the unapplied test-only fix's measurement, and controlled checks
+  of the stage annotation and per-gate blocking evidence. These are diagnostic
+  findings, not a second certification or a claim that the patch was shipped.
+
+The certified release was live at the end of the recorded cycle and still passed
+host verification after its injection suite. The third sandbox recycle destroyed
+that host after certification; the committed evidence above is the record of the
+executed state, not a claim that the service is currently running.
 
 ## What is historical
 

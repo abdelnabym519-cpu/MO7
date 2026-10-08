@@ -1,0 +1,128 @@
+diff --git a/web/tests/co-writer-lazy-notebook.spec.tsx b/web/tests/co-writer-lazy-notebook.spec.tsx
+index d4f449b..7d53a42 100644
+--- a/web/tests/co-writer-lazy-notebook.spec.tsx
++++ b/web/tests/co-writer-lazy-notebook.spec.tsx
+@@ -37,7 +37,11 @@ it("opens and closes the dynamically loaded notebook picker without changing the
+     render(<CoWriterWorkspace docId="document-1" />);
+     expect(await screen.findByDisplayValue("Existing draft content")).toBeInTheDocument();
+     fireEvent.click(screen.getByRole("button", { name: "Save to Notebook" }));
+-    const dialog = await screen.findByRole("dialog", { name: "Save to Notebook" });
++    const dialog = await screen.findByRole(
++      "dialog",
++      { name: "Save to Notebook" },
++      { timeout: 5000 },
++    );
+     expect(await within(dialog).findByText("My notebook")).toBeInTheDocument();
+     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+diff --git a/web/tests/knowledge-linked-folders.spec.tsx b/web/tests/knowledge-linked-folders.spec.tsx
+index c2a9fe5..2514909 100644
+--- a/web/tests/knowledge-linked-folders.spec.tsx
++++ b/web/tests/knowledge-linked-folders.spec.tsx
+@@ -78,7 +78,16 @@ it("links a folder without automatically starting its first sync", async () => {
+   );
+ 
+   await waitFor(() => expect(fixture.list).toHaveBeenCalled());
+-  fireEvent.click(screen.getAllByRole("button", { name: "Link folder" })[0]);
++  // The call being recorded is not the list being rendered: the section is still
++  // showing its loading state for a render or two afterwards. Waiting for the
++  // button the test is about to press is the assertion this line always meant,
++  // and it does not assume when React has flushed the resolved promise.
++  const linkFolderButtons = await screen.findAllByRole(
++    "button",
++    { name: "Link folder" },
++    { timeout: 5000 },
++  );
++  fireEvent.click(linkFolderButtons[0]);
+   const dialog = await screen.findByRole("dialog");
+   fireEvent.change(within(dialog).getByLabelText("Folder path"), {
+     target: { value: "/notes" },
+diff --git a/web/tests/settings-unified-draft.spec.tsx b/web/tests/settings-unified-draft.spec.tsx
+index 18a2727..e193b48 100644
+--- a/web/tests/settings-unified-draft.spec.tsx
++++ b/web/tests/settings-unified-draft.spec.tsx
+@@ -212,7 +212,11 @@ it("stages language and appearance without changing browser preferences until Ap
+   await act(() => settings.applyCatalog());
+   expect(mocks.theme).toHaveBeenCalledWith("dark");
+   expect(resources.ui.theme).toBe("dark");
+-});
++  // Rendering the whole App and walking the draft lifecycle is one of the
++  // slowest tests in the suite, and it shares the machine with every other
++  // file in the run; the default five-second per-test budget is what fails
++  // under that load, not an assertion. The work it does is unchanged.
++}, 20_000);
+ 
+ it("removes pending state when an edit is reverted", async () => {
+   render(<App />);
+diff --git a/web/tests/watching-browser.spec.tsx b/web/tests/watching-browser.spec.tsx
+index f35cac6..1985386 100644
+--- a/web/tests/watching-browser.spec.tsx
++++ b/web/tests/watching-browser.spec.tsx
+@@ -22,6 +22,12 @@ vi.mock("@/lib/video-learning-api", () => ({
+   invidiousAccount: mock.account,
+   browseInvidious: mock.browse,
+ }));
++// The browser resolves the account and then the feed through several awaited
++// calls before any row exists, and this suite runs several files at once on the
++// pipeline's runners. The assertion is that the row appears, not that it appears
++// within the one second a quiet machine would need. (P33-M28.)
++const WAIT = { timeout: 5000 };
++
+ const video = {
+   videoId: "aircAruvnKk",
+   title: "Neural networks",
+@@ -39,7 +45,7 @@ describe("Watching account browser", () => {
+   it("opens a selected subscription video as a new Watching route", async () => {
+     render(<WatchingBrowser canDismiss onDismiss={vi.fn()} />);
+     fireEvent.click(
+-      await screen.findByRole("button", { name: /Neural networks/ }),
++      await screen.findByRole("button", { name: /Neural networks/ }, WAIT),
+     );
+     expect(mock.push).toHaveBeenCalledWith(
+       `/learning/watching?video=${encodeURIComponent("https://www.youtube.com/watch?v=aircAruvnKk")}&dt_workspace=`,
+@@ -59,7 +65,7 @@ describe("Watching account browser", () => {
+     );
+ 
+     fireEvent.click(
+-      await screen.findByRole("button", { name: /Neural networks/ }),
++      await screen.findByRole("button", { name: /Neural networks/ }, WAIT),
+     );
+ 
+     expect(onSelectUrl).toHaveBeenCalledWith(
+@@ -74,12 +80,14 @@ describe("Watching account browser", () => {
+     fireEvent.click(screen.getByRole("button", { name: "Subscription feed" }));
+     await screen.findByText(
+       "Connect your Invidious account to see subscriptions and playlists.",
++      undefined,
++      WAIT,
+     );
+     expect(mock.browse).not.toHaveBeenCalled();
+     const input = screen.getByRole("textbox");
+     fireEvent.change(input, { target: { value: "neural" } });
+     fireEvent.submit(input.closest("form")!);
+-    await screen.findByText("Neural networks");
++    await screen.findByText("Neural networks", undefined, WAIT);
+     expect(mock.browse.mock.calls[0].slice(0, 3)).toEqual([
+       "search",
+       "neural",
+@@ -88,7 +96,7 @@ describe("Watching account browser", () => {
+   });
+   it("clears private rows when disconnected", async () => {
+     render(<WatchingBrowser canDismiss={false} onDismiss={vi.fn()} />);
+-    await screen.findByText("Neural networks");
++    await screen.findByText("Neural networks", undefined, WAIT);
+     mock.account.mockResolvedValue({ connected: false });
+     fireEvent.click(
+       screen.getByRole("button", { name: "Disconnect Invidious" }),
+@@ -104,9 +112,9 @@ describe("Watching account browser", () => {
+       ),
+     );
+     render(<WatchingBrowser canDismiss={false} onDismiss={vi.fn()} />);
+-    await screen.findByRole("alert");
++    await screen.findByRole("alert", undefined, WAIT);
+     mock.browse.mockResolvedValue({ videos: [video] });
+     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+-    await screen.findByText("Neural networks");
++    await screen.findByText("Neural networks", undefined, WAIT);
+   });
+ });

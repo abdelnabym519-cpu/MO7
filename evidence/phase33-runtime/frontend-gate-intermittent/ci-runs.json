@@ -1,0 +1,58 @@
+{
+  "37558387881": {
+    "note": "certified run \u2014 the artifact that shipped",
+    "commit": "f3da23aff1d0e62d8636a7f601277636fc45ce0c",
+    "result": "RELEASABLE",
+    "blocking_failures": [],
+    "frontend_gate": {
+      "ok": true,
+      "detail": "pass in 153.229s",
+      "required": false,
+      "blocking": null,
+      "failure_tail": null
+    }
+  },
+  "37690935036": {
+    "note": "refused by the frontend gate (first occurrence)",
+    "commit": "52d2173b2490f7c5712c2005f4c857b7e040230d",
+    "result": "NOT_RELEASABLE",
+    "blocking_failures": [
+      "the frontend deterministic gate"
+    ],
+    "frontend_gate": {
+      "ok": false,
+      "detail": "fail in 135.908s; the deterministic frontend gate (lint, types, i18n, contracts) reported failures",
+      "required": false,
+      "blocking": null,
+      "failure_tail": null
+    }
+  },
+  "37699029751": {
+    "note": "refused by the frontend gate (second occurrence, before final stage instrumentation)",
+    "commit": "a01988fcf9c945d49a0d92237c366763aa0a4aa0",
+    "result": "NOT_RELEASABLE",
+    "blocking_failures": [
+      "the frontend deterministic gate"
+    ],
+    "frontend_gate": {
+      "ok": false,
+      "detail": "fail in 135.211s; the deterministic frontend gate (lint, types, i18n, contracts) reported failures",
+      "required": false,
+      "blocking": null,
+      "failure_tail": null
+    }
+  },
+  "37700947418": {
+    "note": "passed on the same frontend code (evidence of intermittency)",
+    "commit": "32a7045c5e318dbe6ab8264c96894fc4d9779287",
+    "result": "RELEASABLE",
+    "blocking_failures": [],
+    "frontend_gate": {
+      "ok": true,
+      "detail": "pass in 192.924s",
+      "required": false,
+      "blocking": false,
+      "failure_tail": null
+    }
+  }
+}

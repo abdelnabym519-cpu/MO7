@@ -214,6 +214,18 @@ reported `8433/8488 passed, 1 failed` and the pipeline refused the candidate —
 `NOT_RELEASABLE`, job exit 1. That is the pipeline failing closed, on a real
 test failure, in production use rather than in a demonstration.
 
+Two later runs refused a candidate for a reason that is **not** a pipeline
+defect. Run `37690935036` (commit `52d2173`) and run `37699029751` (commit
+`a01988f`) both failed the frontend deterministic gate on code that run
+`37700947418` (commit `32a7045`) passed. The cause is a repository test defect:
+four test sites assume render, import or whole-test completion within a
+quiet-machine budget under parallel load (P33-M28). Both runs behaved exactly as
+the process requires: the failure was recorded, the candidate was refused,
+nothing was promoted. They also exposed P33-M29 (failing stage output was not
+preserved) and P33-M30 (`required: false` did not say whether a failed gate
+actually blocked); both instrumentation defects are fixed and controlled failure
+probes now exercise the recorded details.
+
 ---
 
 ## 7. Test gates (no weakening)
@@ -544,8 +556,9 @@ The classification vocabulary is fixed and each finding carries exactly one:
 DEFECT** (an instrument that reports wrongly), **REPRODUCIBILITY DEFECT** (the
 build's determinism or traceability), **REPOSITORY DEFECT** (product or test
 source), **INFRASTRUCTURE**, **EXTERNAL DEPENDENCY**, **KNOWN FINDING** (stated,
-not fixed here). No finding is classified as flaky, and no fixable pipeline or
-repository defect is filed as infrastructure.
+not fixed here). The intermittent frontend gate is classified by its reproduced cause as a
+REPOSITORY DEFECT (P33-M28), not as a separate “flaky” class; no fixable
+pipeline or repository defect is filed as infrastructure.
 
 | ID | Classification | Symptom | Root cause | Evidence | Impact | Fix | Validation | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -579,17 +592,21 @@ repository defect is filed as infrastructure.
 | P33-M25 | HARNESS DEFECT | The certification instrument **aborted instead of recording a verdict** when the edge refused a request by closing the connection: the oversized-header check raised an uncaught `SSLEOFError`, and a correct rollback was recorded as `verified_after_rollback: false` | `raw()` sent the request without handling a reset; whether the 64 KiB header payload outran the server's close depended on machine load — it passed six times idle and failed three times while a build ran | `rollback.json` (`verified_after_rollback: false` with every one of the five probes green except this crash), preserved as `negative/rollback-before-probe-reset-fix.json`; a 4 MiB payload reproduces it deterministically (server closes mid-write) | A healthy deployment was reported unhealthy by the instrument, and the check that *means* "refused by closing" was the one that could not survive being refused | `raw()` records a refusal-by-close (`status=0`, listed in the evidence as `closed_before_response`) instead of raising; the check that accepts status 0 already meant exactly that, so nothing was relaxed | Deterministic replay: `raw()` returns `status=0` with the request named; the rollback re-run reports `verified_after_rollback: true`, 107/107, artifact probe 29/29 | FIXED |
 | P33-M26 | PIPELINE DEFECT | Both release tags **named one commit and pointed at another**: `git tag -a <tag> -m …` tags HEAD, and at promotion time HEAD was the CI-evidence commit that followed the validated one | The tagging step never named the commit it was tagging | `git rev-parse tag^{}` before the fix: `mo7-release-1.6.11-45d419a-…` → `1a3a65c`, `mo7-release-1.6.11-f3da23a-…` → `3bef70f`; the tagged commits are `45d419a` and `f3da23a` | The repository's own provenance claim was false in exactly the way this phase exists to prevent — a tag that identifies a release and does not point at it | The tag is created on the validated commit explicitly; an existing tag that points at a different commit is recorded as a conflict and named in the detail, and a re-promotion that finds the correct tag records `already_existed` instead of losing the tag record | Both tags re-created on their release commits and pushed; `git rev-parse tag^{}` now equals `45d419a…` and `f3da23a…` and the remote agrees (`host/release-tags.txt`, `host/tag-target.txt`); the defect's own record is kept in `tag.json` (`conflict` was produced by this run) | FIXED |
 | P33-M27 | PIPELINE DEFECT | A rollback to the release **already serving** was recorded as `ROLLBACK_FAILED`: the operator asked for a no-op, the script exited 2 with "already the current release", and the candidate was left in a state that nothing could promote again | The controller delegated the decision to the script and mapped any non-zero exit to failure | `state/1.6.11-f3da23a-ci37558387881.json` history `ROLLED_BACK → ROLLBACK_FAILED`; `rollback.json` `result: "failed"`, exit 2 | A refusal and a failure were the same fact, and a phantom failure stranded a healthy candidate (the `retry` verb refused the state until it was extended) | The controller checks what is served first: if the host already serves the requested release, nothing is invoked and the record says `result: "not required"`; a candidate whose rollback *did* fail can be retried | `rollback --to <live release>` → `not required (already serving)`, exit 0, state unchanged; `retry` moved the candidate out of `ROLLBACK_FAILED` and the release was promoted again | FIXED |
+| P33-M28 | REPOSITORY DEFECT | The frontend deterministic gate failed intermittently on unchanged source in two CI runs, then passed on the same frontend code; the test gate was correctly fail-closed, but the failing source-level checks are timing-sensitive under parallel load | Four test sites have timing budgets that can expire under worker contention: (1) `knowledge-linked-folders` waits for the mock list call, then synchronously queries the rendered button; (2) `watching-browser` uses Testing Library’s default one-second `findBy` window while account/feed promises settle; (3) `co-writer-lazy-notebook` waits for a dynamically imported dialog using the same one-second default; (4) `settings-unified-draft` exceeds Vitest’s default five-second per-test timeout under load. These assert on valid outcomes but assume the UI/import/test completes within a quiet-machine budget | CI runs `37690935036` and `37699029751` refused the frontend gate; `37700947418` passed. `git diff 52d2173 32a7045 -- web/` and `git diff a01988f 32a7045 -- web/` are empty. Initial pre-recycle 4-worker local reproduction: 1 failure in 3 (its `/tmp/vitest-par-*` logs were lost on recycle); durable post-recycle unpatched runs: 4 workers 3/3 green, 8-worker stress 6/6 red. Full logs and run data: `evidence/phase33-runtime/frontend-gate-intermittent/` | A correct change can be refused due to test scheduling, causing a costly re-run and risking normalization of retries; no release was promoted by a failed gate | A candidate patch is recorded at `docs-for-user/phase33-cicd/frontend-gate-intermittent-failures.patch`: adjust synchronization and time budgets only: the same accessible element must appear before the same first button is clicked, downstream assertion expectations and tested operations stay unchanged, and the long draft-lifecycle test receives 20 seconds. Deliberately not applied to `web/**`: per source-drift rule P33-M12 it creates a new source revision and therefore needs a new candidate and full re-certification, outside this close-out | `git apply --check` succeeds. On a copy of the exact certified source, the patched full suite passed 3/3 at four workers (427/427 each); at eight workers it passed 2/3, with the remaining run timing out in the unrelated `i18n-audit` test at its own five-second default. All four target suites passed in all six patched runs. Unpatched versus patched per-run results and logs are retained in the evidence folder | STATED (patch ready; source unchanged) |
+| P33-M29 | HARNESS DEFECT | On a red stage, the published gate row carried only a generic failure detail; the failed stage’s own output was not present in the committed run evidence | The wrapper stored `output_tail` in `stage-frontend.json` and printed its last five lines, but the evidence assembler copied reports only when passed through `--raw`; the failed stage document was not passed/copied, the gate row did not retain its tail, and no GitHub `::error` annotation exposed it in check annotations | Runs `37690935036` and `37699029751`: the frontend row has no `failure_tail` and their committed run directories contain no `stage-frontend.json` or `frontend.log`; runner-log retrieval was unavailable. Controlled post-fix check: `evidence/phase33-runtime/frontend-gate-intermittent/instrument-probe/` | A failure could not be diagnosed from the evidence surviving the run and required an expensive local reproduction | `rc_stage.py` emits a bounded, escaped `::error` annotation containing the stage tail without changing its exit status; `rc_evidence.py` stores `failure_tail` and copies failed stage documents (`staging_docs`) into `evidence/ci/<run>/` | A controlled stage returning exit 7 retains its own tail, emits the annotation, and still returns 7; run `37700947418` used the committed instrumentation across all twenty stages. Exact controlled-probe output and JSON are in the evidence folder | FIXED |
+| P33-M30 | HARNESS DEFECT | A failed gate could be shown as `"required": false` even though the promotion was blocked by that failure, making an actually blocking gate appear excused | The evidence schema used `required` only for policy membership and did not separately record whether each failed gate was blocking | Run `37690935036`: `release.json` marks the failed frontend row `"required": false`, while the same run’s `promotion.json` lists `"the frontend deterministic gate"` in `blocking_failures`; run `37700947418` has an explicit `blocking` field on all twenty stage rows | Reviewers could misread a fail-closed refusal as an optional/excepted failure; the pipeline verdict itself remained red | `rc_evidence.py` now records `blocking` per gate independently of `required`; every non-excepted, non-observed failed gate is marked blocking | Controlled `rc_evidence.py` schema probe: the red non-policy stage is `required: false`, `blocking: true`, carries its failure tail, and appears in `blocking_failures`; the overall result is `NOT_RELEASABLE`. Summary: `evidence/phase33-runtime/frontend-gate-intermittent/instrument-probe/blocking-schema-verification.json`. Run `37700947418` supplies the green-path schema check. | FIXED |
+| P33-M31 | INFRASTRUCTURE | The sandbox was recycled a third time after certification: `/tmp`, the release work directory, deployment host, Chromium build and `web/node_modules` were removed; `.git` was re-cloned at the base commit while the worktree retained the session’s files | Platform recycle, not a repository or release-process defect | `git reflog` (`clone: from https://github.com/...` then `checkout: moving from main`); `/home/user/mo7-prod` absent; `git stash list` empty; sandbox uptime was two minutes during recovery | The host that served and verified the certified release at 22:39Z no longer exists; the committed Phase 33 evidence remains available | Snapshot the worktree, fetch the branch, and align the fresh clone’s branch/index with the remote using `git reset --mixed` (worktree left untouched); do not rebuild the host after certification because §38 hard-stops recovery work | Recovered without losing or overwriting work; local HEAD equals remote, clean tree after close-out, protected refs and release tags unchanged. The preserved pre-recycle certification evidence is the record; no live-host claim is made after recycle | RECOVERED |
 | P33-K1 | KNOWN FINDING | Nine browser cases skip by repository design | Multi-worker and turn-lifecycle fixtures do not exist in this deployment (`DEEPTUTOR_MULTI_WORKER_E2E`, `DEEPTUTOR_TURN_E2E_FIXTURE`) | Suite source; the matrix summary (64 passed / 9 skipped) | No multi-worker turn coverage here | Reported as skipped, never as passed (carried from P32-K4) | Counts stated in §7 | CARRIED |
 | P33-K2 | EXTERNAL DEPENDENCY | No LLM-backed chat turn is exercised anywhere in the release process | No model provider is configured or reachable in this environment | `production-websocket.json` notes (`own_books: 0`, acknowledgement recorded as not-applicable) | The completion paths are not covered by production probes | Stated as a limit of the environment, never inferred as a pass | The streaming probe records 'not applicable' instead of claiming a successful subscribe | STATED |
 | P33-K3 | EXTERNAL DEPENDENCY | No signing or attestation infrastructure exists here (and the Actions artifact store is unreachable) | Environment; no sigstore/attestation tooling, no artifact download route | §3, §23 | Identity rests on hash + manifest + commit existence rather than a signature | No signing theatre: nothing is claimed to be signed | §23 names exactly what is verified | STATED |
-| P33-K4 | INFRASTRUCTURE (environment event) | The sandbox was recycled mid-phase and destroyed the deployment host (`mo7-prod`), the release work directory, the Chromium build, the Playwright cache and `web/node_modules` | Platform recycle | §22; the rebuild logs in `run/` and `evidence/` | All runtime evidence produced before the recycle was lost; only committed documents survived | Rebuilt from the repository alone: work dir, wheel, host, browser, then the whole cycle re-run from scratch | `verify` 107/107 on the rebuilt host; the certified cycle re-executed end to end | RECOVERED |
+| P33-K4 | INFRASTRUCTURE | The sandbox was recycled mid-phase and destroyed the deployment host (`mo7-prod`), the release work directory, the Chromium build, the Playwright cache and `web/node_modules` | Platform recycle | §22; the rebuild logs in `run/` and `evidence/` | All runtime evidence produced before the recycle was lost; only committed documents survived | Rebuilt from the repository alone: work dir, wheel, host, browser, then the whole cycle re-run from scratch | `verify` 107/107 on the rebuilt host; the certified cycle re-executed end to end | RECOVERED |
 | P33-M19 | PIPELINE DEFECT | A **correct rollback** reported one red check: the deployment verification requires the newest backup to have been rehearsed, and the rollback had just taken a new one without rehearsing it | The rehearsal was added to the promotion path (P33-M6) but not to the rollback path, which had never been executed until this phase | `rollback.json` (first run: `verified_after_rollback: false`), `negative/rollback-before-rehearsal-fix.json`, verify detail `rehearsed=…-pre-deploy-… newest=…-pre-rollback-…` | An operator following the documented rollback sees red on a healthy rollback — the failure mode that trains people to ignore checks | The rollback rehearses its own backup (restore into a scratch root, the restored release as the application) before the symlink flips | Re-run: `result: "rolled back"`, `verified_after_rollback: true`, 107/107, identity traceable, artifact 29/29, streaming 9/9 | FIXED |
 
 One more limit, so the coverage is not read as wider than it is: the controller's *own* post-deploy-validation branch (probe the live release, roll back if a probe fails) is implemented and its probes run on every certified promotion, but no injection in this environment reaches it — the deployment's post-promote smoke is the earlier gate and refuses the same faults first (run 6: the smoke failed the release before the controller's probes ran). It is a second line, and it is stated as unexercised rather than claimed as tested. See P33-K5.
 
-Two notes on the numbering. There is no `P33-M1`: no finding was ever recorded under that id in any artifact of this phase, and nothing here has been renumbered to fill the gap. `P33-M18` and `P33-K4` are different in kind from the rest: one is an environment limitation manifesting as a construction mistake, the other is the recycle itself, and both are included because the phase's evidence would otherwise claim a continuity the environment did not provide.
+Two notes on the numbering. There is no `P33-M1`: no finding was ever recorded under that id in any artifact of this phase, and nothing here has been renumbered to fill the gap. `P33-M18` and `P33-K4` are different in kind from the rest: one is an environment limitation manifesting as a construction mistake, the other is the recycle itself. `P33-M31` records the subsequent recycle after certification; both environment events are included because the evidence would otherwise claim a continuity the sandbox did not provide.
 
-No finding in this phase was classified as flaky, and no fix weakened an assertion, deleted a test or changed product behaviour. Every PIPELINE DEFECT and HARNESS DEFECT above is in release tooling; every REPRODUCIBILITY DEFECT is in the build recipe's determinism; the KNOWN FINDINGs are stated rather than fixed, with the reason for each.
+The intermittent frontend failure has a reproduced test-synchronization cause and is classified as P33-M28 (REPOSITORY DEFECT), not as a separate “flaky” class; no fix weakened an assertion, deleted a test or changed product behaviour. Every PIPELINE DEFECT and HARNESS DEFECT above is in release tooling; every REPRODUCIBILITY DEFECT is in the build recipe's determinism; the KNOWN FINDINGs are stated rather than fixed, with the reason for each.
 
 
 ## 26. Cross-phase regression (§30)
@@ -597,19 +614,22 @@ No finding in this phase was classified as flaky, and no fix weakened an asserti
 | Surface | Status | Evidence |
 | --- | --- | --- |
 | Artifact identity | intact | `identity` traceable; artifact sha matches the frozen decision; Phase 32's own identity checks 107/107 |
-| Production deployment | intact | the certified release is live; deployment log records the forward move with an 11 153 ms measured outage window |
-| Rollback | intact | executed twice from the final state; the second reports `verified_after_rollback: true` with 107/107 afterwards (§19) |
-| Backup / restore | intact | the rehearsal is part of every promotion and of every rollback, and passes 10 checks |
-| Security | intact | Phase 27/29 harnesses run in the pipeline; artifact probe 29/29 on the live release |
-| Browser | intact | 64 passed / 9 skipped / 0 failed on the deployed release (`/tmp/browser-final2.log`) |
-| Performance | intact | Phase 28 baseline unchanged (no product source touched by this phase) |
-| Persistence | intact | pre/post data comparisons in the promotion's migration gate |
-| Recovery | intact | §16 host cases + §22 rebuild from nothing |
+| Production deployment | executed, then destroyed by the environment | the certified release was live and verified at 22:39Z on 2026-10-07 (deployment log: forward move, 11 153 ms measured outage window, post-deploy validation 5/5); the third sandbox recycle removed the host afterwards (P33-M31), so what stands is the committed record rather than a running service |
+| Rollback | executed and verified before recycle; host since removed | the second rollback reported `verified_after_rollback: true` with 107/107 afterwards (§19); its committed evidence survives, the service does not |
+| Backup / restore | passed before recycle; host since removed | the certified promotion and rollback rehearsed the backup and passed 10 checks; see §31.1 and §31.3 |
+| Security | executed before recycle; evidence retained | Phase 27/29 harnesses ran in CI; the live-release artifact probe passed 29/29 before the host was removed |
+| Browser | executed before recycle; evidence retained | 64 passed / 9 skipped / 0 failed on the deployed release (`evidence/phase33-runtime/logs/browser-final3.txt`) |
+| Performance | unchanged | Phase 28 baseline preserved; no product source was touched by this phase |
+| Persistence | compared before recycle | pre/post data comparisons passed in the certified promotion's migration gate |
+| Recovery | executed before recycle; evidence retained | §16 host cases and §22 rebuild-from-nothing cycle passed before the host was removed |
 
 No product source file was modified by Phase 33. Every change is in
 `docs-for-user/**` (release tooling, runbooks, reports) or `evidence/**`, which
 is also why the certified candidate stays valid: the source-drift rule only
-permits those two prefixes.
+permits those two prefixes. The same rule is why the P33-M28 fix ships as a
+patch under `docs-for-user/**` instead of being applied to `web/**`: applying it
+would move the released source and require a new candidate and a new
+certification cycle, which §38 places out of scope.
 
 ## 27. External dependencies and limits
 
@@ -625,12 +645,22 @@ permits those two prefixes.
   turn-lifecycle fixtures absent), carried from Phase 32 as P32-K4.
 * **No container runtime** — the deployment is a host-level release tree with
   supervisord, as Phase 32 delivered.
+* **The deployment host no longer exists** — the third sandbox recycle (P33-M31)
+  destroyed `/home/user/mo7-prod` after certification. Nothing in this report is
+  withdrawn by that: the claims are the executed cycles and their committed
+  evidence. What cannot be done from the current environment is to *show* a
+  running service, and that is stated rather than glossed.
 
 ## 28. Deferred / out of scope
 
 * Pinning Next.js's generated build id and Server Actions key (would be a
   product configuration change; the identity mechanism covers the gap).
 * Arming CI artifact attestation (the artifact store is unreachable from here).
+* Applying `docs-for-user/phase33-cicd/frontend-gate-intermittent-failures.patch`
+  (the P33-M28 fix). It is measured and ready; applying it moves `web/**`, which
+  the source-drift rule treats as a new source revision, so it belongs to a cycle
+  that rebuilds and re-certifies a candidate — not to the certification it would
+  invalidate.
 * Anything belonging to Phase 34 and beyond — explicitly out of scope.
 
 ## 29. Evidence index
@@ -638,6 +668,7 @@ permits those two prefixes.
 | Evidence | Location |
 | --- | --- |
 | CI runs and their verdicts | `evidence/ci/{37546291753,37546936253,37550740261}/release.json` |
+| The two runs refused by the intermittent frontend gate | `evidence/ci/{37690935036,37699029751}/promotion.json` |
 | The red-gate run | `evidence/ci/37544304900/release.json` (`NOT_RELEASABLE`) |
 | Candidate state and history | `/home/user/mo7-cicd/state/<rc>.json` |
 | Frozen artifacts | `/home/user/mo7-cicd/rc/<rc>/deeptutor-1.6.11-py3-none-any.whl` |
@@ -650,6 +681,12 @@ permits those two prefixes.
 | Deployment ledger | `/home/user/mo7-prod/etc/deployments.log` |
 | Browser matrix | `web/test-results/` + the reporter summary in the run log |
 | The final state, copied out of the working and production roots | `evidence/phase33-runtime/` (see its `README.md` for what is current and what is historical) |
+| The intermittent-failure investigation and its measurement | `evidence/phase33-runtime/frontend-gate-intermittent/` |
+
+The `/home/user/mo7-cicd` and `/home/user/mo7-prod` paths named in the rows above
+are where the evidence was produced; the third recycle (P33-M31) emptied them.
+Every row has a copy inside `evidence/phase33-runtime/` for exactly that reason,
+and the copies are what the citations in this report resolve to.
 
 ## 30. Final checklist (§34)
 
@@ -684,15 +721,22 @@ artifact that shows it, not at the code that implements it.
 | 24 | Machine-readable evidence for every transition | PASS | §24 table |
 | 25 | The injection suite leaves the host on the certified release | PASS | after 6/6: `verify --quick` 107/107, `identity … failures=0`, injected residues removed |
 | 26 | Nothing claims more than it measured | PASS | §27 and §31.4 limits; the streaming probe records "not applicable" rather than a pass |
+| 27 | A run refused by a repository test defect is explained, not hidden | PASS | runs `37690935036`/`37699029751` refused the frontend gate; P33-M28 reproduces the cause and records an unapplied test-only patch; P33-M29’s exit-7 probe preserves and annotates failure lines; P33-M30’s non-policy red-gate probe records `blocking: true` and returns `NOT_RELEASABLE` |
 
 ## 31. Final validation from the final state (§35)
 
-Everything here was executed against the state this report is committed in: the
-release environment rebuilt from the repository alone after the second recycle,
-the host bootstrapped and promoted from that rebuild, and the candidate built,
-validated and promoted on 2026-10-07 between 21:51Z and 22:39Z. Only this cycle
-counts for certification; the earlier ones are described in §19 and §26 and are
-marked superseded where their host no longer exists.
+The operational release cycle in §31.1–§31.3 was executed after the second
+recycle against the certified candidate source; the host was bootstrapped,
+promoted and rolled back on 2026-10-07 between 21:51Z and 22:39Z. The subsequent
+release-process CI run `37700947418` passed on commit `32a7045`; its evidence-only
+commit is `1d6ab65`. The `web/` tree is identical between those commits and the
+red-run source commits (`52d2173`, `a01988f`). This close-out adds only
+`docs-for-user/**` and `evidence/**`, so it changes neither the certified app
+source nor the workflow. Only the final operational cycle and the final-state
+CI evidence count for certification; earlier cycles are described in §19 and
+§26 and are marked superseded where their host no longer exists. The later
+sandbox recycle (P33-M31) destroyed the host after those executions; it did not
+erase the committed evidence.
 
 ### 31.1 One full cycle
 
@@ -730,6 +774,12 @@ After the suite the host still serves the certified release: `verify --quick`
 107/107, `identity: traceable=True … failures=0`, and the releases staged for the
 injections were removed.
 
+That state was measured at 22:39Z on 2026-10-07 and was true then. The third
+recycle (P33-M31) destroyed the host afterwards. §35's requirement — one full
+cycle, one negative cycle and a rollback/recovery executed from the final state —
+was satisfied before the event, and what certifies it is the evidence committed
+in `evidence/phase33-runtime/`, which the recycle did not touch.
+
 ### 31.3 Rollback and recovery
 
 | Step | Result | Evidence |
@@ -760,13 +810,13 @@ cycle above ran.
 | Check | Command | Result |
 | --- | --- | --- |
 | Correct branch | `git rev-parse --abbrev-ref HEAD` | `arena/01a0ff3f-mo7` |
-| Local head equals the remote | `git rev-parse HEAD` vs `git ls-remote origin refs/heads/arena/01a0ff3f-mo7` | equal (the commit this report is committed in) |
+| Local head equals the remote | `git rev-parse HEAD` vs `git ls-remote origin refs/heads/arena/01a0ff3f-mo7` | equal — re-verified after the third recycle (P33-M31) recovered the git state, and after the commit that carries this table |
 | Clean tree | `git status --short` | empty |
 | Release tags name their commits | `git rev-parse <tag>^{}` | `45d419a…` for `mo7-release-1.6.11-45d419a-ci37546936253`, `f3da23a…` for `mo7-release-1.6.11-f3da23a-ci37558387881` |
 | `main` untouched | `git ls-remote origin refs/heads/main` | `a053fec…` — the same commit this phase started from |
 | `arena/01a0dba1-mo7` untouched | `git ls-remote origin refs/heads/arena/01a0dba1-mo7` | unchanged; this session never checked it out or pushed to it |
 | No history rewrite | `git log` | the branch is append-only: every step of this phase is a commit, nothing was amended or force-pushed |
-| Safety net | `git stash list` | the two recycle-recovery stashes are kept, never applied blindly and never dropped |
+| Safety net | `git stash list` | empty, and stated as such: the stashes lived in `.git`, which the third recycle re-cloned (P33-M31). What they preserved had already been committed; the recovered worktree was snapshotted to `/home/user/recycle3-worktree-snapshot.tgz` before the git state was reconciled |
 
 ## 33. Promotion assessment and repository state (§37)
 
@@ -783,7 +833,9 @@ unexercised (P33-K5), no LLM-backed turn and no signing exist in this environmen
 
 **HARD STOP.** Nothing in this repository or in the rebuilt environment is to be
 carried into Phase 34, and no monitoring, recovery or CI/CD optimisation work is
-performed after this certification. The environment is left as certified: the
-host serves `1.6.11-f3da23a-ci37558387881` with 107/107 verification, the branch
-is at the commit that contains this report, and the two release tags point at the
-commits they name.
+performed after this certification. The repository is left as certified: the branch
+is at the commit that contains this report, the tree is clean, the two release
+tags point at the commits they name, and the only unapplied change in the
+repository is the P33-M28 patch, which is a document rather than a source
+revision. The deployment host does not survive: the third sandbox recycle
+(P33-M31) destroyed it after certification, and it is deliberately not rebuilt.

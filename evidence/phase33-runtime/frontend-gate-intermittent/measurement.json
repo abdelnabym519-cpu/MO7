@@ -1,0 +1,257 @@
+{
+  "tested_at_utc": "2026-10-08T00:14:06Z",
+  "checkout_commit": "1d6ab653fac2471f46a898e7ad87dfe32b79e46c",
+  "environment": {
+    "node": "v22.22.3",
+    "npm": "10.9.8",
+    "online_cpus": 2,
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36"
+  },
+  "source_equivalence": {
+    "baseline_clone_head": "1d6ab653fac2471f46a898e7ad87dfe32b79e46c",
+    "patched_clone_base_head": "1d6ab653fac2471f46a898e7ad87dfe32b79e46c",
+    "web_tree_32a7045_equals_1d6ab65": true,
+    "web_tree_certified_32a7045_equals_evidence_commit_1d6ab65": true,
+    "web_tree_certified_32a7045_equals_current_report_tree": true,
+    "workflow_32a7045_equals_current_report_tree": true
+  },
+  "runs": [
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 1,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/co-writer-lazy-notebook.spec.tsx > opens and closes the dynamically loaded notebook picker without changing the draft",
+        "tests/watching-browser.spec.tsx > Watching account browser > opens a selected subscription video as a new Watching route"
+      ],
+      "test_summary": "2 failed | 425 passed (427)",
+      "file_summary": "2 failed | 106 passed (108)",
+      "duration": "114.74s (transform 28.70s, setup 82.03s, import 110.27s, tests 219.48s, environment 414.11s)",
+      "log": "baseline-8/run-1.log.gz",
+      "log_sha256": "c4a208f117227068d18c4a54cf8b80902f3abad2fea3fdbad44e95348abf01d6"
+    },
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 2,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/co-writer-lazy-notebook.spec.tsx > opens and closes the dynamically loaded notebook picker without changing the draft",
+        "tests/settings-unified-draft.spec.tsx > stages language and appearance without changing browser preferences until Apply",
+        "tests/watching-browser.spec.tsx > Watching account browser > opens a selected subscription video as a new Watching route"
+      ],
+      "test_summary": "3 failed | 424 passed (427)",
+      "file_summary": "3 failed | 105 passed (108)",
+      "duration": "113.50s (transform 26.04s, setup 81.83s, import 110.16s, tests 223.29s, environment 406.91s)",
+      "log": "baseline-8/run-2.log.gz",
+      "log_sha256": "6cc702c965824442242637c3a8c5ee28687ac8077e820a47bde88a5229e07da0"
+    },
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 3,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/co-writer-lazy-notebook.spec.tsx > opens and closes the dynamically loaded notebook picker without changing the draft"
+      ],
+      "test_summary": "1 failed | 426 passed (427)",
+      "file_summary": "1 failed | 107 passed (108)",
+      "duration": "113.76s (transform 27.02s, setup 83.00s, import 109.40s, tests 219.75s, environment 413.33s)",
+      "log": "baseline-8/run-3.log.gz",
+      "log_sha256": "1d652696e7ebf429798d277748eab1d0e5ca085ff4ebdae31a885b7cdd5d2f1b"
+    },
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 4,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/co-writer-lazy-notebook.spec.tsx > opens and closes the dynamically loaded notebook picker without changing the draft",
+        "tests/watching-browser.spec.tsx > Watching account browser > opens a selected subscription video as a new Watching route"
+      ],
+      "test_summary": "2 failed | 425 passed (427)",
+      "file_summary": "2 failed | 106 passed (108)",
+      "duration": "113.29s (transform 27.89s, setup 81.61s, import 113.78s, tests 214.54s, environment 409.29s)",
+      "log": "baseline-8/run-4.log.gz",
+      "log_sha256": "1737d31df3b0dd8c768de97b12a3db8ed115031b3baa03f14f3540a63b1e2f5f"
+    },
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 5,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/watching-browser.spec.tsx > Watching account browser > opens a selected subscription video as a new Watching route"
+      ],
+      "test_summary": "1 failed | 426 passed (427)",
+      "file_summary": "1 failed | 107 passed (108)",
+      "duration": "112.82s (transform 31.38s, setup 79.51s, import 113.44s, tests 218.84s, environment 403.10s)",
+      "log": "baseline-8/run-5.log.gz",
+      "log_sha256": "4d7765b2affcbaa4349343c6002b9dc98947c0b4a5a44aad16a479f4d37bee15"
+    },
+    {
+      "group": "baseline-8",
+      "variant": "unpatched",
+      "maxWorkers": 8,
+      "run": 6,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/co-writer-lazy-notebook.spec.tsx > opens and closes the dynamically loaded notebook picker without changing the draft",
+        "tests/watching-browser.spec.tsx > Watching account browser > opens a selected subscription video as a new Watching route"
+      ],
+      "test_summary": "2 failed | 425 passed (427)",
+      "file_summary": "2 failed | 106 passed (108)",
+      "duration": "112.10s (transform 30.28s, setup 82.00s, import 112.85s, tests 213.93s, environment 403.07s)",
+      "log": "baseline-8/run-6.log.gz",
+      "log_sha256": "e408bb2ab683b90a35966e5a87f3b94b0e4b756cb7e8d5eb00a3c17586b4518a"
+    },
+    {
+      "group": "baseline-4",
+      "variant": "unpatched",
+      "maxWorkers": 4,
+      "run": 1,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "118.21s (transform 13.40s, setup 43.68s, import 57.60s, tests 117.84s, environment 208.87s)",
+      "log": "baseline-4/run-1.log.gz",
+      "log_sha256": "e2c5fba6484a97bb1d758027111d488bc7584d730c4862e7cc26779c72e340b9"
+    },
+    {
+      "group": "baseline-4",
+      "variant": "unpatched",
+      "maxWorkers": 4,
+      "run": 2,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "113.72s (transform 13.20s, setup 41.47s, import 55.58s, tests 112.56s, environment 203.22s)",
+      "log": "baseline-4/run-2.log.gz",
+      "log_sha256": "1bd7a6cd83c69ebcaddabf42a25114cad4c8d97992924fb86a8a504c742d79dc"
+    },
+    {
+      "group": "baseline-4",
+      "variant": "unpatched",
+      "maxWorkers": 4,
+      "run": 3,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "112.59s (transform 12.63s, setup 41.78s, import 55.02s, tests 109.29s, environment 200.70s)",
+      "log": "baseline-4/run-3.log.gz",
+      "log_sha256": "d25f381fd616f804215ad775c459da061c85eadd31072111270540b192a2c118"
+    },
+    {
+      "group": "patched-8",
+      "variant": "patched",
+      "maxWorkers": 8,
+      "run": 1,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "117.67s (transform 32.50s, setup 86.45s, import 119.63s, tests 223.49s, environment 422.69s)",
+      "log": "patched-8/run-1.log.gz",
+      "log_sha256": "973450da5303712bb96dd44552aaaf1b7cdc529a84148f82c552a5b57cca110b"
+    },
+    {
+      "group": "patched-8",
+      "variant": "patched",
+      "maxWorkers": 8,
+      "run": 2,
+      "exit_code": 1,
+      "failed_tests": [
+        "tests/i18n-audit.spec.ts > accepts complete locale-specific plural forms and rejects incomplete ones"
+      ],
+      "test_summary": "1 failed | 426 passed (427)",
+      "file_summary": "1 failed | 107 passed (108)",
+      "duration": "115.68s (transform 29.40s, setup 84.05s, import 113.18s, tests 225.82s, environment 413.40s)",
+      "log": "patched-8/run-2.log.gz",
+      "log_sha256": "8c5497198d4a96929b38370d824a12e59b0a76eebd201af5f08f017ca99ce6d5"
+    },
+    {
+      "group": "patched-8",
+      "variant": "patched",
+      "maxWorkers": 8,
+      "run": 3,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "119.72s (transform 29.58s, setup 87.57s, import 116.05s, tests 233.37s, environment 429.18s)",
+      "log": "patched-8/run-3.log.gz",
+      "log_sha256": "1563e20061440f12e2177d7da06a79d2ca028bb36a9a8323e37ac6eac1158941"
+    },
+    {
+      "group": "patched-4",
+      "variant": "patched",
+      "maxWorkers": 4,
+      "run": 1,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "111.18s (transform 12.64s, setup 40.84s, import 54.20s, tests 109.38s, environment 199.50s)",
+      "log": "patched-4/run-1.log.gz",
+      "log_sha256": "0adad71dd51a00b95dac2076d3f5b9a962040b0a3bbb393a5f8ed4b5d9da9a82"
+    },
+    {
+      "group": "patched-4",
+      "variant": "patched",
+      "maxWorkers": 4,
+      "run": 2,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "116.69s (transform 14.02s, setup 43.03s, import 58.10s, tests 114.90s, environment 205.85s)",
+      "log": "patched-4/run-2.log.gz",
+      "log_sha256": "f7a66e14ebaa868a4a3f12b815301e680ce00133bb275de77a04fd56fcdce01b"
+    },
+    {
+      "group": "patched-4",
+      "variant": "patched",
+      "maxWorkers": 4,
+      "run": 3,
+      "exit_code": 0,
+      "failed_tests": [],
+      "test_summary": "427 passed (427)",
+      "file_summary": "108 passed (108)",
+      "duration": "110.54s (transform 12.12s, setup 40.71s, import 53.21s, tests 107.02s, environment 200.30s)",
+      "log": "patched-4/run-3.log.gz",
+      "log_sha256": "56d235c0997cad2968b4867c14d597aa2f9756ae73f0ee573103cfe062f23365"
+    }
+  ],
+  "observations": {
+    "unpatched_workers_8": "All six full-suite stress runs exited 1; each had at least one failure among the timing-sensitive cases. This deliberately over-subscribes the 2-vCPU sandbox.",
+    "unpatched_workers_4": "Three durable post-recycle full-suite runs exited 0; the initial 4-worker 1-of-3 reproduction occurred before recycle and its /tmp logs were lost. This is consistent with intermittency, not a clean bill of health.",
+    "patched_workers_4": "Three full-suite runs exited 0, each 427/427.",
+    "patched_workers_8": "Two runs exited 0 at 427/427; one exited 1 on the unrelated i18n-audit test hitting its own default 5-second Vitest timeout. The four targeted specs passed in all six patched runs.",
+    "scope": "The patch is an unapplied test-only patch stored under docs-for-user; no web/ or workflow change was applied to the certified tree."
+  },
+  "patch": {
+    "path": "docs-for-user/phase33-cicd/frontend-gate-intermittent-failures.patch",
+    "sha256": "a8b805b5c5571dd1f616964bf8d00ea8ac55ecf8fc3c0ec375d703a63c94d0c3",
+    "files": [
+      "web/tests/co-writer-lazy-notebook.spec.tsx",
+      "web/tests/knowledge-linked-folders.spec.tsx",
+      "web/tests/settings-unified-draft.spec.tsx",
+      "web/tests/watching-browser.spec.tsx"
+    ],
+    "applied_to_certified_repository": false,
+    "applied_only_to_disposable_copy": true,
+    "log_encoding": "gzip -n -9; decompress with gzip -dc",
+    "expected_accessible_elements_and_downstream_assertions_changed": false,
+    "synchronization_mechanism_changed": true,
+    "subsequent_click_and_tested_operations_changed": false
+  }
+}

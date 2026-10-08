@@ -1,0 +1,11 @@
+{
+  "stage": "controlled evidence instrumentation failure",
+  "ok": false,
+  "result": "fail",
+  "exit_code": 7,
+  "duration_seconds": 0.043,
+  "command": "python3 -c import sys; print(\"probe output line one\"); print(\"probe output line two\"); sys.exit(7)",
+  "failure_reason": "controlled probe; expected exit 7",
+  "output_tail": "probe output line one\nprobe output line two",
+  "recorded_at": "2026-10-08T00:06:57Z"
+}

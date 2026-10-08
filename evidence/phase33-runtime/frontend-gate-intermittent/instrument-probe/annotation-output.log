@@ -1,0 +1,4 @@
+stage 'controlled evidence instrumentation failure': FAIL in 0.043s
+    probe output line one
+    probe output line two
+::error title=controlled evidence instrumentation failure failed::probe output line one%0Aprobe output line two

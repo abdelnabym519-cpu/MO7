@@ -1,0 +1,9 @@
+{
+  "controlled_failure": true,
+  "expected_exit_code": 7,
+  "observed_exit_code": 7,
+  "stage_ok": false,
+  "output_tail_contains_probe": true,
+  "github_error_annotation_emitted": true,
+  "failure_detail": "controlled probe; expected exit 7"
+}

@@ -353,6 +353,34 @@ validated; the host layer is loaded lazily so the local layer runs anywhere.
   differences** — and the released bytes are pinned by the artifact sha256.
 * The build requires the offline font mock, because Google Fonts is TLS-blocked
   from this environment.
+* The deployment host described in §9–§11 **does not currently exist**: the third
+  sandbox recycle destroyed `/home/user/mo7-prod` after certification (P33-M31,
+  closure report). The host can be rebuilt from the checkout with §17; it is
+  deliberately not rebuilt, because §38 forbids recovery work beyond what
+  validating the release process required and that validation is complete and
+  recorded in `evidence/phase33-runtime/`.
+* The frontend deterministic gate has a **known intermittent repository-test
+  defect** with a reproduced cause (P33-M28). Four test sites have too-short
+  scheduling budgets under concurrent workers: `knowledge-linked-folders`
+  queries synchronously after waiting only for the mock call; `watching-browser`
+  uses Testing Library's default one-second query window for account/feed results;
+  `co-writer-lazy-notebook` queries a dynamically imported dialog within that
+  same window; and `settings-unified-draft` has a default five-second whole-test
+  timeout. In the durable comparison, the unpatched eight-worker stress baseline
+  failed in 6/6 full-suite runs; the patch passed the full suite 3/3 at the
+  four-worker CI-parallelism replay. Those measurements are in
+  `evidence/phase33-runtime/frontend-gate-intermittent/`.
+  The patch — `docs-for-user/phase33-cicd/frontend-gate-intermittent-failures.patch`
+  — changes synchronization and time budgets only; the same element is required, the same first button is clicked, and the downstream assertion expectations and operations are unchanged.
+  It is **not applied** because it changes `web/**` and therefore creates a new
+  source revision by the drift rule (P33-M12). Applying it is the first step of a
+  new cycle: `git apply` that patch, run the pipeline, make a new candidate, and
+  re-certify. Do not retry a refused run just to obtain a green result.
+* The two historical failing runs (`37690935036`, `37699029751`) predate P33-M29's
+  diagnostics and therefore contain no stage tail. For later runs, inspect the
+  frontend gate's `failure_tail` in `release.json` and the GitHub error annotation;
+  `blocking` (P33-M30) tells whether a red row blocks independently of whether
+  the policy names it `required`. A failure remains a refusal either way.
 * Reproducibility is verified **within a toolchain and between toolchains by
   classification**: the pipeline's runner (Python 3.11.16, Node v22.23.3) and this
   host (Python 3.11.2, Node v22.22.3) cannot be made identical here (python.org,
@@ -601,6 +629,20 @@ python3 $R/rc_release.py rollback --rc <rc-id> --to <release-id>     # restore +
 python3 $R/rc_release.py verify   --rc <rc-id>                      # the frozen candidate has not moved
 ```
 
+Two things the operator needs to know before running any of it:
+
+* The gate that runs `npm run check:fast` in the frontend can fail **without a
+  defect in the change being certified** — the intermittent repository tests in
+  §12 (P33-M28). For the post-instrumentation runs, read the stage's `failure_tail`
+  in `evidence/ci/<run-id>/release.json` and the GitHub error annotation; those two
+  failing historical runs predate that evidence fix, so their cause is established
+  by the local reproduction in the evidence index instead. Do not re-run a refused
+  candidate to get a green; apply the patch only as part of a new release cycle.
+* Everything here runs against paths under `/home/user`; after a recycle the
+  work directory and the host must be rebuilt first (§17). Check
+  `python3 $R/rc_release.py status` before any controller operation, because a
+  host-level `bin/prod.sh promote` does not update the controller's state.
+
 State is a file, not a memory: `<workdir>/state/<rc-id>.json` carries the current
 state (`CREATED` → `VALIDATED` → `APPROVED` → `PROMOTED`, or `REJECTED`,
 `ROLLBACK_REQUIRED`, `ROLLED_BACK`) and the history of who moved it and why. Two
@@ -687,15 +729,27 @@ the home-directory browser caches are not, and the plumbing that lives outside
 the checkout (`/home/user/mo7-cicd`, `/home/user/mo7-prod`) can disappear. The
 checkout is the source of truth, so recovery is a rebuild, in this order:
 
-1. **Check the repository first.** `git fetch origin` then compare the working
-   tree with the recorded head *by content* (every tracked path hashed), because a
-   recycle can leave the refs older than the disk while the tree looks merely
-   dirty. Recover with `git stash push -u` (a named stash is the safety net) and a
-   fast-forward merge — never a reset. Recovered this way on 2026-10-07 a second
-   time: the worktree held work the refs did not (the five fixes, the report and
-   the runtime evidence), the safety copy was taken before anything else, and the
-   difference was checked file by file before the overlay — the two recoveries
-   cost no work, and both are recorded in the commit messages.
+1. **Check the repository first**, and know that a recycle can leave it in
+   either shape:
+   * **Refs older than the disk** (recycle 2): the worktree holds work the refs do
+     not. `git fetch origin`, compare the working tree with the recorded head *by
+     content* (every tracked path hashed), take a named stash as the safety copy
+     (`git stash push -u`), then fast-forward — never a reset. The two recoveries
+     of 2026-10-07 cost no work and are recorded in the commit messages.
+   * **Refs newer than the disk** (recycle 3, P33-M31): `.git` is a fresh clone
+     (`git reflog` shows `clone: from https://…` then `checkout: moving from
+     main`) while the worktree still has the session's files. Recover with
+     `git fetch origin` then `git reset --mixed origin/<branch>`: the index and
+     the branch pointer move to the remote tip and **the worktree is not touched**,
+     so nothing is lost. Take the snapshot *before* the reset
+     (`tar --exclude=.git --exclude=node_modules -czf /home/user/recycleN-worktree-snapshot.tgz .`)
+     and read the resulting `git status` file by file — it should be only the
+     edits you remember making. In recycle 3 those were the initial
+     `knowledge-linked-folders` and `watching-browser` test edits. They were
+     preserved as the core of the P33-M28 patch; the later disposable-copy stress
+     run exposed two more timing-budget sites (`co-writer-lazy-notebook` and
+     `settings-unified-draft`), which were added to the unapplied diagnostic patch.
+     Everything else matched the remote tip exactly, including this document.
 2. **Controller**: `rebuild_controller.sh` — `/home/user/mo7-cicd` with `venv`
    (build, wheel, setuptools), `gate-venv` (ruff + pyyaml), `fonts/` + the offline
    `font-mock.cjs` (`npm pack geist@1.7.2 @fontsource/lora@5.3.0`; the mock serves

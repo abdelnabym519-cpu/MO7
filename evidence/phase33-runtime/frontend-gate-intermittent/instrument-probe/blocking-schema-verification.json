@@ -1,0 +1,25 @@
+{
+  "controlled_failure": true,
+  "gate": "controlled non-policy gate failure",
+  "required": false,
+  "blocking": true,
+  "gate_ok": false,
+  "result": "NOT_RELEASABLE",
+  "blocking_failures": [
+    "version is declared",
+    "artifact was produced",
+    "artifact sha256 is recorded",
+    "artifact contract passed",
+    "artifact security scan is clean",
+    "a second build is content-identical",
+    "python tests",
+    "controlled non-policy gate failure",
+    "the product tree passes ruff (lint and format)",
+    "code security scan has no high/high findings"
+  ],
+  "failure_tail": "probe-tail-line",
+  "release_stage_row_has_same_fields": true,
+  "expected_tool_exit_code": 1,
+  "observed_tool_exit_code": 1,
+  "note": "rc_evidence exits nonzero because the controlled red stage (and intentionally absent build inputs) make the synthetic decision NOT_RELEASABLE."
+}
